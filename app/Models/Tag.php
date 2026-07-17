@@ -9,4 +9,18 @@ class Tag extends Model
 {
     /** @use HasFactory<\Database\Factories\TagFactory> */
     use HasFactory;
+    
+    protected $fillable = [
+        'name',
+        'slug',
+    ];
+
+    public function stories()
+    {
+        return $this->belongsToMany(
+            Story::class,
+            'story_tags'
+        );
+    }
+
 }

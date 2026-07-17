@@ -9,4 +9,21 @@ class Rating extends Model
 {
     /** @use HasFactory<\Database\Factories\RatingFactory> */
     use HasFactory;
+    
+    protected $fillable = [
+        'user_id',
+        'story_id',
+        'score',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function story()
+    {
+        return $this->belongsTo(Story::class);
+    }
+
 }
