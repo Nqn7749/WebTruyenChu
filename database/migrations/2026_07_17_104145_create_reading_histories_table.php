@@ -12,8 +12,31 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('reading_histories', function (Blueprint $table) {
+            
             $table->id();
-            $table->timestamps();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('story_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('chapter_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->timestamp('read_at')
+                ->useCurrent();
+
+            $table->unique([
+                'user_id',
+                'story_id'
+            ]);
+
+            $table->index('read_at');
+
         });
     }
 
