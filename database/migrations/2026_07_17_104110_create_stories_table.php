@@ -151,6 +151,8 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('story_tags');
+        Schema::dropIfExists('story_categories');
         Schema::dropIfExists('stories');
     }
 };
