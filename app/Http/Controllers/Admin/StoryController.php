@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Story;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 
 class StoryController extends Controller
 {

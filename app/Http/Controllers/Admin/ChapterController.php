@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateChapterRequest;
 use App\Models\Chapter;
 use App\Models\Story;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 
 class ChapterController extends Controller
 {
