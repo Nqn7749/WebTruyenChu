@@ -1,65 +1,107 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreStoryRequest;
+use App\Http\Requests\Admin\UpdateStoryRequest;
+use App\Models\Category;
 use App\Models\Story;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $stories = Story::with('user')
+            ->latest()
+            ->paginate(15);
+
+        return view('admin.stories.index', compact('stories'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        $categories = Category::all();
+
+        return view('admin.stories.create', compact('categories'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreStoryRequest $request)
     {
-        //
+        $data = $request->validated();
+        $data['slug'] = $this->generateUniqueSlug($data['title']);
+        $data['user_id'] = auth()->id();
+
+        if ($request->hasFile('cover_image')) {
+            $data['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+        }
+
+        $story = Story::create($data);
+        $story->categories()->sync($request->input('categories'));
+
+        return redirect()->route('admin.stories.index')
+            ->with('success', 'Tạo truyện thành công.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Story $story)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Story $story)
     {
-        //
+        $categories = Category::all();
+        $selectedCategoryIds = $story->categories()->pluck('categories.id')->toArray();
+
+        return view('admin.stories.edit', compact('story', 'categories', 'selectedCategoryIds'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Story $story)
+    public function update(UpdateStoryRequest $request, Story $story)
     {
-        //
+        $data = $request->validated();
+
+        if ($data['title'] !== $story->title) {
+            $data['slug'] = $this->generateUniqueSlug($data['title'], $story->id);
+        }
+
+        if ($request->hasFile('cover_image')) {
+            if ($story->cover_image) {
+                Storage::disk('public')->delete($story->cover_image);
+            }
+            $data['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+        }
+
+        $story->update($data);
+        $story->categories()->sync($request->input('categories'));
+
+        return redirect()->route('admin.stories.index')
+            ->with('success', 'Cập nhật truyện thành công.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Story $story)
     {
-        //
+        if ($story->cover_image) {
+            Storage::disk('public')->delete($story->cover_image);
+        }
+
+        $story->delete();
+
+        return redirect()->route('admin.stories.index')
+            ->with('success', 'Xóa truyện thành công.');
+    }
+
+    private function generateUniqueSlug(string $title, ?int $ignoreId = null): string
+    {
+        $slug = Str::slug($title);
+        $original = $slug;
+        $i = 1;
+
+        while (
+            Story::where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = "{$original}-{$i}";
+            $i++;
+        }
+
+        return $slug;
     }
 }
