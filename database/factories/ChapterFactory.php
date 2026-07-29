@@ -18,7 +18,13 @@ class ChapterFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'story_id' => Story::factory(),
+            'chapter_number' => 1,
+            'title' => fake()->sentence(),
+            'slug' => fake()->slug(),
+            'content' => fake()->paragraphs(50, true),
+            'views' => fake()->numberBetween(0, 10000),
+            'status' => true,
         ];
     }
 }
