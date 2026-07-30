@@ -143,6 +143,6 @@ class Story extends Model
     public function incrementViews(): void
     {
         $this->increment('views');
-        $this->update(['last_view_at' => now()]);
+        $this->update(['last_view_at' => now()])->save();
     }
 }
