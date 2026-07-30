@@ -23,17 +23,19 @@ class UpdateStoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title'            => ['required', 'string', 'max:255'],
-            'author_name'      => ['nullable', 'string', 'max:255'],
-            'cover_image'      => ['nullable', 'image', 'max:2048'],
-            'description'      => ['nullable', 'string'],
-            'status'           => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
-            'status_publish'   => ['nullable', 'boolean'],
-            'categories'       => ['required', 'array'],
-            'categories.*'     => ['exists:categories,id'],
-            'meta_title'       => ['nullable', 'string', 'max:255'],
-            'meta_description' => ['nullable', 'string'],
-            'meta_keywords'    => ['nullable', 'string', 'max:255'],
-        ];
+        'title'            => ['required', 'string', 'max:255'],
+        'author_name'      => ['nullable', 'string', 'max:255'],
+        'cover_image'      => ['nullable', 'image', 'max:2048'],
+        'description'      => ['nullable', 'string'],
+        'status'           => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
+        'status_publish'   => ['nullable', 'boolean'],
+        'categories'       => ['required', 'array'],
+        'categories.*'     => ['exists:categories,id'],
+        'tags'             => ['nullable', 'array'],
+        'tags.*'           => ['exists:tags,id'],
+        'meta_title'       => ['nullable', 'string', 'max:255'],
+        'meta_description' => ['nullable', 'string'],
+        'meta_keywords'    => ['nullable', 'string', 'max:255'],
+    ];
     }
 }

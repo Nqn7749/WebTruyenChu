@@ -32,8 +32,8 @@
                     </span>
                 </td>
                 <td class="text-end">
-                    <a href="{{ route('admin.stories.chapters.edit', $chapter) }}" class="btn btn-sm btn-warning">Sửa</a>
-                    <form action="{{ route('admin.stories.chapters.destroy', $chapter) }}" method="POST" class="d-inline"
+                    <a href="{{ route('admin.chapters.edit', $chapter) }}" class="btn btn-sm btn-warning">Sửa</a>
+                    <form action="{{ route('admin.chapters.destroy', $chapter) }}" method="POST" class="d-inline"
                           onsubmit="return confirm('Xóa chương này?')">
                         @csrf @method('DELETE')
                         <button class="btn btn-sm btn-danger">Xóa</button>

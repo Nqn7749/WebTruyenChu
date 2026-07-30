@@ -1,12 +1,9 @@
-<?php
-
-namespace App\Http\Controllers\Admin;
-
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStoryRequest;
 use App\Http\Requests\Admin\UpdateStoryRequest;
 use App\Models\Category;
 use App\Models\Story;
+use App\Models\Tag;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
@@ -25,8 +22,9 @@ class StoryController extends Controller
     public function create()
     {
         $categories = Category::all();
+        $tags = Tag::all();
 
-        return view('admin.stories.create', compact('categories'));
+        return view('admin.stories.create', compact('categories', 'tags'));
     }
 
     public function store(StoreStoryRequest $request)
@@ -41,6 +39,7 @@ class StoryController extends Controller
 
         $story = Story::create($data);
         $story->categories()->sync($request->input('categories'));
+        $story->tags()->sync($request->input('tags', []));
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Tạo truyện thành công.');
@@ -49,9 +48,17 @@ class StoryController extends Controller
     public function edit(Story $story)
     {
         $categories = Category::all();
+        $tags = Tag::all();
         $selectedCategoryIds = $story->categories()->pluck('categories.id')->toArray();
+        $selectedTagIds = $story->tags()->pluck('tags.id')->toArray();
 
-        return view('admin.stories.edit', compact('story', 'categories', 'selectedCategoryIds'));
+        return view('admin.stories.edit', compact(
+            'story',
+            'categories',
+            'tags',
+            'selectedCategoryIds',
+            'selectedTagIds'
+        ));
     }
 
     public function update(UpdateStoryRequest $request, Story $story)
@@ -71,6 +78,7 @@ class StoryController extends Controller
 
         $story->update($data);
         $story->categories()->sync($request->input('categories'));
+        $story->tags()->sync($request->input('tags', []));
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Cập nhật truyện thành công.');

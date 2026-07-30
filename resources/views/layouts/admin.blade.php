@@ -15,6 +15,7 @@
             <li><a href="{{ route('admin.stories.index') }}" class="nav-link text-white">Truyện</a></li>
             <li><a href="{{ route('admin.users.index') }}" class="nav-link text-white">Người dùng</a></li>
             <li><a href="{{ route('admin.comments.index') }}" class="nav-link text-white">Bình luận</a></li>
+            <li><a href="{{ route('admin.tags.index') }}" class="nav-link text-white">Thẻ tag</a></li>
         </ul>
     </nav>
 

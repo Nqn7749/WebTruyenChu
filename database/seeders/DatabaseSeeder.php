@@ -28,5 +28,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Admin',
             'email' => 'admin@example.com',
         ]);
-    }
+
+        $this->call([
+            CategorySeeder::class,
+            TagSeeder::class,
+            // StorySeeder::class,   // khi đã có logic
+            // ChapterSeeder::class, // khi đã có logic
+        ]);
+        }
 }
