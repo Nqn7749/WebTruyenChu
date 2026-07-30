@@ -86,6 +86,11 @@ class Story extends Model
         return $this->hasMany(Favorite::class);
     }
 
+    public function readingHistories()
+    {
+        return $this->hasMany(ReadingHistory::class);
+    }
+
     // ================= Route Key =================
 
     public function getRouteKeyName(): string
@@ -143,6 +148,15 @@ class Story extends Model
     public function incrementViews(): void
     {
         $this->increment('views');
-        $this->update(['last_view_at' => now()])->save();
+        $this->update(['last_view_at' => now()]);
+    }
+
+    public function isFavoritedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->favorites()->where('user_id', $user->id)->exists();
     }
 }
