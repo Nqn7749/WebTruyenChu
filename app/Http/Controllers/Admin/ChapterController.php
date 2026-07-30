@@ -32,7 +32,10 @@ class ChapterController extends Controller
     {
         $data = $request->validated();
         $data['story_id'] = $story->id;
-        $data['slug'] = Str::slug($data['title'] ?? ('chuong-' . $data['chapter_number']));
+        $data['slug'] = $this->generateUniqueSlug(
+            $data['title'] ?? ('chuong-' . $data['chapter_number']),
+            $story->id
+        );
 
         Chapter::create($data);
 
@@ -53,7 +56,11 @@ class ChapterController extends Controller
     public function update(UpdateChapterRequest $request, Chapter $chapter)
     {
         $data = $request->validated();
-        $data['slug'] = Str::slug($data['title'] ?? ('chuong-' . $data['chapter_number']));
+        $data['slug'] = $this->generateUniqueSlug(
+            $data['title'] ?? ('chuong-' . $data['chapter_number']),
+            $chapter->story_id,
+            $chapter->id
+        );
 
         $chapter->update($data);
 
@@ -70,5 +77,24 @@ class ChapterController extends Controller
 
         return redirect()->route('admin.stories.chapters.index', $story)
             ->with('success', 'Xóa chương thành công.');
+    }
+
+    private function generateUniqueSlug(string $title, int $storyId, ?int $ignoreId = null): string
+    {
+        $slug = Str::slug($title);
+        $original = $slug;
+        $i = 1;
+
+        while (
+            Chapter::where('story_id', $storyId)
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = "{$original}-{$i}";
+            $i++;
+        }
+
+        return $slug;
     }
 }

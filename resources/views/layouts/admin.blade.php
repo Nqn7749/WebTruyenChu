@@ -20,6 +20,14 @@
     </nav>
 
     <main class="flex-grow-1 p-4">
+        <div class="d-flex justify-content-end align-items-center mb-3">
+            <span class="me-3 text-muted">Xin chào, <strong>{{ auth()->user()->name }}</strong></span>
+            <form action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger btn-sm">Đăng xuất</button>
+            </form>
+        </div>
+        
         @yield('content')
     </main>
 </div>
