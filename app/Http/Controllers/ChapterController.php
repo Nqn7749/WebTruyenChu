@@ -14,8 +14,12 @@ class ChapterController extends Controller
         abort_unless($story->status_publish && $chapter->status, 404);
         abort_unless($chapter->story_id === $story->id, 404);
 
-        $chapter->increment('views');
-        $story->incrementViews();
+        $sessionKey = "viewed_chapter_{$chapter->id}";
+        if (! session()->has($sessionKey)) {
+            $chapter->increment('views');
+            $story->incrementViews();
+            session()->put($sessionKey, true);
+        }
 
         $prevChapter = Chapter::where('story_id', $story->id)
             ->where('chapter_number', '<', $chapter->chapter_number)

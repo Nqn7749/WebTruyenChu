@@ -38,4 +38,9 @@ class Chapter extends Model
         return $this->hasMany(Comment::class);
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'chapter_number';
+    }
+
 }

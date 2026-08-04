@@ -10,14 +10,14 @@ class FavoriteController extends Controller
     public function toggle(Story $story)
     {
         $userId = Auth::id();
-        $favorite = $story->favorites()->where('user_id', $userId)->first();
 
-        if ($favorite) {
+        $favorite = $story->favorites()->firstOrCreate(['user_id' => $userId]);
+
+        if (! $favorite->wasRecentlyCreated) {
             $favorite->delete();
             $story->decrement('favorite_count');
             $message = 'Đã bỏ yêu thích truyện.';
         } else {
-            $story->favorites()->create(['user_id' => $userId]);
             $story->increment('favorite_count');
             $message = 'Đã thêm vào truyện yêu thích.';
         }
