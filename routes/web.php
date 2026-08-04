@@ -16,7 +16,9 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
-Route::get('/truyen/{story:slug}/chuong/{chapter}', [ChapterController::class, 'show'])->name('chapters.show');
+Route::get('/truyen/{story:slug}/chuong/{chapter}', [ChapterController::class, 'show'])
+    ->name('chapters.show')
+    ->scopeBindings();
 
 Route::get('/dashboard', function () {
     return view('dashboard');
