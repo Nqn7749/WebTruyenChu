@@ -1,3 +1,4 @@
+
 @props(['status'])
 
 @if ($status)
@@ -5,3 +6,4 @@
         {{ $status }}
     </div>
 @endif
+

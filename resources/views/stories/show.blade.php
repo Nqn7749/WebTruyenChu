@@ -1,3 +1,4 @@
+
 @extends('layouts.public')
 
 @section('title', $story->meta_title ?? $story->title)

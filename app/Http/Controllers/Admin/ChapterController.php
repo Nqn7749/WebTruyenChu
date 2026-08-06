@@ -40,7 +40,7 @@ class ChapterController extends Controller
         Chapter::create($data);
 
         $story->increment('chapter_count');
-        $story->update(['last_chapter_at' => now()]);
+        $story->forceFill(['last_chapter_at' => now()])->save();
 
         return redirect()->route('admin.stories.chapters.index', $story)
             ->with('success', 'Tạo chương thành công.');
@@ -63,8 +63,10 @@ class ChapterController extends Controller
         );
 
         $chapter->update($data);
+        
+        $chapter->story->update(['last_chapter_at' => now()]);
 
-        return redirect()->route('admin.stories.chapters.index', $chapter->story_id)
+        return redirect()->route('admin.stories.chapters.index', $chapter->story)
             ->with('success', 'Cập nhật chương thành công.');
     }
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -5,20 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Web Đọc Truyện Chữ')</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background: #f5f6fa; }
-        .navbar-brand { font-weight: 700; }
-        .story-cover { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: .5rem; }
-        .chapter-list-item:hover { background: #f1f3f5; }
-    </style>
+
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=literata:400,500,600,700|be-vietnam-pro:400,500,600,700" rel="stylesheet">
+
+    <link href="{{ asset('css/theme.css') }}" rel="stylesheet">
+
     @stack('styles')
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+<nav class="navbar navbar-expand-lg app-navbar sticky-top py-2">
     <div class="container">
-        <a class="navbar-brand" href="{{ route('home') }}">📖 Đọc Truyện</a>
+        <a class="navbar-brand d-flex align-items-center gap-2" href="{{ route('home') }}">
+            <span class="brand-mark">読</span>
+            <span class="brand-name">Đọc Truyện</span>
+        </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -38,15 +43,23 @@
                 @endauth
             </ul>
 
-            <form action="{{ route('search') }}" method="GET" class="d-flex me-3">
+            <form action="{{ route('search') }}" method="GET" class="d-flex me-3" style="max-width:320px;">
                 <input type="search" name="q" class="form-control form-control-sm" placeholder="Tìm truyện..." value="{{ request('q') }}">
-                <button class="btn btn-sm btn-outline-light ms-2">Tìm</button>
+                <button class="btn btn-sm btn-search"><i class="bi bi-search"></i> Tìm kiếm</button>
             </form>
 
             <ul class="navbar-nav">
                 @guest
                     <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Đăng nhập</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ route('register') }}">Đăng ký</a></li>
+                    <li class="nav-item">
+                        <a class="btn btn-jade btn-sm ms-2 mt-1 mt-lg-0" href="{{ route('register') }}">Đăng ký</a>
+                    </li>
+                    <li class="nav-item">
+                        <button id="themeToggle"
+                                class="btn btn-outline-light btn-sm">
+                            🌙
+                        </button>
+                    </li>
                 @else
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -73,7 +86,7 @@
 
 <main class="container py-4">
     @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show">
+        <div class="alert alert-success alert-dismissible fade show" style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
             {{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
@@ -82,13 +95,18 @@
     @yield('content')
 </main>
 
-<footer class="bg-dark text-white-50 py-4 mt-5">
+<footer class="app-footer py-4 mt-5">
     <div class="container text-center small">
-        &copy; {{ date('Y') }} Web Đọc Truyện Chữ.
+        &copy; {{ date('Y') }} Web Đọc Truyện Chữ. Đọc truyện mỗi ngày.
     </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 @stack('scripts')
+<script>
+    document.documentElement.dataset.theme = localStorage.getItem('theme') ?? 'light';
+</script>
+
 </body>
-</html>
+</html> 
