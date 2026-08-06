@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -16,24 +16,32 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
         $this->call(RoleSeeder::class);
 
         $adminRoleId = Role::where('slug', 'admin')->value('id');
+        $userRoleId  = Role::where('slug', 'user')->value('id');
 
         User::factory()->create([
-            'role_id' => $adminRoleId,
+            'role_id'  => $adminRoleId,
             'username' => 'admin',
-            'name' => 'Admin',
-            'email' => 'admin@example.com',
+            'name'     => 'Admin',
+            'email'    => 'admin@example.com',
+        ]);
+
+        // 20 user thường để test rating / favorite / comment / reading history
+        User::factory(20)->create([
+            'role_id' => $userRoleId,
         ]);
 
         $this->call([
             CategorySeeder::class,
             TagSeeder::class,
-            // StorySeeder::class,   // khi đã có logic
-            // ChapterSeeder::class, // khi đã có logic
+            StorySeeder::class,
+            ChapterSeeder::class,
+            RatingSeeder::class,
+            FavoriteSeeder::class,
+            CommentSeeder::class,
+            ReadingHistorySeeder::class,
         ]);
-        }
+    }
 }
