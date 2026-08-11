@@ -3,6 +3,10 @@
 
 @section('title', $story->meta_title ?? $story->title)
 
+@section('meta_description', Str::limit(strip_tags($story->meta_description ?? $story->description ?? ''), 160))
+@section('og_type', 'book')
+@section('og_image', $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'))
+
 @section('content')
 
 <div class="row">

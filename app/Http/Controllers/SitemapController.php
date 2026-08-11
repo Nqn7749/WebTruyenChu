@@ -12,7 +12,7 @@ class SitemapController extends Controller
     /**
      * Số truyện tối đa mỗi file sitemap con.
      */
-    private const STORIES_PER_PAGE = 5000;
+    public const STORIES_PER_PAGE = 5000;
 
     /**
      * Sitemap Index — liệt kê tất cả sitemap con.

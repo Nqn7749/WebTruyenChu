@@ -30,7 +30,7 @@ class UpdateChapterRequest extends FormRequest
                 'integer',
                 'min:1',
                 Rule::unique('chapters')
-                    ->where(fn ($q) => $q->where('story_id', $chapter->story_id))
+                    ->where(fn ($q) => $q->where('story_id', $chapter->story_id)->whereNull('deleted_at'))
                     ->ignore($chapter->id),
             ],
             'title'   => ['nullable', 'string', 'max:255'],

@@ -1,7 +1,10 @@
-
 @extends('layouts.public')
 
 @section('title', $category->name)
+
+@section('meta_description', $category->description
+    ? Str::limit(strip_tags($category->description), 160)
+    : "Danh sách truyện thể loại {$category->name} — cập nhật liên tục tại Web Đọc Truyện Chữ.")
 
 @section('content')
 

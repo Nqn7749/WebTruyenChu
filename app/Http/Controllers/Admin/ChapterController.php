@@ -56,11 +56,10 @@ class ChapterController extends Controller
     public function update(UpdateChapterRequest $request, Chapter $chapter)
     {
         $data = $request->validated();
-        $data['slug'] = $this->generateUniqueSlug(
-            $data['title'] ?? ('chuong-' . $data['chapter_number']),
-            $chapter->story_id,
-            $chapter->id
-        );
+        $expectedTitle = $data['title'] ?? ('chuong-' . $data['chapter_number']);
+        if (Str::slug($expectedTitle) !== $chapter->slug) {
+            $data['slug'] = $this->generateUniqueSlug($expectedTitle, $chapter->story_id, $chapter->id);
+        }
 
         $chapter->update($data);
         
@@ -88,7 +87,8 @@ class ChapterController extends Controller
         $i = 1;
 
         while (
-            Chapter::where('story_id', $storyId)
+            Chapter::withTrashed()
+                ->where('story_id', $storyId)
                 ->where('slug', $slug)
                 ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
                 ->exists()

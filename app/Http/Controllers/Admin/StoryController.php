@@ -106,7 +106,8 @@ class StoryController extends Controller
         $i = 1;
 
         while (
-            Story::where('slug', $slug)
+            Story::withTrashed()
+                ->where('slug', $slug)
                 ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
                 ->exists()
         ) {

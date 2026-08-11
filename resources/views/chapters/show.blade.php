@@ -1,9 +1,12 @@
-
 @extends('layouts.public')
 
 @section('title', $chapter->title
     ? "Chương {$chapter->chapter_number} - {$chapter->title} - {$story->title}"
     : "Chương {$chapter->chapter_number} - {$story->title}")
+
+@section('meta_description', Str::limit(strip_tags($chapter->content), 160))
+@section('og_type', 'article')
+@section('og_image', $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'))
 
 @section('content')
 

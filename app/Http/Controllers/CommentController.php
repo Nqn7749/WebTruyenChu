@@ -34,11 +34,14 @@ class CommentController extends Controller
     {
         abort_unless($comment->user_id === Auth::id(), 403);
 
-        $comment->delete();
-        $comment->story->decrement('comment_count');
-        if ($comment->chapter_id) {
-            $comment->chapter->decrement('comment_count');
+        if (! $comment->is_hidden) {
+            $comment->story->decrement('comment_count');
+            if ($comment->chapter_id) {
+                $comment->chapter->decrement('comment_count');
+            }
         }
+
+        $comment->delete();
 
         return back()->with('success', 'Đã xóa bình luận.');
     }

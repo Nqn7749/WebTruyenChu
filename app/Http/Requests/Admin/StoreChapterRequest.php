@@ -29,7 +29,9 @@ class StoreChapterRequest extends FormRequest
                 'required',
                 'integer',
                 'min:1',
-                Rule::unique('chapters')->where(fn ($q) => $q->where('story_id', $storyId)),
+                Rule::unique('chapters')->where(
+                    fn ($q) => $q->where('story_id', $storyId)->whereNull('deleted_at')
+                ),
             ],
             'title'   => ['nullable', 'string', 'max:255'],
             'content' => ['required', 'string'],
