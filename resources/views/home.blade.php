@@ -11,8 +11,11 @@
     <div class="hero-spotlight mb-5">
         <div class="row g-0 align-items-stretch">
             <div class="col-md-5">
-                <img src="{{ $featured->cover_image ? Storage::url($featured->cover_image) : asset('images/no-cover.jpg') }}"
-                     class="hero-cover" alt="{{ $featured->title }}">
+                <div class="hero-cover-wrap">
+                    <img src="{{ $featured->cover_image ? Storage::url($featured->cover_image) : asset('images/no-cover.jpg') }}"
+                         class="hero-cover" alt="{{ $featured->title }}"
+                         onerror="this.onerror=null;this.src='{{ asset('images/no-cover.jpg') }}';">
+                </div>
             </div>
             <div class="col-md-7 p-4 p-lg-5 d-flex flex-column justify-content-center position-relative">
                 <span class="eyebrow">🔥 Đang hot nhất tuần</span>

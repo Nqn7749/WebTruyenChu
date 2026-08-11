@@ -1,13 +1,13 @@
-
 @props(['story'])
 
 <div class="card h-100 story-card-item">
     <a href="{{ route('stories.show', $story) }}" class="text-decoration-none text-dark">
-        <div class="position-relative">
+        <div class="story-cover-wrap">
             <img src="{{ $story->cover_image ? Storage::url($story->cover_image) : asset('images/no-cover.jpg') }}"
                  class="story-cover"
                  alt="{{ $story->title }}"
-                 loading="lazy">
+                 loading="lazy"
+                 onerror="this.onerror=null;this.src='{{ asset('images/no-cover.jpg') }}';">
 
             @if ($story->status === 'completed')
                 <span class="badge-status is-completed position-absolute top-0 end-0 m-2">FULL</span>
@@ -17,7 +17,7 @@
         </div>
 
         <div class="card-body p-2">
-            <h6 class="card-title mb-1 text-truncate" title="{{ $story->title }}">
+            <h6 class="card-title mb-1" title="{{ $story->title }}">
                 {{ $story->title }}
             </h6>
 
