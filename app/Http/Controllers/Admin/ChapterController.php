@@ -64,7 +64,7 @@ class ChapterController extends Controller
 
         $chapter->update($data);
         
-        $chapter->story->update(['last_chapter_at' => now()]);
+        $chapter->story->forceFill(['last_chapter_at' => now()])->save();
 
         return redirect()->route('admin.stories.chapters.index', $chapter->story)
             ->with('success', 'Cập nhật chương thành công.');
