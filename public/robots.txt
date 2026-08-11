@@ -1,2 +1,8 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin
+Disallow: /lich-su-doc
+Disallow: /yeu-thich
+Disallow: /profile
+
+Sitemap: https://your-domain.com/sitemap.xml

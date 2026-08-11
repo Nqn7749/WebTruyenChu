@@ -3,10 +3,13 @@
 namespace App\Providers;
 
 use App\Models\Category;
+use App\Models\Story;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use App\Observers\StoryObserver;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,6 +37,8 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with('navCategories', $navCategories);
         });
+        
+        Story::observe(StoryObserver::class);
 
     }
 }

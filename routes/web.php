@@ -10,6 +10,7 @@ use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReadingHistoryController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StoryController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -39,5 +40,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/lich-su-doc', [ReadingHistoryController::class, 'index'])->name('reading-history.index');
 });
+
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');
+Route::get('/sitemap-stories-{page}.xml', [SitemapController::class, 'stories'])
+    ->where('page', '[0-9]+')
+    ->name('sitemap.stories');
+Route::get('/sitemap-categories.xml', [SitemapController::class, 'categories'])->name('sitemap.categories');
+Route::get('/sitemap-static.xml', [SitemapController::class, 'staticPages'])->name('sitemap.static');
 
 require __DIR__.'/auth.php';
