@@ -68,14 +68,9 @@
                 @guest
                     <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Đăng nhập</a></li>
                     <li class="nav-item">
-                        <a class="btn btn-jade btn-sm ms-2 mt-1 mt-lg-0" href="{{ route('register') }}">Đăng ký</a>
+                        <a class="btn btn-jade btn-sm ms-2 mt-1 mt-lg-0 nav-link" href="{{ route('register') }}">Đăng ký</a>
                     </li>
-                    <li class="nav-item">
-                        <button id="themeToggle"
-                                class="btn btn-outline-light btn-sm">
-                            🌙
-                        </button>
-                    </li>
+                    
                 @else
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">

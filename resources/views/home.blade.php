@@ -1,4 +1,3 @@
-
 @extends('layouts.public')
 
 @section('title', 'Trang chủ - Web Đọc Truyện Chữ')
@@ -34,14 +33,14 @@
     </div>
 @endif
 
-{{-- HOT --}}
+{{-- HOT: kéo ngang --}}
 <div class="section-heading">
     <span class="eyebrow">Bảng xếp hạng</span>
     <h2>Truyện hot</h2>
 </div>
-<div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-3 mb-5">
+<div class="story-scroller mb-5">
     @foreach ($hotStories as $story)
-        <div class="col"><x-story-card :story="$story" /></div>
+        <x-story-card :story="$story" />
     @endforeach
 </div>
 
@@ -50,22 +49,22 @@
     <span class="eyebrow">Biên tập chọn</span>
     <h2>Truyện đề cử</h2>
 </div>
-<div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-3 mb-5">
+<div class="story-scroller mb-5">
     @foreach ($recommendedStories as $story)
-        <div class="col"><x-story-card :story="$story" /></div>
+        <x-story-card :story="$story" />
     @endforeach
 </div>
 
-{{-- RECENTLY UPDATED --}}
+{{-- RECENTLY UPDATED: list dọc --}}
 <div class="section-heading">
     <span class="eyebrow">Cập nhật liên tục</span>
     <h2>Mới cập nhật</h2>
 </div>
-<div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-3">
+<div class="story-list">
     @forelse ($recentlyUpdated as $story)
-        <div class="col"><x-story-card :story="$story" /></div>
+        <x-story-list-item :story="$story" />
     @empty
-        <p style="color: var(--muted);">Chưa có truyện nào.</p>
+        <p class="text-muted p-3 mb-0">Chưa có truyện nào.</p>
     @endforelse
 </div>
 

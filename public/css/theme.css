@@ -311,6 +311,119 @@ a:hover { color: var(--jade-dark); }
     color: rgba(255,255,255,.6);
 }
 
+/* ===== Story List (dạng dòng, dùng cho "Mới cập nhật") ===== */
+.story-list {
+    background: var(--paper-raised);
+    border: 1px solid var(--sand-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.story-list-item {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: .55rem 1.1rem;
+    text-decoration: none;
+    color: var(--ink-900);
+    border-bottom: 1px solid var(--sand-border);
+    transition: background .15s ease;
+}
+.story-list-item:last-child { border-bottom: none; }
+.story-list-item:hover { background: var(--jade-tint); }
+
+.story-list-item__cover {
+    flex: 0 0 46px;
+    width: 46px;
+    height: 62px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--sand-border);
+}
+.story-list-item__cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.story-list-item__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+}
+.story-list-item__title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: .95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.story-list-item__cats {
+    font-size: .78rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.story-list-item__chapter {
+    flex: 0 0 110px;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--jade-dark);
+    text-align: right;
+}
+.story-list-item__time {
+    flex: 0 0 90px;
+    font-size: .8rem;
+    color: var(--muted);
+    text-align: right;
+}
+.badge-mini {
+    display: inline-block;
+    font-size: .6rem;
+    font-weight: 700;
+    padding: .1em .45em;
+    border-radius: 4px;
+    margin-left: .35rem;
+    vertical-align: middle;
+}
+.badge-mini.is-completed { background: var(--jade); color: #fff; }
+
+@media (max-width: 575.98px) {
+    .story-list-item { padding: .5rem .8rem; gap: .6rem; }
+    .story-list-item__cover { flex-basis: 38px; width: 38px; height: 51px; }
+    .story-list-item__cats { display: none; }
+    .story-list-item__chapter { flex-basis: 80px; font-size: .78rem; }
+    .story-list-item__time { display: none; }
+}
+
+/* ===== Story Scroller (kéo ngang, dùng cho "Truyện hot") ===== */
+.story-scroller {
+    display: flex;
+    gap: .9rem;
+    overflow-x: auto;
+    padding: .2rem .2rem .8rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.story-scroller::-webkit-scrollbar { height: 6px; }
+.story-scroller::-webkit-scrollbar-track { background: transparent; }
+.story-scroller::-webkit-scrollbar-thumb {
+    background: var(--sand-border);
+    border-radius: 999px;
+}
+.story-scroller .story-card-item {
+    flex: 0 0 148px;
+    scroll-snap-align: start;
+}
+@media (min-width: 768px) {
+    .story-scroller .story-card-item { flex: 0 0 172px; }
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 767.98px) {
     .hero-spotlight .row { flex-direction: column-reverse; }
