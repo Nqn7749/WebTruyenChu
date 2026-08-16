@@ -76,14 +76,31 @@
     <div class="section-heading"><h2 class="fs-5">Bình luận chương</h2></div>
 
     @auth
-        <form action="{{ route('comments.store', $story) }}" method="POST" class="mb-4">
-            @csrf
-            <input type="hidden" name="chapter_id" value="{{ $chapter->id }}">
-            <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..." required></textarea>
-            <button class="btn btn-jade btn-sm">Gửi bình luận</button>
-        </form>
-    @else
-        <p><a href="{{ route('login') }}">Đăng nhập</a> để bình luận.</p>
+    window.addEventListener('scroll', debounce(() => {
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const percent = docHeight > 0 ? Math.round((window.scrollY / docHeight) * 100) : 0;
+
+        fetch('{{ route('reading-history.update-progress') }}', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify({
+                story_id: {{ $story->id }},
+                chapter_id: {{ $chapter->id }},
+                scroll_percent: percent,
+            }),
+        }).catch(() => {}); // im lặng bỏ qua lỗi mạng, không làm gián đoạn đọc
+    }, 1500));
+
+    function debounce(fn, delay) {
+        let timer;
+        return (...args) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn(...args), delay);
+        };
+    }
     @endauth
 
     @foreach ($comments as $comment)

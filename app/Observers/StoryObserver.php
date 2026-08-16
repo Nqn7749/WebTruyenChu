@@ -11,18 +11,15 @@ class StoryObserver
     public function saved(Story $story): void
     {
         $this->clearSitemapCache();
+        $this->clearHomeCache();
     }
 
     public function deleted(Story $story): void
     {
         $this->clearSitemapCache();
+        $this->clearHomeCache();
     }
 
-    /**
-     * Xóa cache sitemap index và toàn bộ sitemap con (theo trang),
-     * để sitemap luôn phản ánh đúng dữ liệu mới nhất thay vì
-     * chờ hết TTL 1 giờ.
-     */
     private function clearSitemapCache(): void
     {
         Cache::forget('sitemap:index');
@@ -32,6 +29,22 @@ class StoryObserver
 
         for ($page = 1; $page <= $totalPages; $page++) {
             Cache::forget("sitemap:stories:{$page}");
+        }
+    }
+
+    /**
+     * Xóa cache trang chủ. Với "recently_updated" (có phân trang) chỉ cần
+     * xóa vài trang đầu vì TTL 10 phút đã tự làm mới các trang sau.
+     */
+    private function clearHomeCache(): void
+    {
+        Cache::forget('home:hot');
+        Cache::forget('home:recommended');
+        Cache::forget('home:newest');
+        Cache::forget('home:completed');
+
+        for ($page = 1; $page <= 3; $page++) {
+            Cache::forget("home:recently_updated:page:{$page}");
         }
     }
 }

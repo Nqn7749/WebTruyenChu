@@ -17,6 +17,7 @@ class ReadingHistory extends Model
         'story_id',
         'chapter_id',
         'read_at',
+        'scroll_percent',
     ];
 
     protected function casts(): array

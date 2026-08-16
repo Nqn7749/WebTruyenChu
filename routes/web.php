@@ -32,15 +32,26 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    Route::post('/truyen/{story:slug}/yeu-thich', [FavoriteController::class, 'toggle'])->name('favorites.toggle');
+    Route::post('/truyen/{story:slug}/yeu-thich', [FavoriteController::class, 'toggle'])
+            ->middleware('throttle:20,1')
+            ->name('favorites.toggle');
     Route::get('/yeu-thich', [FavoriteController::class, 'index'])->name('favorites.index');
 
-    Route::post('/truyen/{story:slug}/danh-gia', [RatingController::class, 'store'])->name('ratings.store');
+    Route::post('/truyen/{story:slug}/danh-gia', [RatingController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('ratings.store');
 
-    Route::post('/truyen/{story:slug}/binh-luan', [CommentController::class, 'store'])->name('comments.store');
-    Route::delete('/binh-luan/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+    Route::post('/truyen/{story:slug}/binh-luan', [CommentController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('comments.store');
+    Route::delete('/binh-luan/{comment}', [CommentController::class, 'destroy'])
+            ->middleware('throttle:20,1')
+            ->name('comments.destroy');
 
     Route::get('/lich-su-doc', [ReadingHistoryController::class, 'index'])->name('reading-history.index');
+    Route::patch('/lich-su-doc/tien-do', [ReadingHistoryController::class, 'updateProgress'])
+        ->middleware('throttle:30,1')
+        ->name('reading-history.update-progress');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');

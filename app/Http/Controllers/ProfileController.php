@@ -48,6 +48,12 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
+        if ($user->stories()->exists()) {
+            return back()->withErrors([
+                'password' => 'Bạn đang có truyện đăng trên hệ thống. Vui lòng liên hệ quản trị viên để chuyển quyền tác giả hoặc xóa truyện trước khi xóa tài khoản.',
+            ], 'userDeletion');
+        }
+        
         Auth::logout();
 
         $user->delete();

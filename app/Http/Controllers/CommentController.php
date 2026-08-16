@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCommentRequest;
+use App\Models\Chapter;
 use App\Models\Comment;
 use App\Models\Story;
 use Illuminate\Support\Facades\Auth;
@@ -15,9 +16,17 @@ class CommentController extends Controller
         $data['user_id'] = Auth::id();
         $data['story_id'] = $story->id;
 
+        if (! empty($data['chapter_id'])) {
+            $chapter = Chapter::findOrFail($data['chapter_id']);
+            abort_unless($chapter->story_id === $story->id, 404);
+        }
+
         if (! empty($data['parent_id'])) {
             $parent = Comment::findOrFail($data['parent_id']);
             abort_unless($parent->story_id === $story->id, 404);
+
+            // Reply phải cùng chapter_id với comment cha (tránh gán lệch ngữ cảnh)
+            $data['chapter_id'] = $parent->chapter_id;
         }
 
         $comment = Comment::create($data);
