@@ -12,6 +12,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoryListController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -35,6 +36,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/truyen/{story:slug}/yeu-thich', [FavoriteController::class, 'toggle'])
             ->middleware('throttle:20,1')
             ->name('favorites.toggle');
+    Route::patch('/truyen/{story:slug}/thong-bao', [FavoriteController::class, 'toggleNotify'])
+            ->middleware('throttle:20,1')
+            ->name('favorites.toggle-notify');
     Route::get('/yeu-thich', [FavoriteController::class, 'index'])->name('favorites.index');
 
     Route::post('/truyen/{story:slug}/danh-gia', [RatingController::class, 'store'])
@@ -52,6 +56,10 @@ Route::middleware('auth')->group(function () {
     Route::patch('/lich-su-doc/tien-do', [ReadingHistoryController::class, 'updateProgress'])
         ->middleware('throttle:30,1')
         ->name('reading-history.update-progress');
+
+    Route::get('/thong-bao', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('/thong-bao/{id}/da-doc', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::patch('/thong-bao/danh-dau-tat-ca', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');

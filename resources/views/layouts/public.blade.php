@@ -64,14 +64,45 @@
                 <button class="btn btn-sm btn-search"><i class="bi bi-search"></i> Tìm kiếm</button>
             </form>
 
-            <ul class="navbar-nav">
+            <ul class="navbar-nav align-items-lg-center">
                 @guest
                     <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Đăng nhập</a></li>
                     <li class="nav-item">
                         <a class="btn btn-jade btn-sm ms-2 mt-1 mt-lg-0 nav-link" href="{{ route('register') }}">Đăng ký</a>
                     </li>
-                    
+
                 @else
+                    {{-- Chuông thông báo --}}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-bell"></i>
+                            @php $unreadCount = auth()->user()->unreadNotifications()->count(); @endphp
+                            @if ($unreadCount > 0)
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: .6rem;">
+                                    {{ $unreadCount > 9 ? '9+' : $unreadCount }}
+                                </span>
+                            @endif
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end p-2" style="width: 320px; max-height: 400px; overflow-y: auto;">
+                            @forelse (auth()->user()->notifications()->latest()->take(8)->get() as $notification)
+                                <li>
+                                    <form action="{{ route('notifications.mark-read', $notification->id) }}" method="POST">
+                                        @csrf @method('PATCH')
+                                        <button type="submit" class="dropdown-item small py-2 {{ $notification->read_at ? '' : 'fw-semibold' }}">
+                                            {{ $notification->data['message'] }}
+                                            <div class="text-muted" style="font-size: .72rem;">{{ $notification->created_at->diffForHumans() }}</div>
+                                        </button>
+                                    </form>
+                                </li>
+                            @empty
+                                <li><span class="dropdown-item-text text-muted small">Chưa có thông báo nào.</span></li>
+                            @endforelse
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center small" href="{{ route('notifications.index') }}">Xem tất cả thông báo</a></li>
+                        </ul>
+                    </li>
+
+                    {{-- Dropdown tên user (giữ nguyên như cũ) --}}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             {{ auth()->user()->name }}
@@ -98,7 +129,7 @@
 <main class="container py-4">
     @if (session('success'))
         <div class="alert alert-success alert-dismissible fade show" style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
-            {{ session('success') }}
+            {!! session('success') !!}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif

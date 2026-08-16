@@ -7,8 +7,11 @@ use App\Http\Requests\Admin\StoreChapterRequest;
 use App\Http\Requests\Admin\UpdateChapterRequest;
 use App\Models\Chapter;
 use App\Models\Story;
+use App\Models\User;
+use App\Notifications\NewChapterPublished;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\AnonymousNotifiable;
 
 class ChapterController extends Controller
 {
@@ -37,10 +40,15 @@ class ChapterController extends Controller
             $story->id
         );
 
-        Chapter::create($data);
+        $chapter = Chapter::create($data);
 
         $story->increment('chapter_count');
         $story->forceFill(['last_chapter_at' => now()])->save();
+
+        // Chỉ thông báo khi chương được đăng công khai ngay (status = true)
+        if ($chapter->status) {
+            $this->notifyFollowers($story, $chapter);
+        }
 
         return redirect()->route('admin.stories.chapters.index', $story)
             ->with('success', 'Tạo chương thành công.');
@@ -55,6 +63,8 @@ class ChapterController extends Controller
 
     public function update(UpdateChapterRequest $request, Chapter $chapter)
     {
+        $wasPublished = $chapter->status;
+
         $data = $request->validated();
         $expectedTitle = $data['title'] ?? ('chuong-' . $data['chapter_number']);
         if (Str::slug($expectedTitle) !== $chapter->slug) {
@@ -62,8 +72,13 @@ class ChapterController extends Controller
         }
 
         $chapter->update($data);
-        
+
         $chapter->story->forceFill(['last_chapter_at' => now()])->save();
+
+        // Trường hợp chương trước đó là nháp (status=false), giờ mới publish → cũng cần báo
+        if (! $wasPublished && $chapter->status) {
+            $this->notifyFollowers($chapter->story, $chapter);
+        }
 
         return redirect()->route('admin.stories.chapters.index', $chapter->story)
             ->with('success', 'Cập nhật chương thành công.');
@@ -78,6 +93,23 @@ class ChapterController extends Controller
 
         return redirect()->route('admin.stories.chapters.index', $story)
             ->with('success', 'Xóa chương thành công.');
+    }
+
+    /**
+     * Gửi thông báo tới các user đã yêu thích truyện và bật notify_new_chapter.
+     * Dùng chunk để tránh load hết user vào memory nếu truyện có rất nhiều follower.
+     */
+    private function notifyFollowers(Story $story, Chapter $chapter): void
+    {
+        User::whereHas('favorites', function ($q) use ($story) {
+                $q->where('story_id', $story->id)
+                  ->where('notify_new_chapter', true);
+            })
+            ->chunkById(200, function ($users) use ($chapter) {
+                foreach ($users as $user) {
+                    $user->notify(new NewChapterPublished($chapter));
+                }
+            });
     }
 
     private function generateUniqueSlug(string $title, int $storyId, ?int $ignoreId = null): string

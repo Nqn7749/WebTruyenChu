@@ -1,4 +1,3 @@
-
 @extends('layouts.public')
 
 @section('title', 'Truyện yêu thích')
@@ -9,7 +8,16 @@
 
 <div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-3">
     @forelse ($stories as $favorite)
-        <div class="col"><x-story-card :story="$favorite->story" /></div>
+        <div class="col">
+            <x-story-card :story="$favorite->story" />
+            <form action="{{ route('favorites.toggle-notify', $favorite->story) }}" method="POST" class="mt-1">
+                @csrf @method('PATCH')
+                <button class="btn btn-sm w-100 {{ $favorite->notify_new_chapter ? 'btn-outline-jade' : 'btn-outline-secondary' }}">
+                    <i class="bi {{ $favorite->notify_new_chapter ? 'bi-bell-fill' : 'bi-bell-slash' }}"></i>
+                    {{ $favorite->notify_new_chapter ? 'Đang nhận thông báo' : 'Đã tắt thông báo' }}
+                </button>
+            </form>
+        </div>
     @empty
         <p class="text-muted">Bạn chưa yêu thích truyện nào. <a href="{{ route('home') }}">Khám phá ngay</a>.</p>
     @endforelse

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Story;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -14,8 +15,6 @@ class FavoriteController extends Controller
         $message = null;
 
         DB::transaction(function () use ($story, $userId, &$message) {
-            // Khóa dòng story trong transaction để 2 request cùng lúc
-            // (double-click, double-submit) không đọc/ghi favorite_count đè lên nhau.
             $lockedStory = Story::whereKey($story->id)->lockForUpdate()->first();
 
             $favorite = $lockedStory->favorites()->where('user_id', $userId)->first();
@@ -24,12 +23,16 @@ class FavoriteController extends Controller
                 $favorite->delete();
                 $message = 'Đã bỏ yêu thích truyện.';
             } else {
-                $lockedStory->favorites()->create(['user_id' => $userId]);
-                $message = 'Đã thêm vào truyện yêu thích.';
+                $lockedStory->favorites()->create([
+                    'user_id' => $userId,
+                    'notify_new_chapter' => true,
+                ]);
+
+                $toggleNotifyUrl = route('favorites.toggle-notify', $lockedStory);
+                $message = 'Đã thêm vào truyện yêu thích. Bạn sẽ nhận thông báo khi có chương mới. '
+                    . '<a href="' . $toggleNotifyUrl . '" class="alert-link">Tắt thông báo</a>';
             }
 
-            // Luôn recompute bằng COUNT(*) thật thay vì increment/decrement thủ công
-            // để favorite_count không bao giờ lệch khỏi dữ liệu thật trong bảng favorites.
             $realCount = $lockedStory->favorites()->count();
 
             $lockedStory->forceFill(['favorite_count' => $realCount])->save();
@@ -47,5 +50,17 @@ class FavoriteController extends Controller
             ->paginate(15);
 
         return view('favorites.index', compact('stories'));
+    }
+
+    public function toggleNotify(Story $story): RedirectResponse
+    {
+        $favorite = Auth::user()->favorites()->where('story_id', $story->id)->firstOrFail();
+
+        $favorite->update(['notify_new_chapter' => ! $favorite->notify_new_chapter]);
+
+        return back()->with('success', $favorite->notify_new_chapter
+            ? 'Đã bật thông báo chương mới.'
+            : 'Đã tắt thông báo chương mới. Bạn có thể bật lại bất cứ lúc nào trong trang "Yêu thích".');
+
     }
 }

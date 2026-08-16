@@ -9,11 +9,19 @@ class Favorite extends Model
 {
     /** @use HasFactory<\Database\Factories\FavoriteFactory> */
     use HasFactory;
-    
+
     protected $fillable = [
         'user_id',
         'story_id',
+        'notify_new_chapter',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'notify_new_chapter' => 'boolean',
+        ];
+    }
 
     public function user()
     {
@@ -24,5 +32,4 @@ class Favorite extends Model
     {
         return $this->belongsTo(Story::class);
     }
-
 }
