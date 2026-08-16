@@ -11,20 +11,38 @@ class HomeController extends Controller
         $recentlyUpdated = Story::published()
             ->with('categories')
             ->recentlyUpdated()
-            ->paginate(12, ['*'], 'recent');
+            ->paginate(20, ['*'], 'recent');
 
         $hotStories = Story::published()
             ->with('categories')
             ->hot()
-            ->take(10)
+            ->take(20)
             ->get();
 
         $recommendedStories = Story::published()
             ->with('categories')
             ->recommended()
-            ->take(10)
+            ->take(20)
             ->get();
 
-        return view('home', compact('recentlyUpdated', 'hotStories', 'recommendedStories'));
+        $newStories = Story::published()
+            ->with('categories')
+            ->newest()
+            ->take(20)
+            ->get();
+
+        $completedStories = Story::published()
+            ->with('categories')
+            ->completed()
+            ->take(20)
+            ->get();
+
+        return view('home', compact(
+            'recentlyUpdated',
+            'hotStories',
+            'recommendedStories',
+            'newStories',
+            'completedStories'
+        ));
     }
 }

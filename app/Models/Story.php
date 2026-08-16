@@ -136,6 +136,23 @@ class Story extends Model
     }
 
     /**
+     * Truyện mới đăng lên hệ thống (theo created_at).
+     */
+    public function scopeNewest(Builder $query): Builder
+    {
+        return $query->orderByDesc('created_at');
+    }
+
+    /**
+     * Truyện đã hoàn thành.
+     */
+    public function scopeCompleted(Builder $query): Builder
+    {
+        return $query->where('status', 'completed')
+            ->orderByDesc('last_chapter_at');
+    }
+
+    /**
      * Tìm kiếm full-text theo title/description.
      */
     public function scopeSearch(Builder $query, string $keyword): Builder

@@ -11,10 +11,12 @@ use App\Http\Controllers\ReadingHistoryController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\StoryListController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
+Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index'); // MỚI
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
 Route::get('/truyen/{story:slug}/chuong/{chapter:chapter_number}', [ChapterController::class, 'show'])
