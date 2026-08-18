@@ -57,9 +57,25 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:30,1')
         ->name('reading-history.update-progress');
 
-    Route::get('/thong-bao', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::patch('/thong-bao/{id}/da-doc', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
-    Route::patch('/thong-bao/danh-dau-tat-ca', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::get(
+        '/notifications/unread',
+        [NotificationController::class, 'unread']
+    )->name('notifications.unread');
+
+    Route::get(
+        '/notifications',
+        [NotificationController::class, 'index']
+    )->name('notifications.index');
+
+    Route::patch(
+        '/notifications/{id}/read',
+        [NotificationController::class, 'markAsRead']
+    )->name('notifications.mark-read');
+
+    Route::patch(
+        '/notifications/read-all',
+        [NotificationController::class, 'markAllAsRead']
+    )->name('notifications.mark-all-read');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');

@@ -57,4 +57,51 @@ class NotificationController extends Controller
             'Đã đánh dấu tất cả là đã đọc.'
         );
     }
+
+    public function unread(): \Illuminate\Http\JsonResponse
+    {
+        $user = Auth::user();
+
+        $notifications = $user->unreadNotifications()
+            ->latest()
+            ->take(8)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+
+            'unread_count' => $user
+                ->unreadNotifications()
+                ->count(),
+
+            'notifications' => $notifications
+                ->map(function ($notification) {
+
+                    return [
+                        'id' => $notification->id,
+
+                        'message' =>
+                            $notification->data['message']
+                            ?? 'Bạn có thông báo mới.',
+
+                        'created_at' =>
+                            $notification
+                                ->created_at
+                                ->diffForHumans(),
+
+                        'url' =>
+                            $notification
+                                ->data['url']
+                                ?? null,
+
+                        'mark_read_url' =>
+                            route(
+                                'notifications.mark-read',
+                                $notification->id
+                            ),
+                    ];
+                })
+                ->values(),
+        ]);
+    }
 }

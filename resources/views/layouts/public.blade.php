@@ -75,33 +75,28 @@
                 @else
                     {{-- Chuông thông báo --}}
                     <li class="nav-item dropdown">
+
                         <a
                             class="nav-link position-relative"
                             href="#"
+                            id="notificationBell"
                             role="button"
                             data-bs-toggle="dropdown"
                             aria-expanded="false"
                         >
                             <i class="bi bi-bell"></i>
 
-                            @php
-                                $unreadCount = auth()
-                                    ->user()
-                                    ->unreadNotifications()
-                                    ->count();
-                            @endphp
-
-                            @if ($unreadCount > 0)
-                                <span
-                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                                    style="font-size: .6rem;"
-                                >
-                                    {{ $unreadCount > 9 ? '9+' : $unreadCount }}
-                                </span>
-                            @endif
+                            <span
+                                id="notificationBadge"
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                style="font-size: .6rem;"
+                            >
+                                0
+                            </span>
                         </a>
 
                         <ul
+                            id="notificationDropdown"
                             class="dropdown-menu dropdown-menu-end p-2"
                             style="
                                 width: 340px;
@@ -110,69 +105,11 @@
                             "
                         >
 
-                            @php
-                                $notifications = auth()
-                                    ->user()
-                                    ->notifications()
-                                    ->latest()
-                                    ->limit(8)
-                                    ->get();
-                            @endphp
-
-                            @forelse ($notifications as $notification)
-
-                                <li>
-
-                                    <form
-                                        action="{{ route(
-                                            'notifications.mark-read',
-                                            $notification->id
-                                        ) }}"
-                                        method="POST"
-                                    >
-                                        @csrf
-                                        @method('PATCH')
-
-                                        <button
-                                            type="submit"
-                                            class="dropdown-item small py-2 text-wrap
-                                            {{ is_null($notification->read_at)
-                                                ? 'fw-semibold bg-light'
-                                                : '' }}"
-                                        >
-
-                                            <div>
-                                                {{ $notification->data['message'] ?? 'Bạn có thông báo mới.' }}
-                                            </div>
-
-                                            <div
-                                                class="text-muted mt-1"
-                                                style="font-size: .72rem;"
-                                            >
-                                                {{ $notification->created_at->diffForHumans() }}
-
-                                                @if (is_null($notification->read_at))
-                                                    <span class="badge bg-danger ms-1">
-                                                        Mới
-                                                    </span>
-                                                @endif
-                                            </div>
-
-                                        </button>
-
-                                    </form>
-
-                                </li>
-
-                            @empty
-
-                                <li>
-                                    <span class="dropdown-item-text text-muted small">
-                                        Chưa có thông báo nào.
-                                    </span>
-                                </li>
-
-                            @endforelse
+                            <li>
+                                <span class="dropdown-item-text text-muted small">
+                                    Đang tải thông báo...
+                                </span>
+                            </li>
 
                             <li>
                                 <hr class="dropdown-divider">
@@ -270,63 +207,520 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Toast
+    |--------------------------------------------------------------------------
+    */
+
     const toastEl = document.getElementById('notifyToast');
     const toastMsg = document.getElementById('notifyToastMessage');
 
-    if (!toastEl || !toastMsg) return;
+    let toast = null;
 
-    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    if (toastEl && toastMsg) {
+        toast = new bootstrap.Toast(toastEl, {
+            delay: 3000
+        });
+    }
 
     function showToast(message, type = 'success') {
+
+        if (!toastEl || !toastMsg) {
+            return;
+        }
+
         toastEl.classList.remove(
             'text-bg-success',
             'text-bg-warning',
             'text-bg-danger'
         );
-        toastEl.classList.add(`text-bg-${type}`);
+
+        toastEl.classList.add(
+            `text-bg-${type}`
+        );
+
         toastMsg.textContent = message;
-        toast.show();
+
+        toast?.show();
     }
 
-    document.querySelectorAll('.flash-notify-form').forEach(form => {
-        form.addEventListener('submit', async e => {
-            e.preventDefault();
 
-            const button = form.querySelector('button');
-            button.disabled = true;
+    /*
+    |--------------------------------------------------------------------------
+    | Tắt thông báo yêu thích
+    |--------------------------------------------------------------------------
+    */
 
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    },
-                    body: new FormData(form)
-                });
+    document
+        .querySelectorAll('.flash-notify-form')
+        .forEach(form => {
 
-                const data = await response.json();
+            form.addEventListener('submit', async event => {
 
-                if (!response.ok || !data.success) {
-                    throw new Error(data.message || 'Có lỗi xảy ra.');
+                event.preventDefault();
+
+                const button = form.querySelector('button');
+
+                if (!button) {
+                    return;
                 }
 
-                form.closest('.alert')?.remove();
-                showToast('Đã tắt thông báo chương mới.', 'warning');
+                button.disabled = true;
 
-            } catch (error) {
-                console.error(error);
-                showToast(
-                    error.message || 'Không thể cập nhật thông báo.',
-                    'danger'
-                );
-            } finally {
-                button.disabled = false;
-            }
+                try {
+
+                    const response = await fetch(
+                        form.action,
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'X-CSRF-TOKEN':
+                                    form.querySelector(
+                                        '[name="_token"]'
+                                    ).value,
+
+                                'X-Requested-With':
+                                    'XMLHttpRequest',
+
+                                'Accept':
+                                    'application/json'
+                            },
+
+                            body: new FormData(form)
+                        }
+                    );
+
+                    const data =
+                        await response.json();
+
+                    if (
+                        !response.ok ||
+                        !data.success
+                    ) {
+                        throw new Error(
+                            data.message ||
+                            'Có lỗi xảy ra.'
+                        );
+                    }
+
+                    form
+                        .closest('.alert')
+                        ?.remove();
+
+                    showToast(
+                        'Đã tắt thông báo chương mới.',
+                        'warning'
+                    );
+
+                } catch (error) {
+
+                    console.error(error);
+
+                    showToast(
+                        error.message ||
+                        'Không thể cập nhật thông báo.',
+                        'danger'
+                    );
+
+                } finally {
+
+                    button.disabled = false;
+                }
+            });
         });
-    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICATION AJAX POLLING
+    |--------------------------------------------------------------------------
+    */
+
+    @auth
+
+    const notificationBadge =
+        document.getElementById(
+            'notificationBadge'
+        );
+
+    const notificationDropdown =
+        document.getElementById(
+            'notificationDropdown'
+        );
+
+    const notificationUnreadUrl =
+        @json(route('notifications.unread'));
+
+    let previousUnreadCount =
+        parseInt(
+            notificationBadge?.textContent || '0',
+            10
+        );
+
+
+    /**
+     * Escape HTML để tránh đưa nội dung notification
+     * trực tiếp vào HTML mà không xử lý.
+     */
+    function escapeHtml(value) {
+
+        const div =
+            document.createElement('div');
+
+        div.textContent =
+            value ?? '';
+
+        return div.innerHTML;
+    }
+
+
+    /**
+     * Cập nhật số trên chuông.
+     */
+    function updateNotificationBadge(count) {
+
+        if (!notificationBadge) {
+            return;
+        }
+
+        count =
+            Number.isFinite(Number(count))
+                ? Number(count)
+                : 0;
+
+        if (count <= 0) {
+
+            notificationBadge.classList.add(
+                'd-none'
+            );
+
+            notificationBadge.textContent = '0';
+
+            return;
+        }
+
+        notificationBadge.classList.remove(
+            'd-none'
+        );
+
+        notificationBadge.textContent =
+            count > 9
+                ? '9+'
+                : count;
+    }
+
+
+    /**
+     * Render dropdown notification.
+     */
+    function renderNotifications(notifications) {
+
+        if (!notificationDropdown) {
+            return;
+        }
+
+        let html = '';
+
+        if (
+            !notifications ||
+            notifications.length === 0
+        ) {
+
+            html += `
+                <li>
+                    <span
+                        class="dropdown-item-text text-muted small"
+                    >
+                        Chưa có thông báo chưa đọc.
+                    </span>
+                </li>
+            `;
+
+        } else {
+
+            notifications.forEach(notification => {
+
+                const message =
+                    escapeHtml(
+                        notification.message
+                    );
+
+                const createdAt =
+                    escapeHtml(
+                        notification.created_at
+                    );
+
+                const url =
+                    notification.mark_read_url
+                        ? escapeHtml(notification.mark_read_url)
+                        : '#';
+
+
+                html += `
+                    <li>
+                        <form
+                            action="${url}"
+                            method="POST"
+                        >
+                            <input
+                                type="hidden"
+                                name="_token"
+                                value="{{ csrf_token() }}"
+                            >
+
+                            <input
+                                type="hidden"
+                                name="_method"
+                                value="PATCH"
+                            >
+
+                            <button
+                                type="submit"
+                                class="dropdown-item small py-2 text-wrap"
+                            >
+                                <div class="fw-semibold">
+                                    ${message}
+                                </div>
+
+                                <div
+                                    class="text-muted mt-1"
+                                    style="font-size: .72rem;"
+                                >
+                                    ${createdAt}
+
+                                    <span class="badge bg-danger ms-1">
+                                        Mới
+                                    </span>
+                                </div>
+                            </button>
+                        </form>
+                    </li>
+                `;
+            });
+        }
+
+
+        html += `
+            <li>
+                <hr class="dropdown-divider">
+            </li>
+
+            <li>
+                <a
+                    class="dropdown-item text-center small"
+                    href="{{ route('notifications.index') }}"
+                >
+                    Xem tất cả thông báo
+                </a>
+            </li>
+        `;
+
+        notificationDropdown.innerHTML =
+            html;
+    }
+
+
+    /**
+     * Kiểm tra notification mới.
+     */
+    async function checkNotifications(
+        showNewNotification = true
+    ) {
+
+        try {
+
+            const response =
+                await fetch(
+                    notificationUnreadUrl,
+                    {
+                        method: 'GET',
+
+                        headers: {
+                            'Accept':
+                                'application/json',
+
+                            'X-Requested-With':
+                                'XMLHttpRequest'
+                        },
+
+                        cache: 'no-store'
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (!data.success) {
+                return;
+            }
+
+
+            const unreadCount =
+                Number(
+                    data.unread_count || 0
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update badge
+            |--------------------------------------------------------------------------
+            */
+
+            updateNotificationBadge(
+                unreadCount
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Nếu có notification mới
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                showNewNotification &&
+                unreadCount > previousUnreadCount
+            ) {
+
+                const newCount =
+                    unreadCount -
+                    previousUnreadCount;
+
+
+                showToast(
+                    newCount === 1
+                        ? 'Bạn có thông báo mới.'
+                        : `Bạn có ${newCount} thông báo mới.`,
+                    'success'
+                );
+            }
+
+
+            previousUnreadCount =
+                unreadCount;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update dropdown
+            |--------------------------------------------------------------------------
+            */
+
+            renderNotifications(
+                data.notifications || []
+            );
+
+        } catch (error) {
+
+            /*
+             * Không hiển thị lỗi cho người dùng.
+             * Polling lỗi không được làm ảnh hưởng
+             * tới việc đọc truyện.
+             */
+
+            console.debug(
+                'Không thể kiểm tra notification:',
+                error
+            );
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lần đầu tải trang
+    |--------------------------------------------------------------------------
+    */
+
+    checkNotifications(false);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Polling mỗi 5 giây
+    |--------------------------------------------------------------------------
+    */
+
+    const notificationPolling =
+        setInterval(
+            () => {
+                checkNotifications(true);
+            },
+            5000
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Khi user click notification
+    |--------------------------------------------------------------------------
+    |
+    | NotificationController sẽ markAsRead()
+    | trước khi redirect.
+    |
+    */
+
+    notificationDropdown
+        ?.addEventListener(
+            'click',
+            event => {
+
+                const notification =
+                    event.target.closest(
+                        '.notification-item'
+                    );
+
+                if (!notification) {
+                    return;
+                }
+
+                /*
+                 * Không cần tự gọi API mark-read ở đây.
+                 * Link hiện tại sẽ đi qua NotificationController
+                 * nếu bạn dùng route mark-read.
+                 */
+            }
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cleanup
+    |--------------------------------------------------------------------------
+    */
+
+    window.addEventListener(
+        'beforeunload',
+        () => {
+            clearInterval(
+                notificationPolling
+            );
+        }
+    );
+
+    @endauth
 });
+
+
+/*
+|--------------------------------------------------------------------------
+| Theme
+|--------------------------------------------------------------------------
+*/
 
 document.documentElement.dataset.theme =
     localStorage.getItem('theme') ?? 'light';
