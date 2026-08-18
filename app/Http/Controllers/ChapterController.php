@@ -31,28 +31,42 @@ class ChapterController extends Controller
 
         if (Auth::check()) {
             ReadingHistory::updateOrCreate(
-                ['user_id' => Auth::id(), 'story_id' => $story->id],
-                ['chapter_id' => $chapter->id, 'read_at' => now()]
+                [
+                    'user_id' => Auth::id(),
+                    'story_id' => $story->id
+                ],
+                [
+                    'chapter_id' => $chapter->id,
+                    'read_at' => now()
+                ]
             );
         }
 
-        $comments = $chapter->comments()
+        // Lấy tất cả comment của truyện:
+        // - Comment trực tiếp của truyện
+        // - Comment của tất cả chương
+        $comments = $story->comments()
             ->whereNull('parent_id')
             ->where('is_hidden', false)
-            ->with(['user', 'replies' => fn ($q) => $q->where('is_hidden', false)->with('user')])
+            ->with([
+                'user',
+                'chapter',
+                'replies' => fn ($q) => $q
+                    ->where('is_hidden', false)
+                    ->with('user')
+            ])
             ->latest()
             ->paginate(10);
 
-        return view('chapters.show', compact('story', 'chapter', 'prevChapter', 'nextChapter', 'comments'));
+        return view('chapters.show', compact(
+            'story',
+            'chapter',
+            'prevChapter',
+            'nextChapter',
+            'comments'
+        ));
     }
 
-    /**
-     * Đếm view an toàn, chống spam bằng 2 lớp:
-     * 1. Session: 1 mảng duy nhất chứa id các chapter đã xem trong phiên,
-     *    thay vì tạo 1 key riêng cho mỗi chapter (tránh session phình to).
-     * 2. Cache theo IP + chapter: chặn refresh liên tục / bypass session
-     *    (gọi trực tiếp không qua trình duyệt, incognito lặp lại, v.v).
-     */
     private function trackView(Story $story, Chapter $chapter): void
     {
         $viewedInSession = session('viewed_chapters', []);
@@ -63,8 +77,6 @@ class ChapterController extends Controller
 
         $throttleKey = 'chapter_view:' . request()->ip() . ':' . $chapter->id;
 
-        // Nếu trong 30 phút gần đây IP này đã tính view cho chapter này rồi thì bỏ qua,
-        // kể cả khi session bị xóa / request không mang cookie.
         if (Cache::has($throttleKey)) {
             $viewedInSession[] = $chapter->id;
             session(['viewed_chapters' => $viewedInSession]);
@@ -74,7 +86,11 @@ class ChapterController extends Controller
         $chapter->increment('views');
         $story->incrementViews();
 
-        Cache::put($throttleKey, true, now()->addMinutes(30));
+        Cache::put(
+            $throttleKey,
+            true,
+            now()->addMinutes(30)
+        );
 
         $viewedInSession[] = $chapter->id;
         session(['viewed_chapters' => $viewedInSession]);

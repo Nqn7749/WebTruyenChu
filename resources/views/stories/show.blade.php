@@ -68,16 +68,25 @@
         @endif
 
         <h5>Danh sách chương ({{ $chapters->count() }})</h5>
-        <div class="list-group mb-4" style="max-height: 400px; overflow-y: auto;">
+        <div class="list-group mb-3" style="max-height: 400px; overflow-y: auto;">
             @forelse ($chapters as $chapter)
                 <a href="{{ route('chapters.show', [$story, $chapter]) }}"
-                   class="list-group-item list-group-item-action chapter-list-item d-flex justify-content-between">
-                    <span>Chương {{ $chapter->chapter_number }}{{ $chapter->title ? ' - '.$chapter->title : '' }}</span>
-                    <small class="text-muted">{{ number_format($chapter->views) }} lượt xem</small>
+                class="list-group-item list-group-item-action chapter-list-item d-flex justify-content-between">
+                    <span>
+                        Chương {{ $chapter->chapter_number }}{{ $chapter->title ? ' - '.$chapter->title : '' }}
+                    </span>
+
+                    <small class="text-muted">
+                        {{ number_format($chapter->views) }} lượt xem
+                    </small>
                 </a>
             @empty
                 <p class="text-muted p-3">Chưa có chương nào.</p>
             @endforelse
+        </div>
+
+        <div class="d-flex justify-content-center mb-4">
+            {{ $chapters->links() }}
         </div>
 
         {{-- Đánh giá --}}
@@ -99,46 +108,71 @@
             <p><a href="{{ route('login') }}">Đăng nhập</a> để đánh giá truyện.</p>
         @endauth
 
-        {{-- Bình luận truyện (không gắn chương) --}}
-        <h5>Bình luận ({{ $story->comment_count }})</h5>
-        @auth
-            <form action="{{ route('comments.store', $story) }}" method="POST" class="mb-3">
-                @csrf
-                <textarea name="content" class="form-control mb-2" rows="3" placeholder="Viết bình luận..." required></textarea>
-                <button class="btn btn-sm btn-primary">Gửi bình luận</button>
-            </form>
-        @else
-            <p><a href="{{ route('login') }}">Đăng nhập</a> để bình luận.</p>
-        @endauth
+        {{-- Bình luận truyện --}}
+        <section id="commentsSection">
 
-        @foreach ($comments as $comment)
-            <div class="border-bottom py-2">
-                <strong>{{ $comment->user->name }}</strong>
-                <span class="text-muted small">{{ $comment->created_at->diffForHumans() }}</span>
-                <p class="mb-1">{{ $comment->content }}</p>
+            <h5>
+                Bình luận ({{ $story->comment_count }})
+            </h5>
 
-                @auth
-                    @if ($comment->user_id === auth()->id())
-                        <form action="{{ route('comments.destroy', $comment) }}" method="POST" class="d-inline"
-                              onsubmit="return confirm('Xóa bình luận này?')">
-                            @csrf @method('DELETE')
-                            <button class="btn btn-link btn-sm text-danger p-0">Xóa</button>
-                        </form>
-                    @endif
-                @endauth
+            @auth
 
-                @foreach ($comment->replies as $reply)
-                    <div class="ms-4 mt-2 border-start ps-2">
-                        <strong>{{ $reply->user->name }}</strong>
-                        <span class="text-muted small">{{ $reply->created_at->diffForHumans() }}</span>
-                        <p class="mb-0">{{ $reply->content }}</p>
-                    </div>
-                @endforeach
-            </div>
-        @endforeach
+                <form
+                    id="commentForm"
+                    action="{{ route('comments.store', $story) }}"
+                    method="POST"
+                    class="mb-3"
+                >
+                    @csrf
 
-        {{ $comments->links() }}
-    </div>
+                    <textarea
+                        id="commentContent"
+                        name="content"
+                        class="form-control mb-2"
+                        rows="3"
+                        placeholder="Viết bình luận..."
+                        required
+                        maxlength="2000"
+                    ></textarea>
+
+                    <button
+                        type="submit"
+                        id="commentSubmit"
+                        class="btn btn-sm btn-primary"
+                    >
+                        Gửi bình luận
+                    </button>
+
+                </form>
+
+            @else
+
+                <p>
+                    <a href="{{ route('login') }}">
+                        Đăng nhập
+                    </a>
+                    để bình luận.
+                </p>
+
+            @endauth
+
+
+            {{-- Danh sách comment --}}
+            @include('components.comments', [
+                'comments' => $comments,
+            ])
+
+
+            {{-- Pagination --}}
+            @if ($comments->hasPages())
+
+                <div class="mt-4">
+                    {{ $comments->links() }}
+                </div>
+
+            @endif
+
+        </section>
 </div>
 
 @endsection

@@ -9,38 +9,63 @@ use Illuminate\Support\Facades\DB;
 
 class FavoriteController extends Controller
 {
+    /**
+     * Bật / tắt yêu thích truyện.
+     */
     public function toggle(Story $story)
     {
         $userId = Auth::id();
-        $message = null;
+        $flash = [];
 
-        DB::transaction(function () use ($story, $userId, &$message) {
-            $lockedStory = Story::whereKey($story->id)->lockForUpdate()->first();
+        DB::transaction(function () use ($story, $userId, &$flash) {
 
-            $favorite = $lockedStory->favorites()->where('user_id', $userId)->first();
+            $lockedStory = Story::whereKey($story->id)
+                ->lockForUpdate()
+                ->first();
+
+            $favorite = $lockedStory
+                ->favorites()
+                ->where('user_id', $userId)
+                ->first();
 
             if ($favorite) {
+
                 $favorite->delete();
-                $message = 'Đã bỏ yêu thích truyện.';
+
+                $flash = [
+                    'type' => 'removed',
+                ];
+
             } else {
+
                 $lockedStory->favorites()->create([
                     'user_id' => $userId,
                     'notify_new_chapter' => true,
                 ]);
 
-                $toggleNotifyUrl = route('favorites.toggle-notify', $lockedStory);
-                $message = 'Đã thêm vào truyện yêu thích. Bạn sẽ nhận thông báo khi có chương mới. '
-                    . '<a href="' . $toggleNotifyUrl . '" class="alert-link">Tắt thông báo</a>';
+                $flash = [
+                    'type' => 'added',
+                    'story_slug' => $lockedStory->slug,
+                ];
             }
 
-            $realCount = $lockedStory->favorites()->count();
+            // Cập nhật lại số lượng yêu thích thực tế
+            $realCount = $lockedStory
+                ->favorites()
+                ->count();
 
-            $lockedStory->forceFill(['favorite_count' => $realCount])->save();
+            $lockedStory->forceFill([
+                'favorite_count' => $realCount,
+            ])->save();
         });
 
-        return back()->with('success', $message);
+        return back()->with('favorite_flash', $flash);
     }
 
+
+    /**
+     * Danh sách truyện yêu thích.
+     */
     public function index()
     {
         $stories = Auth::user()
@@ -52,15 +77,27 @@ class FavoriteController extends Controller
         return view('favorites.index', compact('stories'));
     }
 
-    public function toggleNotify(Story $story): RedirectResponse
+
+    /**
+     * Bật / tắt thông báo chương mới.
+     *
+     * AJAX request - không reload trang.
+     */
+    public function toggleNotify(Story $story)
     {
-        $favorite = Auth::user()->favorites()->where('story_id', $story->id)->firstOrFail();
+        $favorite = Auth::user()
+            ->favorites()
+            ->where('story_id', $story->id)
+            ->firstOrFail();
 
-        $favorite->update(['notify_new_chapter' => ! $favorite->notify_new_chapter]);
+        $favorite->update([
+            'notify_new_chapter' => ! $favorite->notify_new_chapter,
+        ]);
 
-        return back()->with('success', $favorite->notify_new_chapter
-            ? 'Đã bật thông báo chương mới.'
-            : 'Đã tắt thông báo chương mới. Bạn có thể bật lại bất cứ lúc nào trong trang "Yêu thích".');
-
+        return response()->json([
+            'success' => true,
+            'notify_new_chapter' => (bool) $favorite->notify_new_chapter,
+            
+        ]);
     }
 }

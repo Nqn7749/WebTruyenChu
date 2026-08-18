@@ -24,6 +24,7 @@
     <meta name="twitter:card" content="summary_large_image">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=literata:400,500,600,700|be-vietnam-pro:400,500,600,700" rel="stylesheet">
@@ -128,14 +129,49 @@
 
 <main class="container py-4">
     @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show" style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
-            {!! session('success') !!}
+        <div class="alert alert-success alert-dismissible fade show"
+             style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
+            {{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if ($favoriteFlash = session('favorite_flash'))
+        <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2"
+             style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
+            @if ($favoriteFlash['type'] === 'added')
+                <span>Đã thêm vào truyện yêu thích. Bạn sẽ nhận thông báo khi có chương mới.</span>
+
+                <form action="{{ route('favorites.toggle-notify', ['story' => $favoriteFlash['story_slug']]) }}"
+                      method="POST" class="d-inline mb-0 flash-notify-form">
+                    @csrf
+                    @method('PATCH')
+
+                    <button type="submit" class="btn btn-link btn-sm p-0 align-baseline alert-link">
+                        Tắt thông báo
+                    </button>
+                </form>
+            @else
+                <span>Đã bỏ yêu thích truyện.</span>
+            @endif
+
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
     @yield('content')
 </main>
+
+{{-- Toast dùng chung cho toàn bộ trang --}}
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+    <div id="notifyToast" class="toast border-0" role="alert">
+        <div class="d-flex">
+            <div id="notifyToastMessage" class="toast-body"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
 
 <footer class="app-footer py-4 mt-5">
     <div class="container text-center small">
@@ -144,11 +180,72 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-@stack('scripts')
+
 <script>
-    document.documentElement.dataset.theme = localStorage.getItem('theme') ?? 'light';
+document.addEventListener('DOMContentLoaded', () => {
+    const toastEl = document.getElementById('notifyToast');
+    const toastMsg = document.getElementById('notifyToastMessage');
+
+    if (!toastEl || !toastMsg) return;
+
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+
+    function showToast(message, type = 'success') {
+        toastEl.classList.remove(
+            'text-bg-success',
+            'text-bg-warning',
+            'text-bg-danger'
+        );
+        toastEl.classList.add(`text-bg-${type}`);
+        toastMsg.textContent = message;
+        toast.show();
+    }
+
+    document.querySelectorAll('.flash-notify-form').forEach(form => {
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+
+            const button = form.querySelector('button');
+            button.disabled = true;
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    body: new FormData(form)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Có lỗi xảy ra.');
+                }
+
+                form.closest('.alert')?.remove();
+                showToast('Đã tắt thông báo chương mới.', 'warning');
+
+            } catch (error) {
+                console.error(error);
+                showToast(
+                    error.message || 'Không thể cập nhật thông báo.',
+                    'danger'
+                );
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+});
+
+document.documentElement.dataset.theme =
+    localStorage.getItem('theme') ?? 'light';
 </script>
 
+@stack('scripts')
+
 </body>
-</html> 
+</html>

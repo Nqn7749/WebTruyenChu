@@ -447,3 +447,18 @@ a:hover { color: var(--jade-dark); }
     background:var(--paper);
     color:var(--ink-900);
 }
+
+.comment-new{
+    animation: commentAppear .3s ease;
+}
+
+@keyframes commentAppear{
+    from{
+        opacity:0;
+        transform:translateY(-10px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
