@@ -4,8 +4,8 @@ namespace App\Notifications;
 
 use App\Models\Chapter;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Notification;
 
 class NewChapterPublished extends Notification implements ShouldQueue
 {
@@ -13,7 +13,8 @@ class NewChapterPublished extends Notification implements ShouldQueue
 
     public function __construct(
         public Chapter $chapter
-    ) {}
+    ) {
+    }
 
     public function via(object $notifiable): array
     {
@@ -25,14 +26,26 @@ class NewChapterPublished extends Notification implements ShouldQueue
         $story = $this->chapter->story;
 
         return [
-            'story_id'        => $story->id,
-            'story_title'     => $story->title,
-            'story_slug'      => $story->slug,
-            'chapter_id'      => $this->chapter->id,
-            'chapter_number'  => $this->chapter->chapter_number,
-            'chapter_title'   => $this->chapter->title,
-            'message'         => "{$story->title} vừa có chương mới: Chương {$this->chapter->chapter_number}"
-                . ($this->chapter->title ? " - {$this->chapter->title}" : ''),
+            'story_id' => $story->id,
+            'story_title' => $story->title,
+            'story_slug' => $story->slug,
+
+            'chapter_id' => $this->chapter->id,
+            'chapter_number' => $this->chapter->chapter_number,
+            'chapter_title' => $this->chapter->title,
+
+            'message' => $story->title
+                . ' vừa có chương mới: Chương '
+                . $this->chapter->chapter_number
+                . ($this->chapter->title
+                    ? ' - ' . $this->chapter->title
+                    : ''),
+
+            // Lưu URL luôn
+            'url' => route('chapters.show', [
+                $story,
+                $this->chapter,
+            ]),
         ];
     }
 }

@@ -75,31 +75,118 @@
                 @else
                     {{-- Chuông thông báo --}}
                     <li class="nav-item dropdown">
-                        <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown">
+                        <a
+                            class="nav-link position-relative"
+                            href="#"
+                            role="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                        >
                             <i class="bi bi-bell"></i>
-                            @php $unreadCount = auth()->user()->unreadNotifications()->count(); @endphp
+
+                            @php
+                                $unreadCount = auth()
+                                    ->user()
+                                    ->unreadNotifications()
+                                    ->count();
+                            @endphp
+
                             @if ($unreadCount > 0)
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: .6rem;">
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                    style="font-size: .6rem;"
+                                >
                                     {{ $unreadCount > 9 ? '9+' : $unreadCount }}
                                 </span>
                             @endif
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end p-2" style="width: 320px; max-height: 400px; overflow-y: auto;">
-                            @forelse (auth()->user()->notifications()->latest()->take(8)->get() as $notification)
+
+                        <ul
+                            class="dropdown-menu dropdown-menu-end p-2"
+                            style="
+                                width: 340px;
+                                max-height: 400px;
+                                overflow-y: auto;
+                            "
+                        >
+
+                            @php
+                                $notifications = auth()
+                                    ->user()
+                                    ->notifications()
+                                    ->latest()
+                                    ->limit(8)
+                                    ->get();
+                            @endphp
+
+                            @forelse ($notifications as $notification)
+
                                 <li>
-                                    <form action="{{ route('notifications.mark-read', $notification->id) }}" method="POST">
-                                        @csrf @method('PATCH')
-                                        <button type="submit" class="dropdown-item small py-2 {{ $notification->read_at ? '' : 'fw-semibold' }}">
-                                            {{ $notification->data['message'] }}
-                                            <div class="text-muted" style="font-size: .72rem;">{{ $notification->created_at->diffForHumans() }}</div>
+
+                                    <form
+                                        action="{{ route(
+                                            'notifications.mark-read',
+                                            $notification->id
+                                        ) }}"
+                                        method="POST"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
+
+                                        <button
+                                            type="submit"
+                                            class="dropdown-item small py-2 text-wrap
+                                            {{ is_null($notification->read_at)
+                                                ? 'fw-semibold bg-light'
+                                                : '' }}"
+                                        >
+
+                                            <div>
+                                                {{ $notification->data['message'] ?? 'Bạn có thông báo mới.' }}
+                                            </div>
+
+                                            <div
+                                                class="text-muted mt-1"
+                                                style="font-size: .72rem;"
+                                            >
+                                                {{ $notification->created_at->diffForHumans() }}
+
+                                                @if (is_null($notification->read_at))
+                                                    <span class="badge bg-danger ms-1">
+                                                        Mới
+                                                    </span>
+                                                @endif
+                                            </div>
+
                                         </button>
+
                                     </form>
+
                                 </li>
+
                             @empty
-                                <li><span class="dropdown-item-text text-muted small">Chưa có thông báo nào.</span></li>
+
+                                <li>
+                                    <span class="dropdown-item-text text-muted small">
+                                        Chưa có thông báo nào.
+                                    </span>
+                                </li>
+
                             @endforelse
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-center small" href="{{ route('notifications.index') }}">Xem tất cả thông báo</a></li>
+
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+
+                            <li>
+                                <a
+                                    class="dropdown-item text-center small"
+                                    href="{{ route('notifications.index') }}"
+                                >
+                                    Xem tất cả thông báo
+                                </a>
+                            </li>
+
                         </ul>
                     </li>
 
