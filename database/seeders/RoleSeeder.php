@@ -1,10 +1,9 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\Role;
+use App\\Models\\Role;
+use Illuminate\\Database\\Seeder;
 
 class RoleSeeder extends Seeder
 {
@@ -13,9 +12,14 @@ class RoleSeeder extends Seeder
      */
     public function run(): void
     {
-        Role::insert([
-            ['name' => 'Admin', 'slug' => 'admin', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'User',  'slug' => 'user',  'created_at' => now(), 'updated_at' => now()],
-        ]);
+        foreach ([
+            ['name' => 'Admin', 'slug' => 'admin'],
+            ['name' => 'User', 'slug' => 'user'],
+        ] as $role) {
+            Role::updateOrCreate(
+                ['slug' => $role['slug']],
+                ['name' => $role['name']]
+            );
+        }
     }
 }
