@@ -164,8 +164,8 @@ class Story extends Model
 
     public function incrementViews(): void
     {
-        $this->increment('views');
-        $this->forceFill(['last_view_at' => now()])->save();
+        $this->increment('views', 1, ['last_view_at' => now()]);
+
     }
 
     public function isFavoritedBy(?User $user): bool

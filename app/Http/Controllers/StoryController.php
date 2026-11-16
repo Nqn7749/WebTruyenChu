@@ -16,22 +16,30 @@ class StoryController extends Controller
         // Chỉ cho phép xem truyện đã được xuất bản.
         abort_unless($story->status_publish, 404);
 
-        // Load thông tin liên quan đến truyện.
         $story->load([
             'categories',
             'tags',
-            'user',
         ]);
 
-        // Danh sách chương đã xuất bản.
-        $chapters = $story->chapters()
-            ->where('status', true)
-            ->orderBy('chapter_number')
-            ->paginate(100);
+        // Query gốc cho các chương đã xuất bản.
+        $publishedChapters = fn () => $story->chapters()->where('status', true);
 
-        // Bình luận trực tiếp của truyện.
-        // Không lấy bình luận thuộc chapter.
-        // Không lấy reply ở cấp cao nhất.
+        // Danh sách chương (phân trang riêng bằng "chapter_page").
+        $chapters = $publishedChapters()
+            ->orderBy('chapter_number')
+            ->paginate(100, ['*'], 'chapter_page')
+            ->withQueryString();
+
+        // Chương đầu / chương mới nhất của TOÀN BỘ truyện, không phụ thuộc trang đang xem.
+        $firstChapter = $publishedChapters()
+            ->orderBy('chapter_number')
+            ->first(['id', 'chapter_number']);
+
+        $latestChapter = $publishedChapters()
+            ->orderByDesc('chapter_number')
+            ->first(['id', 'chapter_number']);
+
+        // Bình luận (phân trang riêng bằng "comment_page").
         $comments = Comment::query()
             ->where('story_id', $story->id)
             ->whereNull('parent_id')
@@ -39,10 +47,13 @@ class StoryController extends Controller
             ->with([
                 'user',
                 'chapter',
-                'replies.user',
+                'replies' => fn ($q) => $q
+                    ->where('is_hidden', false)
+                    ->with('user'),
             ])
             ->latest()
-            ->paginate(10);
+            ->paginate(10, ['*'], 'comment_page')
+            ->withQueryString();
 
         // Rating của user hiện tại.
         $userRating = Auth::check()
@@ -51,7 +62,6 @@ class StoryController extends Controller
                 ->value('score')
             : null;
 
-        // Kiểm tra user đã yêu thích truyện chưa.
         $isFavorited = $story->isFavoritedBy(Auth::user());
 
         return view(
@@ -59,6 +69,8 @@ class StoryController extends Controller
             compact(
                 'story',
                 'chapters',
+                'firstChapter',
+                'latestChapter',
                 'comments',
                 'userRating',
                 'isFavorited'

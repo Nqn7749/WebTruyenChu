@@ -8,13 +8,43 @@ use Illuminate\Support\Facades\Cache;
 
 class StoryObserver
 {
+    /**
+     * Các cột counter/cache: thay đổi chúng KHÔNG ảnh hưởng nội dung
+     * hiển thị trên trang chủ hay sitemap, nên không cần xóa cache.
+     */
+    private const IGNORED_FIELDS = [
+        'views',
+        'last_view_at',
+        'favorite_count',
+        'rating_count',
+        'average_rating',
+        'comment_count',
+        'updated_at',
+    ];
+
     public function saved(Story $story): void
     {
+        $relevantChanges = array_diff(
+            array_keys($story->getChanges()),
+            self::IGNORED_FIELDS
+        );
+
+        // Story mới tạo: getChanges() rỗng nên phải kiểm tra riêng.
+        if (! $story->wasRecentlyCreated && $relevantChanges === []) {
+            return;
+        }
+
         $this->clearSitemapCache();
         $this->clearHomeCache();
     }
 
     public function deleted(Story $story): void
+    {
+        $this->clearSitemapCache();
+        $this->clearHomeCache();
+    }
+
+    public function restored(Story $story): void
     {
         $this->clearSitemapCache();
         $this->clearHomeCache();
@@ -33,8 +63,8 @@ class StoryObserver
     }
 
     /**
-     * Xóa cache trang chủ. Với "recently_updated" (có phân trang) chỉ cần
-     * xóa vài trang đầu vì TTL 10 phút đã tự làm mới các trang sau.
+     * Xóa cache trang chủ. "recently_updated" có phân trang nên chỉ xóa vài
+     * trang đầu, TTL 10 phút sẽ tự làm mới các trang sau.
      */
     private function clearHomeCache(): void
     {

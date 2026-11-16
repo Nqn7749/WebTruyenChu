@@ -1,4 +1,3 @@
-
 @extends('layouts.public')
 
 @section('title', $story->meta_title ?? $story->title)
@@ -56,18 +55,18 @@
 
         <p style="white-space: pre-line;">{{ $story->description }}</p>
 
-        @if ($chapters->isNotEmpty())
+        @if ($firstChapter)
             <div class="d-flex gap-2 mb-3">
-                <a href="{{ route('chapters.show', [$story, $chapters->first()]) }}" class="btn btn-primary btn-sm">
+                <a href="{{ route('chapters.show', [$story, $firstChapter]) }}" class="btn btn-primary btn-sm">
                     Đọc từ đầu
                 </a>
-                <a href="{{ route('chapters.show', [$story, $chapters->last()]) }}" class="btn btn-outline-primary btn-sm">
+                <a href="{{ route('chapters.show', [$story, $latestChapter]) }}" class="btn btn-outline-primary btn-sm">
                     Chương mới nhất
                 </a>
             </div>
         @endif
 
-        <h5>Danh sách chương ({{ $chapters->count() }})</h5>
+        <h5 id="chapterList">Danh sách chương ({{ number_format($chapters->total()) }})</h5>
         <div class="list-group mb-3" style="max-height: 400px; overflow-y: auto;">
             @forelse ($chapters as $chapter)
                 <a href="{{ route('chapters.show', [$story, $chapter]) }}"
@@ -86,7 +85,7 @@
         </div>
 
         <div class="d-flex justify-content-center mb-4">
-            {{ $chapters->links() }}
+                {{ $chapters->fragment('chapterList')->links() }}
         </div>
 
         {{-- Đánh giá --}}
@@ -164,14 +163,12 @@
 
             {{-- Pagination --}}
             @if ($comments->hasPages())
-
                 <div class="mt-4">
-                    {{ $comments->links() }}
+                    {{ $comments->fragment('commentsSection')->links() }}
                 </div>
-
             @endif
 
         </section>
-</div>
+    </div>
 </div>
 @endsection
