@@ -1,8 +1,8 @@
 <?php
 
-use App\\Models\\User;
-use Illuminate\\Auth\\Notifications\\VerifyEmail;
-use Illuminate\\Support\\Facades\\Notification;
+use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Support\Facades\Notification;
 
 test('registration screen can be rendered', function () {
     $response = $this->get('/register');
