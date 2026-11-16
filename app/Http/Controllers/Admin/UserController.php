@@ -64,6 +64,7 @@ class UserController extends Controller
             }
 
             $isRemovingAdminAccess = (int) $user->role_id === (int) $adminRoleId
+                && (bool) $user->status
                 && (int) $data['role_id'] !== (int) $adminRoleId;
 
             $isDeactivatingAdmin = (int) $user->role_id === (int) $adminRoleId
