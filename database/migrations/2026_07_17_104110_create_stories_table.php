@@ -96,10 +96,12 @@ return new class extends Migration
             $table->index('is_featured');
             $table->index('last_chapter_at');
 
-            $table->fullText([
-                'title',
-                'description'
-            ]);
+            // SQLite is used by the fast feature-test suite and does not
+            // support Laravel's FULLTEXT index grammar. Keep the production
+            // search index on supported database engines.
+            if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb', 'pgsql'], true)) {
+                $table->fullText(['title', 'description']);
+            }
         });
 
         
