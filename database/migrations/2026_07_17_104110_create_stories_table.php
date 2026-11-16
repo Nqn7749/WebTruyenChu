@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('stories', function (Blueprint $table) {
-            
+
             $table->id();
 
             $table->foreignId('user_id')
@@ -36,7 +36,7 @@ return new class extends Migration
             $table->enum('status', [
                 'ongoing',
                 'completed',
-                'paused'
+                'paused',
             ])->default('ongoing');
 
             // SEO
@@ -104,7 +104,6 @@ return new class extends Migration
             }
         });
 
-        
         Schema::create('story_categories', function (Blueprint $table) {
 
             $table->id();
@@ -121,10 +120,9 @@ return new class extends Migration
 
             $table->unique([
                 'story_id',
-                'category_id'
+                'category_id',
             ]);
         });
-
 
         Schema::create('story_tags', function (Blueprint $table) {
 
@@ -142,7 +140,7 @@ return new class extends Migration
 
             $table->unique([
                 'story_id',
-                'tag_id'
+                'tag_id',
             ]);
         });
 
