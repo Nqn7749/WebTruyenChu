@@ -157,7 +157,6 @@
             @endauth
 
 
-            {{-- Danh sách comment --}}
             @include('components.comments', [
                 'comments' => $comments,
             ])
@@ -174,5 +173,5 @@
 
         </section>
 </div>
-
+</div>
 @endsection

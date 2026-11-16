@@ -26,17 +26,17 @@ class Comment extends Model
 
     public function story()
     {
-        return $this->belongsTo(Story::class);
+        return $this->belongsTo(Story::class)->withTrashed();
     }
 
     public function chapter()
     {
-        return $this->belongsTo(Chapter::class);
+        return $this->belongsTo(Chapter::class)->withTrashed();
     }
 
     public function parent()
     {
-        return $this->belongsTo(Comment::class, 'parent_id');
+        return $this->belongsTo(Comment::class, 'parent_id')->withTrashed();
     }
 
     public function replies()

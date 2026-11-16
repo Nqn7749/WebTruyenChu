@@ -9,6 +9,7 @@ use App\Models\Story;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\RedirectResponse;
 
 class CommentController extends Controller
 {
@@ -18,7 +19,7 @@ class CommentController extends Controller
     public function store(
         StoreCommentRequest $request,
         Story $story
-    ): JsonResponse {
+    ): JsonResponse|RedirectResponse {
         $data = $request->validated();
 
         $data['user_id'] = Auth::id();
@@ -90,18 +91,15 @@ class CommentController extends Controller
             'replies.user',
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Response
-        |--------------------------------------------------------------------------
-        */
+        // Gửi form thường (không AJAX) -> quay lại trang kèm flash message
+        if (! $request->expectsJson()) {
+            return back()->with('success', 'Đã gửi bình luận.');
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Đã gửi bình luận.',
-            'html' => view('components.comment', [
-                'comment' => $comment,
-            ])->render(),
+            'html'    => view('components.comment', ['comment' => $comment])->render(),
         ]);
     }
 

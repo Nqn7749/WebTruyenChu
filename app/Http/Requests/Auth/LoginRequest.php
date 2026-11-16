@@ -52,6 +52,15 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Tài khoản bị khóa: đăng xuất ngay
+        if (! Auth::user()->status) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Tài khoản của bạn đã bị khóa.',
+            ]);
+        }
+        
         RateLimiter::clear($this->throttleKey());
     }
 

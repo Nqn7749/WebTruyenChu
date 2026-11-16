@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ReadingHistory;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class ReadingHistoryController extends Controller
 {
@@ -18,15 +22,20 @@ class ReadingHistoryController extends Controller
     }
 
     /**
-     * Cập nhật % scroll của chương đang đọc (gọi qua AJAX, debounce ở JS).
-     * Chỉ cập nhật bản ghi reading_history đã tồn tại (được tạo khi vào ChapterController@show),
-     * không tạo mới ở đây để tránh 2 nguồn ghi đè lẫn nhau.
+     * Cập nhật % scroll của chương đang đọc (AJAX, debounce ở JS).
+     * Chỉ update bản ghi đã tồn tại (được tạo ở ChapterController@show).
      */
-    public function updateProgress(Request $request)
+    public function updateProgress(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'story_id'       => ['required', 'exists:stories,id'],
-            'chapter_id'     => ['required', 'exists:chapters,id'],
+            'story_id'       => ['required', 'integer', 'exists:stories,id'],
+            'chapter_id'     => [
+                'required',
+                'integer',
+                Rule::exists('chapters', 'id')
+                    ->where('story_id', $request->input('story_id'))
+                    ->whereNull('deleted_at'),
+            ],
             'scroll_percent' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 

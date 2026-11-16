@@ -70,6 +70,7 @@ class FavoriteController extends Controller
     {
         $stories = Auth::user()
             ->favorites()
+            ->whereHas('story', fn ($q) => $q->published())
             ->with('story.categories')
             ->latest()
             ->paginate(15);

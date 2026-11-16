@@ -32,22 +32,23 @@
             </div>
             @error('categories') <div class="text-danger small">{{ $message }}</div> @enderror
         </div>
+
+        <div class="mb-3">
+            <label class="form-label">Tags</label>
+            <select name="tags[]" class="form-select" multiple size="6">
+                @foreach ($tags as $tag)
+                    <option value="{{ $tag->id }}"
+                        {{ in_array($tag->id, old('tags', $selectedTagIds ?? [])) ? 'selected' : '' }}>
+                        {{ $tag->name }}
+                    </option>
+                @endforeach
+            </select>
+            <div class="form-text">Giữ Ctrl (Windows) / Cmd (Mac) để chọn nhiều tag.</div>
+            @error('tags') <div class="text-danger small">{{ $message }}</div> @enderror
+        </div>
     </div>
 
-    <div class="mb-3">
-        <label class="form-label">Tags</label>
-        <select name="tags[]" class="form-select" multiple size="6">
-            @foreach ($tags as $tag)
-                <option value="{{ $tag->id }}"
-                    {{ in_array($tag->id, old('tags', $selectedTagIds ?? [])) ? 'selected' : '' }}>
-                    {{ $tag->name }}
-                </option>
-            @endforeach
-        </select>
-        <div class="form-text">Giữ Ctrl (Windows) / Cmd (Mac) để chọn nhiều tag.</div>
-        @error('tags') <div class="text-danger small">{{ $message }}</div> @enderror
-    </div>
-
+    
     <div class="col-md-4">
         <div class="mb-3">
             <label class="form-label">Ảnh bìa</label>
