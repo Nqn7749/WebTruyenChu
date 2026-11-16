@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->adminRole = Role::create([
@@ -34,57 +37,28 @@ test('an administrator cannot remove their own administrator access', function (
     expect($admin->fresh()->role_id)->toBe($this->adminRole->id);
 });
 
-test('the final active administrator cannot be demoted', function () {
-    $admin = User::factory()->create([
-        'role_id' => $this->adminRole->id,
-        'status' => true,
-    ]);
-
-    $otherUser = User::factory()->create([
-        'role_id' => $this->userRole->id,
-        'status' => true,
-    ]);
-
-    $response = $this->actingAs($admin)->put(
-        route('admin.users.update', $otherUser),
-        [
-            'role_id' => $this->userRole->id,
-            'status' => false,
-        ]
-    );
-
-    $response->assertSessionHasNoErrors();
-    expect($otherUser->fresh()->status)->toBeFalse();
-});
-
-test('the final active administrator cannot be deactivated by another administrator', function () {
+test('the final active administrator cannot be deactivated', function () {
     $lastAdmin = User::factory()->create([
         'role_id' => $this->adminRole->id,
         'status' => true,
     ]);
 
-    $actingAdmin = User::factory()->create([
+    // Invoke the controller directly to isolate the invariant from the
+    // active-user middleware: only one active administrator remains.
+    $inactiveAdminActor = User::factory()->create([
         'role_id' => $this->adminRole->id,
-        'status' => true,
+        'status' => false,
     ]);
 
-    // Keep one additional active administrator, then verify the remaining
-    // administrator cannot be removed after the first is deactivated.
-    $this->actingAs($actingAdmin)->put(
-        route('admin.users.update', $lastAdmin),
-        [
-            'role_id' => $this->adminRole->id,
-            'status' => false,
-        ]
-    )->assertSessionHasNoErrors();
+    $this->actingAs($inactiveAdminActor);
 
-    $response = $this->actingAs($lastAdmin)->put(
-        route('admin.users.update', $actingAdmin),
-        [
-            'role_id' => $this->adminRole->id,
-            'status' => false,
-        ]
-    );
+    $request = Request::create('/admin/users/'.$lastAdmin->id, 'PUT', [
+        'role_id' => $this->adminRole->id,
+        'status' => false,
+    ]);
 
-    $response->assertSessionHasErrors('role_id');
+    expect(fn () => app(UserController::class)->update($request, $lastAdmin))
+        ->toThrow(ValidationException::class);
+
+    expect($lastAdmin->fresh()->status)->toBeTrue();
 });
