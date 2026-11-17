@@ -78,7 +78,7 @@ Route::middleware('auth')->group(function () {
     Route::get(
         '/notifications/unread',
         [NotificationController::class, 'unread']
-    )->name('notifications.unread');
+    )->middleware('throttle:30,1')->name('notifications.unread');
 
     Route::get(
         '/notifications',
