@@ -51,9 +51,16 @@ class CommentController extends Controller
             $parent = Comment::findOrFail($data['parent_id']);
 
             abort_unless(
-                $parent->story_id === $story->id,
+                $parent->story_id === $story->id && ! $parent->is_hidden,
                 404
             );
+
+            if ($parent->chapter_id) {
+                abort_unless(
+                    $parent->chapter()->where('status', true)->exists(),
+                    404
+                );
+            }
 
             // Reply luôn thuộc cùng chapter với comment cha.
             $data['chapter_id'] = $parent->chapter_id;
