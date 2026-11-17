@@ -1,9 +1,9 @@
 <?php
 
-use App\\Models\\Chapter;
-use App\\Models\\Comment;
-use App\\Models\\Story;
-use App\\Models\\User;
+use App\Models\Chapter;
+use App\Models\Comment;
+use App\Models\Story;
+use App\Models\User;
 
 test('story and chapter pages only load comments for their own discussion scope', function () {
     $user = User::factory()->create();
