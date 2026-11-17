@@ -100,7 +100,12 @@ class NotificationController extends Controller
         if (! isset($parts['host'])) {
             $path = $parts['path'] ?? '';
 
-            if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
+            if (
+                ! str_starts_with($path, '/')
+                || str_starts_with($path, '//')
+                || str_contains($path, chr(92))
+                || preg_match('/[\\x00-\\x1F\\x7F]/', $path)
+            ) {
                 return null;
             }
 
@@ -121,7 +126,12 @@ class NotificationController extends Controller
 
         $path = $parts['path'] ?? '/';
 
-        if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
+        if (
+            ! str_starts_with($path, '/')
+            || str_starts_with($path, '//')
+            || str_contains($path, chr(92))
+            || preg_match('/[\\x00-\\x1F\\x7F]/', $path)
+        ) {
             return null;
         }
 
