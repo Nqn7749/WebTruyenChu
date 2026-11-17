@@ -57,6 +57,7 @@
                 @auth
                     <li class="nav-item"><a class="nav-link" href="{{ route('favorites.index') }}">Yêu thích</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('reading-history.index') }}">Lịch sử đọc</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ route('writer.stories.index') }}">Tủ truyện của tôi</a></li>
                 @endauth
             </ul>
 

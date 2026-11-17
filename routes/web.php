@@ -13,6 +13,8 @@ use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoryListController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Writer\StoryController as WriterStoryController;
+use App\Http\Controllers\Writer\ChapterController as WriterChapterController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -27,6 +29,19 @@ Route::get('/truyen/{story:slug}/chuong/{chapter:chapter_number}', [ChapterContr
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
+    Route::resource('truyen', WriterStoryController::class)
+        ->names('stories')
+        ->parameters(['truyen' => 'story'])
+        ->except(['show']);
+
+    Route::resource('truyen.chuong', WriterChapterController::class)
+        ->names('stories.chapters')
+        ->parameters(['truyen' => 'story', 'chuong' => 'chapter'])
+        ->except(['show'])
+        ->shallow();
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

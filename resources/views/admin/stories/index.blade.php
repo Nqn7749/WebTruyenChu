@@ -16,7 +16,8 @@
             <th>Ảnh</th>
             <th>Tên truyện</th>
             <th>Tác giả</th>
-            <th>Trạng thái</th>
+            <th>Tình trạng</th>
+            <th>Duyệt</th>
             <th>Số chương</th>
             <th class="text-end">Thao tác</th>
         </tr>
@@ -32,6 +33,7 @@
                 <td>{{ $story->title }}</td>
                 <td>{{ $story->author_name ?? '—' }}</td>
                 <td><span class="badge bg-secondary">{{ $story->status }}</span></td>
+                <td><span class="badge {{ $story->status_publish ? 'bg-success' : 'bg-warning text-dark' }}">{{ $story->status_publish ? 'Đã công khai' : 'Chờ duyệt' }}</span></td>
                 <td>{{ $story->chapter_count }}</td>
                 <td class="text-end">
                     <a href="{{ route('admin.stories.chapters.index', $story) }}" class="btn btn-sm btn-info">Chương</a>
@@ -44,7 +46,7 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="6" class="text-center">Chưa có truyện nào.</td></tr>
+            <tr><td colspan="7" class="text-center">Chưa có truyện nào.</td></tr>
         @endforelse
     </tbody>
 </table>
