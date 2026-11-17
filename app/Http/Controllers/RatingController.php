@@ -5,25 +5,32 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreRatingRequest;
 use App\Models\Story;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class RatingController extends Controller
 {
     public function store(StoreRatingRequest $request, Story $story)
-{
-    $story->ratings()->updateOrCreate(
-        ['user_id' => Auth::id(), 'story_id' => $story->id],
-        ['score' => $request->validated('score')]
-    );
+    {
+        abort_unless($story->status_publish, 404);
 
-    $stats = $story->ratings()
-        ->selectRaw('COUNT(*) as total, AVG(score) as avg_score')
-        ->first();
+        DB::transaction(function () use ($request, $story) {
+            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
 
-    $story->forceFill([
-        'rating_count'   => (int) $stats->total,
-        'average_rating' => round((float) $stats->avg_score, 2),
-    ])->save();
+            $lockedStory->ratings()->updateOrCreate(
+                ['user_id' => Auth::id()],
+                ['score' => $request->validated('score')]
+            );
 
-    return back()->with('success', 'Cảm ơn bạn đã đánh giá truyện.');
-}
+            $stats = $lockedStory->ratings()
+                ->selectRaw('COUNT(*) as total, COALESCE(AVG(score), 0) as avg_score')
+                ->first();
+
+            $lockedStory->forceFill([
+                'rating_count' => (int) $stats->total,
+                'average_rating' => round((float) $stats->avg_score, 2),
+            ])->save();
+        });
+
+        return back()->with('success', 'Cảm ơn bạn đã đánh giá truyện.');
+    }
 }
