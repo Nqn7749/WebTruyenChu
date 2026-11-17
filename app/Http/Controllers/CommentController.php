@@ -34,12 +34,11 @@ class CommentController extends Controller
         */
 
         if (!empty($data['chapter_id'])) {
-            $chapter = Chapter::findOrFail($data['chapter_id']);
-
-            abort_unless(
-                $chapter->story_id === $story->id,
-                404
-            );
+            $chapter = Chapter::query()
+                ->whereKey($data['chapter_id'])
+                ->where('story_id', $story->id)
+                ->where('status', true)
+                ->firstOrFail();
         }
 
         /*
