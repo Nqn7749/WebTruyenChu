@@ -1,12 +1,12 @@
 <?php
 
-namespace App\\Http\\Controllers;
+namespace App\Http\Controllers;
 
-use App\\Models\\Chapter;
-use App\\Models\\ReadingHistory;
-use App\\Models\\Story;
-use Illuminate\\Support\\Facades\\Auth;
-use Illuminate\\Support\\Facades\\Cache;
+use App\Models\Chapter;
+use App\Models\ReadingHistory;
+use App\Models\Story;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class ChapterController extends Controller
 {
