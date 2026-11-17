@@ -17,7 +17,11 @@ class StoryController extends Controller
 {
     public function index()
     {
-        $stories = Story::with('user')->latest()->paginate(15);
+        $stories = Story::with('user')
+            ->when(request('review') === 'pending', fn ($query) => $query->where('status_publish', false))
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('admin.stories.index', compact('stories'));
     }

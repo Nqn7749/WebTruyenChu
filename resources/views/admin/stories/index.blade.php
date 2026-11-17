@@ -3,7 +3,11 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4>Quản lý truyện</h4>
-    <a href="{{ route('admin.stories.create') }}" class="btn btn-primary">+ Thêm truyện</a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('admin.stories.index', ['review' => 'pending']) }}" class="btn btn-outline-warning">Chờ duyệt</a>
+        <a href="{{ route('admin.stories.index') }}" class="btn btn-outline-secondary">Tất cả</a>
+        <a href="{{ route('admin.stories.create') }}" class="btn btn-primary">+ Thêm truyện</a>
+    </div>
 </div>
 
 @if (session('success'))
@@ -15,8 +19,10 @@
         <tr>
             <th>Ảnh</th>
             <th>Tên truyện</th>
-            <th>Tác giả</th>
-            <th>Trạng thái</th>
+            <th>Bút danh</th>
+            <th>Người đăng</th>
+            <th>Tình trạng</th>
+            <th>Duyệt</th>
             <th>Số chương</th>
             <th class="text-end">Thao tác</th>
         </tr>
@@ -31,7 +37,9 @@
                 </td>
                 <td>{{ $story->title }}</td>
                 <td>{{ $story->author_name ?? '—' }}</td>
+                <td>{{ $story->user?->name ?? '—' }}</td>
                 <td><span class="badge bg-secondary">{{ $story->status }}</span></td>
+                <td><span class="badge {{ $story->status_publish ? 'bg-success' : 'bg-warning text-dark' }}">{{ $story->status_publish ? 'Đã công khai' : 'Chờ duyệt' }}</span></td>
                 <td>{{ $story->chapter_count }}</td>
                 <td class="text-end">
                     <a href="{{ route('admin.stories.chapters.index', $story) }}" class="btn btn-sm btn-info">Chương</a>
@@ -44,7 +52,7 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="6" class="text-center">Chưa có truyện nào.</td></tr>
+            <tr><td colspan="8" class="text-center">Chưa có truyện nào.</td></tr>
         @endforelse
     </tbody>
 </table>

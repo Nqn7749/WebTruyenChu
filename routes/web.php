@@ -13,6 +13,8 @@ use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoryListController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Writer\StoryController as WriterStoryController;
+use App\Http\Controllers\Writer\ChapterController as WriterChapterController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -27,6 +29,22 @@ Route::get('/truyen/{story:slug}/chuong/{chapter:chapter_number}', [ChapterContr
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
+    Route::get('/truyen', [WriterStoryController::class, 'index'])->name('stories.index');
+    Route::get('/truyen/create', [WriterStoryController::class, 'create'])->name('stories.create');
+    Route::post('/truyen', [WriterStoryController::class, 'store'])->middleware('throttle:10,1')->name('stories.store');
+    Route::get('/truyen/{story}/edit', [WriterStoryController::class, 'edit'])->name('stories.edit');
+    Route::put('/truyen/{story}', [WriterStoryController::class, 'update'])->middleware('throttle:20,1')->name('stories.update');
+    Route::delete('/truyen/{story}', [WriterStoryController::class, 'destroy'])->name('stories.destroy');
+
+    Route::get('/truyen/{story}/chuong', [WriterChapterController::class, 'index'])->name('stories.chapters.index');
+    Route::get('/truyen/{story}/chuong/create', [WriterChapterController::class, 'create'])->name('stories.chapters.create');
+    Route::post('/truyen/{story}/chuong', [WriterChapterController::class, 'store'])->middleware('throttle:20,1')->name('stories.chapters.store');
+    Route::get('/chuong/{chapter}/edit', [WriterChapterController::class, 'edit'])->name('chapters.edit');
+    Route::put('/chuong/{chapter}', [WriterChapterController::class, 'update'])->middleware('throttle:30,1')->name('chapters.update');
+    Route::delete('/chuong/{chapter}', [WriterChapterController::class, 'destroy'])->name('chapters.destroy');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
