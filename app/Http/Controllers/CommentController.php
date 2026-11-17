@@ -57,7 +57,11 @@ class CommentController extends Controller
 
             if ($parent->chapter_id) {
                 abort_unless(
-                    $parent->chapter()->where('status', true)->exists(),
+                    Chapter::query()
+                        ->whereKey($parent->chapter_id)
+                        ->where('story_id', $story->id)
+                        ->where('status', true)
+                        ->exists(),
                     404
                 );
             }
