@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Category;
+use App\Observers\CategoryObserver;
 use App\Models\Story;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Cache;
@@ -39,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         });
         
         Story::observe(StoryObserver::class);
+        Category::observe(CategoryObserver::class);
 
     }
 }
