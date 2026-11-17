@@ -8,7 +8,6 @@ use App\Http\Requests\Admin\UpdateStoryRequest;
 use App\Models\Category;
 use App\Models\Story;
 use App\Models\Tag;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
