@@ -47,6 +47,8 @@ test('editing an approved story sends it back to moderation', function () {
         'description' => 'Nội dung vừa cập nhật',
         'status' => 'ongoing',
         'categories' => [$category->id],
+        'status_publish' => true,
+        'is_featured' => true,
     ])->assertRedirect(route('writer.stories.index'));
 
     expect($story->fresh()->status_publish)->toBeFalse();
@@ -65,4 +67,16 @@ test('a member can add a chapter only as a draft', function () {
 
     $chapter = Chapter::query()->where('story_id', $story->id)->firstOrFail();
     expect($chapter->status)->toBeFalse();
+});
+
+test('a member cannot edit a chapter owned by another member', function () {
+    $owner = User::factory()->create(['status' => true]);
+    $otherUser = User::factory()->create(['status' => true]);
+    $story = Story::factory()->create(['user_id' => $otherUser->id]);
+    $chapter = Chapter::factory()->create(['story_id' => $story->id]);
+
+    $this->actingAs($owner)->get(route('writer.chapters.edit', $chapter))->assertForbidden();
+    $this->actingAs($owner)->delete(route('writer.chapters.destroy', $chapter))->assertForbidden();
+
+    expect($chapter->fresh())->not->toBeNull();
 });
