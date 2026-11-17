@@ -10,8 +10,8 @@ class StoryListController extends Controller
 {
     private const CHAPTER_RANGES = [
         'under_300' => [null, 300],
-        '300_600'   => [300, 600],
-        '600_1000'  => [600, 1000],
+        '300_600' => [300, 600],
+        '600_1000' => [600, 1000],
         'over_1000' => [1000, null],
     ];
 
@@ -72,11 +72,11 @@ class StoryListController extends Controller
 
         match ($sort) {
             'newest_story' => $query->orderByDesc('created_at'),
-            'most_viewed'  => $query->orderByDesc('views'),
-            'top_rated'    => $query->where('rating_count', '>=', self::MIN_RATING_COUNT_FOR_TOP_RATED)
-                                     ->orderByDesc('average_rating')
-                                     ->orderByDesc('rating_count'),
-            default        => $query->orderByDesc('last_chapter_at'),
+            'most_viewed' => $query->orderByDesc('views'),
+            'top_rated' => $query->where('rating_count', '>=', self::MIN_RATING_COUNT_FOR_TOP_RATED)
+                ->orderByDesc('average_rating')
+                ->orderByDesc('rating_count'),
+            default => $query->orderByDesc('last_chapter_at'),
         };
 
         $stories = $query
@@ -87,12 +87,12 @@ class StoryListController extends Controller
         $categories = Category::orderBy('name')->get(['id', 'parent_id', 'name']);
 
         return view('stories.index', [
-            'stories'      => $stories,
-            'status'       => $status,
-            'categoryIds'  => $categoryIds,
+            'stories' => $stories,
+            'status' => $status,
+            'categoryIds' => $categoryIds,
             'chapterRange' => $chapterRange,
-            'sort'         => $sort,
-            'categories'   => $categories,
+            'sort' => $sort,
+            'categories' => $categories,
         ]);
     }
 }

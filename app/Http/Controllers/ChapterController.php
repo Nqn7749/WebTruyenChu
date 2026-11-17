@@ -79,11 +79,12 @@ class ChapterController extends Controller
             return;
         }
 
-        $throttleKey = 'chapter_view:' . request()->ip() . ':' . $chapter->id;
+        $throttleKey = 'chapter_view:'.request()->ip().':'.$chapter->id;
 
         if (Cache::has($throttleKey)) {
             $viewedInSession[] = $chapter->id;
             session(['viewed_chapters' => $viewedInSession]);
+
             return;
         }
 
