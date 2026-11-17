@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 class StoryStatsService
 {
     /**
-     * Tính lại counter của các truyện bằng COUNT/AVG thực tế.
+     * Recalculate aggregate counters from their source records.
      *
      * @param  Collection<int, int>|array<int, int>  $storyIds
      */
@@ -28,16 +28,30 @@ class StoryStatsService
 
                     $story->forceFill([
                         'favorite_count' => $story->favorites()->count(),
-                        'rating_count'   => (int) $rating->total,
+                        'rating_count' => (int) $rating->total,
                         'average_rating' => round((float) $rating->avg_score, 2),
-                        'comment_count'  => $story->comments()->where('is_hidden', false)->count(),
+                        'comment_count' => $story->comments()->where('is_hidden', false)->count(),
                     ])->saveQuietly();
                 });
         }
     }
 
     /**
-     * Tính lại comment_count của các chương.
+     * Recalculate chapter count and latest published chapter timestamp.
+     * Draft chapters are included in chapter_count to preserve its existing meaning.
+     */
+    public function refreshChapterStats(Story $story): void
+    {
+        $story->forceFill([
+            'chapter_count' => $story->chapters()->count(),
+            'last_chapter_at' => $story->chapters()
+                ->where('status', true)
+                ->max('updated_at'),
+        ])->saveQuietly();
+    }
+
+    /**
+     * Recalculate comment_count for the given chapters.
      *
      * @param  Collection<int, int>|array<int, int>  $chapterIds
      */
