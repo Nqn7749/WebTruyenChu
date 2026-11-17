@@ -6,6 +6,7 @@ use App\Models\ReadingHistory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ReadingHistoryController extends Controller
@@ -39,16 +40,25 @@ class ReadingHistoryController extends Controller
             'scroll_percent' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        // A delayed request from the previous chapter must not overwrite the
-        // progress of the chapter that is currently active in this history row.
-        $updated = ReadingHistory::where('user_id', Auth::id())
-            ->where('story_id', $data['story_id'])
-            ->where('chapter_id', $data['chapter_id'])
-            ->update([
-                'scroll_percent' => $data['scroll_percent'],
-            ]);
+        // Lock the current history row so delayed requests from a previous
+        // chapter cannot overwrite progress after the reader has moved on.
+        $updated = DB::transaction(function () use ($data) {
+            $history = ReadingHistory::where('user_id', Auth::id())
+                ->where('story_id', $data['story_id'])
+                ->lockForUpdate()
+                ->first();
 
-        if ($updated === 0) {
+            if (! $history || (int) $history->chapter_id !== (int) $data['chapter_id']) {
+                return false;
+            }
+
+            $history->scroll_percent = $data['scroll_percent'];
+            $history->save();
+
+            return true;
+        });
+
+        if (! $updated) {
             return response()->json([
                 'status' => 'stale',
                 'message' => 'Tiến độ đọc đã thay đổi ở chương khác.',
