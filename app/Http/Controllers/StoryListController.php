@@ -24,10 +24,6 @@ class StoryListController extends Controller
         'top_rated',
     ];
 
-    /**
-     * Số lượt đánh giá tối thiểu để được xét vào "Đánh giá cao nhất",
-     * tránh truyện chỉ có 1-2 lượt rating 5 sao chiếm top ảo.
-     */
     private const MIN_RATING_COUNT_FOR_TOP_RATED = 5;
 
     public function index(Request $request)
@@ -83,7 +79,10 @@ class StoryListController extends Controller
             default        => $query->orderByDesc('last_chapter_at'),
         };
 
-        $stories = $query->paginate(24)->withQueryString();
+        $stories = $query
+            ->orderByDesc('id')
+            ->paginate(24)
+            ->withQueryString();
 
         $categories = Category::orderBy('name')->get(['id', 'parent_id', 'name']);
 

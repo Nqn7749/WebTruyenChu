@@ -11,7 +11,8 @@ class CategoryController extends Controller
         $stories = $category->stories()
             ->published()
             ->with('categories')
-            ->latest('last_chapter_at')
+            ->orderByDesc('last_chapter_at')
+            ->orderByDesc('stories.id')
             ->paginate(15);
 
         return view('categories.show', compact('category', 'stories'));

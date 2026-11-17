@@ -21,12 +21,14 @@ class ChapterController extends Controller
             ->where('chapter_number', '<', $chapter->chapter_number)
             ->where('status', true)
             ->orderByDesc('chapter_number')
+            ->orderByDesc('id')
             ->first(['id', 'chapter_number']);
 
         $nextChapter = Chapter::where('story_id', $story->id)
             ->where('chapter_number', '>', $chapter->chapter_number)
             ->where('status', true)
             ->orderBy('chapter_number')
+            ->orderBy('id')
             ->first(['id', 'chapter_number']);
 
         if (Auth::check()) {
@@ -35,7 +37,6 @@ class ChapterController extends Controller
                 'story_id' => $story->id,
             ]);
 
-            // Reset progress only when the reader moves to a different chapter.
             if ($history->chapter_id !== $chapter->id) {
                 $history->scroll_percent = 0;
             }
@@ -45,10 +46,8 @@ class ChapterController extends Controller
             $history->save();
         }
 
-        // Lấy tất cả comment của truyện:
-        // - Comment trực tiếp của truyện
-        // - Comment của tất cả chương
         $comments = $story->comments()
+            ->where('chapter_id', $chapter->id)
             ->whereNull('parent_id')
             ->where('is_hidden', false)
             ->with([
@@ -56,10 +55,12 @@ class ChapterController extends Controller
                 'chapter',
                 'replies' => fn ($q) => $q
                     ->where('is_hidden', false)
-                    ->with('user')
+                    ->with('user'),
             ])
-            ->latest()
-            ->paginate(10);
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('chapters.show', compact(
             'story',
