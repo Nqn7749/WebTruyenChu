@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Category;
+use App\\Models\\Category;
 
 class CategoryController extends Controller
 {
@@ -11,7 +11,8 @@ class CategoryController extends Controller
         $stories = $category->stories()
             ->published()
             ->with('categories')
-            ->latest('last_chapter_at')
+            ->orderByDesc('last_chapter_at')
+            ->orderByDesc('stories.id')
             ->paginate(15);
 
         return view('categories.show', compact('category', 'stories'));
