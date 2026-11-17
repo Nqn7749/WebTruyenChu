@@ -32,12 +32,12 @@ Route::get('/dashboard', function () {
 
 Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
     Route::resource('truyen', WriterStoryController::class)
-        ->names('stories')
+        ->names(['index' => 'stories.index', 'create' => 'stories.create', 'store' => 'stories.store', 'edit' => 'stories.edit', 'update' => 'stories.update', 'destroy' => 'stories.destroy'])
         ->parameters(['truyen' => 'story'])
         ->except(['show']);
 
     Route::resource('truyen.chuong', WriterChapterController::class)
-        ->names('stories.chapters')
+        ->names(['index' => 'stories.chapters.index', 'create' => 'stories.chapters.create', 'store' => 'stories.chapters.store', 'edit' => 'chapters.edit', 'update' => 'chapters.update', 'destroy' => 'chapters.destroy'])
         ->parameters(['truyen' => 'story', 'chuong' => 'chapter'])
         ->except(['show'])
         ->shallow();
