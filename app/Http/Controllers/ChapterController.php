@@ -30,16 +30,19 @@ class ChapterController extends Controller
             ->first(['id', 'chapter_number']);
 
         if (Auth::check()) {
-            ReadingHistory::updateOrCreate(
-                [
-                    'user_id' => Auth::id(),
-                    'story_id' => $story->id
-                ],
-                [
-                    'chapter_id' => $chapter->id,
-                    'read_at' => now()
-                ]
-            );
+            $history = ReadingHistory::firstOrNew([
+                'user_id' => Auth::id(),
+                'story_id' => $story->id,
+            ]);
+
+            // Reset progress only when the reader moves to a different chapter.
+            if ($history->chapter_id !== $chapter->id) {
+                $history->scroll_percent = 0;
+            }
+
+            $history->chapter_id = $chapter->id;
+            $history->read_at = now();
+            $history->save();
         }
 
         // Lấy tất cả comment của truyện:
