@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Story;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +13,8 @@ class FavoriteController extends Controller
      */
     public function toggle(Story $story)
     {
+        abort_unless($story->status_publish, 404);
+
         $userId = Auth::id();
         $flash = [];
 
@@ -22,6 +23,8 @@ class FavoriteController extends Controller
             $lockedStory = Story::whereKey($story->id)
                 ->lockForUpdate()
                 ->first();
+
+            abort_unless($lockedStory->status_publish, 404);
 
             $favorite = $lockedStory
                 ->favorites()
@@ -86,6 +89,8 @@ class FavoriteController extends Controller
      */
     public function toggleNotify(Story $story)
     {
+        abort_unless($story->status_publish, 404);
+
         $favorite = Auth::user()
             ->favorites()
             ->where('story_id', $story->id)

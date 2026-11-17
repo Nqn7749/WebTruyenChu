@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -7,17 +8,16 @@ use App\Http\Requests\Admin\UpdateStoryRequest;
 use App\Models\Category;
 use App\Models\Story;
 use App\Models\Tag;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Http\Request;
+use Throwable;
 
 class StoryController extends Controller
 {
     public function index()
     {
-        $stories = Story::with('user')
-            ->latest()
-            ->paginate(15);
+        $stories = Story::with('user')->latest()->paginate(15);
 
         return view('admin.stories.index', compact('stories'));
     }
@@ -36,13 +36,25 @@ class StoryController extends Controller
         $data['slug'] = $this->generateUniqueSlug($data['title']);
         $data['user_id'] = auth()->id();
 
-        if ($request->hasFile('cover_image')) {
-            $data['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+        $newCover = $request->file('cover_image')?->store('covers', 'public');
+
+        if ($newCover) {
+            $data['cover_image'] = $newCover;
         }
 
-        $story = Story::create($data);
-        $story->categories()->sync($request->input('categories'));
-        $story->tags()->sync($request->input('tags', []));
+        try {
+            DB::transaction(function () use ($data, $request) {
+                $story = Story::create($data);
+                $story->categories()->sync($request->input('categories', []));
+                $story->tags()->sync($request->input('tags', []));
+            });
+        } catch (Throwable $exception) {
+            if ($newCover) {
+                Storage::disk('public')->delete($newCover);
+            }
+
+            throw $exception;
+        }
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Tạo truyện thành công.');
@@ -72,16 +84,31 @@ class StoryController extends Controller
             $data['slug'] = $this->generateUniqueSlug($data['title'], $story->id);
         }
 
-        if ($request->hasFile('cover_image')) {
-            if ($story->cover_image) {
-                Storage::disk('public')->delete($story->cover_image);
-            }
-            $data['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+        $oldCover = $story->cover_image;
+        $newCover = $request->file('cover_image')?->store('covers', 'public');
+
+        if ($newCover) {
+            $data['cover_image'] = $newCover;
         }
 
-        $story->update($data);
-        $story->categories()->sync($request->input('categories'));
-        $story->tags()->sync($request->input('tags', []));
+        try {
+            DB::transaction(function () use ($story, $data, $request) {
+                $story->update($data);
+                $story->categories()->sync($request->input('categories', []));
+                $story->tags()->sync($request->input('tags', []));
+            });
+        } catch (Throwable $exception) {
+            if ($newCover) {
+                Storage::disk('public')->delete($newCover);
+            }
+
+            throw $exception;
+        }
+
+        // Keep the old cover until the new file and database changes succeed.
+        if ($newCover && $oldCover && $oldCover !== $newCover) {
+            Storage::disk('public')->delete($oldCover);
+        }
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Cập nhật truyện thành công.');
@@ -89,11 +116,13 @@ class StoryController extends Controller
 
     public function destroy(Story $story)
     {
-        if ($story->cover_image) {
-            Storage::disk('public')->delete($story->cover_image);
-        }
+        $cover = $story->cover_image;
 
-        $story->delete();
+        DB::transaction(fn () => $story->delete());
+
+        if ($cover) {
+            Storage::disk('public')->delete($cover);
+        }
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Xóa truyện thành công.');
@@ -101,14 +130,14 @@ class StoryController extends Controller
 
     private function generateUniqueSlug(string $title, ?int $ignoreId = null): string
     {
-        $slug = Str::slug($title);
+        $slug = Str::slug($title) ?: 'truyen';
         $original = $slug;
         $i = 1;
 
         while (
             Story::withTrashed()
                 ->where('slug', $slug)
-                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
                 ->exists()
         ) {
             $slug = "{$original}-{$i}";

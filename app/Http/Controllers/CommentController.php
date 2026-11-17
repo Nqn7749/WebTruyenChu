@@ -20,6 +20,8 @@ class CommentController extends Controller
         StoreCommentRequest $request,
         Story $story
     ): JsonResponse|RedirectResponse {
+        abort_unless($story->status_publish, 404);
+
         $data = $request->validated();
 
         $data['user_id'] = Auth::id();
@@ -32,12 +34,11 @@ class CommentController extends Controller
         */
 
         if (!empty($data['chapter_id'])) {
-            $chapter = Chapter::findOrFail($data['chapter_id']);
-
-            abort_unless(
-                $chapter->story_id === $story->id,
-                404
-            );
+            $chapter = Chapter::query()
+                ->whereKey($data['chapter_id'])
+                ->where('story_id', $story->id)
+                ->where('status', true)
+                ->firstOrFail();
         }
 
         /*
@@ -50,9 +51,20 @@ class CommentController extends Controller
             $parent = Comment::findOrFail($data['parent_id']);
 
             abort_unless(
-                $parent->story_id === $story->id,
+                $parent->story_id === $story->id && ! $parent->is_hidden,
                 404
             );
+
+            if ($parent->chapter_id) {
+                abort_unless(
+                    Chapter::query()
+                        ->whereKey($parent->chapter_id)
+                        ->where('story_id', $story->id)
+                        ->where('status', true)
+                        ->exists(),
+                    404
+                );
+            }
 
             // Reply luôn thuộc cùng chapter với comment cha.
             $data['chapter_id'] = $parent->chapter_id;
