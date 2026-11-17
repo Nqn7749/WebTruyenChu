@@ -20,7 +20,7 @@
             @csrf @method('PATCH')
             <button type="submit"
                 class="list-group-item list-group-item-action text-start {{ $notification->read_at ? '' : 'fw-semibold' }}">
-                {{ $notification->data['message'] }}
+                {{ $notification->data['message'] ?? 'Bạn có thông báo mới.' }}
                 <div class="text-muted small">{{ $notification->created_at->diffForHumans() }}</div>
             </button>
         </form>

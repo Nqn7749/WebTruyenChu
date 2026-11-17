@@ -355,6 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationUnreadUrl =
         @json(route('notifications.unread'));
 
+    let notificationRequestPending = false;
+
     let previousUnreadCount =
         parseInt(
             notificationBadge?.textContent || '0',
@@ -530,6 +532,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkNotifications(
         showNewNotification = true
     ) {
+        if (document.hidden || notificationRequestPending) {
+            return;
+        }
+
+        notificationRequestPending = true;
 
         try {
 
@@ -637,6 +644,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Không thể kiểm tra notification:',
                 error
             );
+        } finally {
+            notificationRequestPending = false;
         }
     }
 
@@ -652,7 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /*
     |--------------------------------------------------------------------------
-    | Polling mỗi 5 giây
+    | Polling mỗi 30 giây, tạm dừng khi tab ẩn
     |--------------------------------------------------------------------------
     */
 
@@ -661,8 +670,15 @@ document.addEventListener('DOMContentLoaded', () => {
             () => {
                 checkNotifications(true);
             },
-            5000
+            30000
         );
+
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            checkNotifications(false);
+        }
+    });
 
 
     /*
