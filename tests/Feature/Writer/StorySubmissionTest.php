@@ -175,5 +175,5 @@ test('admin story management does not expose create edit or approval routes', fu
     $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
     $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
 
-    $this->actingAs($admin)->get('/admin/stories/create')->assertNotFound();
+    $this->actingAs($admin)->get('/admin/stories/create')->assertMethodNotAllowed();
 });
