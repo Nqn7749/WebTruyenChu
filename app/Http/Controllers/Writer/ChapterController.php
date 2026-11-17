@@ -56,8 +56,7 @@ class ChapterController extends Controller
 
     public function update(UpdateChapterRequest $request, Chapter $chapter, StoryStatsService $stats)
     {
-        $story = $chapter->story;
-        $this->ensureOwner($story);
+        $story = $this->ownedStoryFor($chapter);
         $data = $request->validated();
         $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
 
@@ -79,8 +78,7 @@ class ChapterController extends Controller
 
     public function destroy(Chapter $chapter, StoryStatsService $stats)
     {
-        $story = $chapter->story;
-        $this->ensureOwner($story);
+        $story = $this->ownedStoryFor($chapter);
 
         DB::transaction(function () use ($chapter, $story, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
