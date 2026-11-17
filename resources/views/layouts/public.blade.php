@@ -355,6 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationUnreadUrl =
         @json(route('notifications.unread'));
 
+    let notificationRequestPending = false;
+
     let previousUnreadCount =
         parseInt(
             notificationBadge?.textContent || '0',
@@ -530,9 +532,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkNotifications(
         showNewNotification = true
     ) {
-        if (document.hidden) {
+        if (document.hidden || notificationRequestPending) {
             return;
         }
+
+        notificationRequestPending = true;
 
         try {
 
@@ -640,6 +644,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Không thể kiểm tra notification:',
                 error
             );
+        } finally {
+            notificationRequestPending = false;
         }
     }
 
