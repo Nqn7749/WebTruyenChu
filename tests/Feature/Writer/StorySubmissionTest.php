@@ -136,7 +136,7 @@ test('the cleanup command keeps stories that already have a chapter', function (
 });
 
 test('admin must provide a reason before deleting a story', function () {
-    $adminRole = Role::query()->create(['name' => 'Admin', 'slug' => 'admin']);
+    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
     $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
     $story = Story::factory()->create();
 
@@ -148,7 +148,7 @@ test('admin must provide a reason before deleting a story', function () {
 });
 
 test('admin deletion stores the reason and the author can see it', function () {
-    $adminRole = Role::query()->create(['name' => 'Admin', 'slug' => 'admin']);
+    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
     $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
     $author = User::factory()->create(['status' => true]);
     $story = Story::factory()->create(['user_id' => $author->id]);
@@ -172,7 +172,7 @@ test('admin deletion stores the reason and the author can see it', function () {
 });
 
 test('admin story management does not expose create edit or approval routes', function () {
-    $adminRole = Role::query()->create(['name' => 'Admin', 'slug' => 'admin']);
+    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
     $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
 
     $this->actingAs($admin)->get('/admin/stories/create')->assertNotFound();
