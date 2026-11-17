@@ -49,8 +49,7 @@ class ChapterController extends Controller
 
     public function edit(Chapter $chapter)
     {
-        $story = $chapter->story;
-        $this->ensureOwner($story);
+        $story = $this->ownedStoryFor($chapter);
 
         return view('writer.chapters.edit', compact('story', 'chapter'));
     }
@@ -91,6 +90,16 @@ class ChapterController extends Controller
         });
 
         return redirect()->route('writer.stories.chapters.index', $story)->with('success', 'Đã xóa chương.');
+    }
+
+    private function ownedStoryFor(Chapter $chapter): Story
+    {
+        $story = $chapter->story;
+
+        abort_if(! $story, 404);
+        $this->ensureOwner($story);
+
+        return $story;
     }
 
     private function ensureOwner(Story $story): void
