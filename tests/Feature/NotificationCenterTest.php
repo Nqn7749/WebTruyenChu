@@ -1,7 +1,7 @@
 <?php
 
-use App\\Models\\User;
-use Illuminate\\Support\\Str;
+use App\Models\User;
+use Illuminate\Support\Str;
 
 test('unread endpoint returns only the authenticated users unread notifications', function () {
     $user = User::factory()->create();
