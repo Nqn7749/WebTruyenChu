@@ -28,9 +28,9 @@ Route::get('/truyen/{story:slug}/chuong/{chapter:chapter_number}', [ChapterContr
 
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware('auth')->name('dashboard');
 
-Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
+Route::middleware('auth')->prefix('sang-tac')->name('writer.')->group(function () {
     Route::get('/truyen', [WriterStoryController::class, 'index'])->name('stories.index');
     Route::get('/truyen/create', [WriterStoryController::class, 'create'])->name('stories.create');
     Route::post('/truyen', [WriterStoryController::class, 'store'])->middleware('throttle:10,1')->name('stories.store');
