@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Category;
-use App\Models\Story;
-use Illuminate\Http\Request;
+use App\\Models\\Category;
+use App\\Models\\Story;
+use Illuminate\\Http\\Request;
 
 class SearchController extends Controller
 {
@@ -23,8 +23,15 @@ class SearchController extends Controller
             $query->whereHas('categories', fn ($q) => $q->where('slug', $categorySlug));
         }
 
-        $stories = $query->latest()->paginate(15)->withQueryString();
-        $categories = Category::whereNull('parent_id')->get();
+        $stories = $query
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        $categories = Category::whereNull('parent_id')
+            ->orderBy('name')
+            ->get();
 
         return view('search.index', compact('stories', 'keyword', 'categories', 'categorySlug'));
     }
