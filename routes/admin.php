@@ -18,8 +18,9 @@ Route::resource('categories', CategoryController::class)
 Route::resource('tags', TagController::class)
     ->except(['show']);
 
+// Admin chỉ được xem danh sách và xóa truyện; không có thao tác duyệt/sửa truyện.
 Route::resource('stories', StoryController::class)
-    ->except(['show']);
+    ->only(['index', 'destroy']);
 
 Route::resource('stories.chapters', ChapterController::class)
     ->except(['show'])

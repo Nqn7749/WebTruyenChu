@@ -3,11 +3,12 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4>Quản lý truyện</h4>
-    <div class="d-flex gap-2">
-        <a href="{{ route('admin.stories.index', ['review' => 'pending']) }}" class="btn btn-outline-warning">Chờ duyệt</a>
-        <a href="{{ route('admin.stories.index') }}" class="btn btn-outline-secondary">Tất cả</a>
-        <a href="{{ route('admin.stories.create') }}" class="btn btn-primary">+ Thêm truyện</a>
-    </div>
+</div>
+
+<div class="alert alert-warning" role="alert">
+    <strong>Lưu ý:</strong> Admin không duyệt truyện. Khi xóa, bạn phải ghi rõ lý do.
+    Truyện sẽ bị ẩn khỏi website và tác giả có thể xem lý do trong Tủ truyện của tôi.
+    Hãy kiểm tra kỹ trước khi xác nhận.
 </div>
 
 @if (session('success'))
@@ -22,7 +23,6 @@
             <th>Bút danh</th>
             <th>Người đăng</th>
             <th>Tình trạng</th>
-            <th>Duyệt</th>
             <th>Số chương</th>
             <th class="text-end">Thao tác</th>
         </tr>
@@ -32,27 +32,34 @@
             <tr>
                 <td>
                     @if ($story->cover_image)
-                        <img src="{{ Storage::url($story->cover_image) }}" width="50">
+                        <img src="{{ Storage::url($story->cover_image) }}" width="50" alt="Ảnh bìa {{ $story->title }}">
                     @endif
                 </td>
                 <td>{{ $story->title }}</td>
                 <td>{{ $story->author_name ?? '—' }}</td>
                 <td>{{ $story->user?->name ?? '—' }}</td>
                 <td><span class="badge bg-secondary">{{ $story->status }}</span></td>
-                <td><span class="badge {{ $story->status_publish ? 'bg-success' : 'bg-warning text-dark' }}">{{ $story->status_publish ? 'Đã công khai' : 'Chờ duyệt' }}</span></td>
-                <td>{{ $story->chapter_count }}</td>
+                <td>{{ $story->chapters_count }}</td>
                 <td class="text-end">
                     <a href="{{ route('admin.stories.chapters.index', $story) }}" class="btn btn-sm btn-info">Chương</a>
-                    <a href="{{ route('admin.stories.edit', $story) }}" class="btn btn-sm btn-warning">Sửa</a>
-                    <form action="{{ route('admin.stories.destroy', $story) }}" method="POST" class="d-inline"
-                          onsubmit="return confirm('Xóa truyện này?')">
-                        @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-danger">Xóa</button>
+                    <form action="{{ route('admin.stories.destroy', $story) }}" method="POST" class="mt-2 text-start"
+                          onsubmit="return confirm('CẢNH BÁO: Truyện sẽ bị xóa khỏi website. Bạn đã kiểm tra nội dung và nhập đúng lý do chưa?')">
+                        @csrf
+                        @method('DELETE')
+                        <label for="deletion-reason-{{ $story->id }}" class="form-label small mb-1">Lý do xóa (bắt buộc)</label>
+                        <textarea id="deletion-reason-{{ $story->id }}" name="deletion_reason" rows="2"
+                                  minlength="10" maxlength="1000" required
+                                  class="form-control form-control-sm @error('deletion_reason') is-invalid @enderror"
+                                  placeholder="Nhập lý do cụ thể (ít nhất 10 ký tự)">{{ old('deletion_reason') }}</textarea>
+                        @error('deletion_reason')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <button class="btn btn-sm btn-danger mt-2">Xóa truyện</button>
                     </form>
                 </td>
             </tr>
         @empty
-            <tr><td colspan="8" class="text-center">Chưa có truyện nào.</td></tr>
+            <tr><td colspan="7" class="text-center">Chưa có truyện nào.</td></tr>
         @endforelse
     </tbody>
 </table>
