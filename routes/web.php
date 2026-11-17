@@ -5,16 +5,16 @@ use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReadingHistoryController;
 use App\Http\Controllers\SearchController;
-use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\StoryController;
 use App\Http\Controllers\StoryListController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\Writer\StoryController as WriterStoryController;
 use App\Http\Controllers\Writer\ChapterController as WriterChapterController;
+use App\Http\Controllers\Writer\StoryController as WriterStoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -52,22 +52,22 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::post('/truyen/{story:slug}/yeu-thich', [FavoriteController::class, 'toggle'])
-            ->middleware('throttle:20,1')
+        ->middleware('throttle:20,1')
             ->name('favorites.toggle');
     Route::patch('/truyen/{story:slug}/thong-bao', [FavoriteController::class, 'toggleNotify'])
-            ->middleware('throttle:20,1')
+        ->middleware('throttle:20,1')
             ->name('favorites.toggle-notify');
     Route::get('/yeu-thich', [FavoriteController::class, 'index'])->name('favorites.index');
 
     Route::post('/truyen/{story:slug}/danh-gia', [RatingController::class, 'store'])
-            ->middleware('throttle:20,1')
+        ->middleware('throttle:20,1')
             ->name('ratings.store');
 
     Route::post('/truyen/{story:slug}/binh-luan', [CommentController::class, 'store'])
-            ->middleware('throttle:20,1')
+        ->middleware('throttle:20,1')
             ->name('comments.store');
     Route::delete('/binh-luan/{comment}', [CommentController::class, 'destroy'])
-            ->middleware('throttle:20,1')
+        ->middleware('throttle:20,1')
             ->name('comments.destroy');
 
     Route::get('/lich-su-doc', [ReadingHistoryController::class, 'index'])->name('reading-history.index');
