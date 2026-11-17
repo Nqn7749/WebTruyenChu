@@ -20,6 +20,8 @@ class CommentController extends Controller
         StoreCommentRequest $request,
         Story $story
     ): JsonResponse|RedirectResponse {
+        abort_unless($story->status_publish, 404);
+
         $data = $request->validated();
 
         $data['user_id'] = Auth::id();
