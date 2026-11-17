@@ -31,7 +31,7 @@ class StoryStatsService
                         'rating_count' => (int) $rating->total,
                         'average_rating' => round((float) $rating->avg_score, 2),
                         'comment_count' => $story->comments()->where('is_hidden', false)->count(),
-                    ])->save();
+                    ])->saveQuietly();
                 });
         }
     }
@@ -47,7 +47,7 @@ class StoryStatsService
             'last_chapter_at' => $story->chapters()
                 ->where('status', true)
                 ->max('updated_at'),
-        ])->saveQuietly();
+        ])->save();
     }
 
     /**
