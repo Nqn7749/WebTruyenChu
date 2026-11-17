@@ -530,6 +530,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkNotifications(
         showNewNotification = true
     ) {
+        if (document.hidden) {
+            return;
+        }
 
         try {
 
@@ -652,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /*
     |--------------------------------------------------------------------------
-    | Polling mỗi 5 giây
+    | Polling mỗi 30 giây, tạm dừng khi tab ẩn
     |--------------------------------------------------------------------------
     */
 
@@ -661,8 +664,15 @@ document.addEventListener('DOMContentLoaded', () => {
             () => {
                 checkNotifications(true);
             },
-            5000
+            30000
         );
+
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            checkNotifications(false);
+        }
+    });
 
 
     /*
