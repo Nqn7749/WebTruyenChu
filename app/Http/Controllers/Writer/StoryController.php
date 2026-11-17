@@ -17,7 +17,11 @@ class StoryController extends Controller
 {
     public function index()
     {
-        $stories = auth()->user()->stories()->withCount('chapters')->latest('id')->paginate(12);
+        $stories = auth()->user()->stories()
+            ->withTrashed()
+            ->withCount('chapters')
+            ->latest('id')
+            ->paginate(12);
 
         return view('writer.stories.index', compact('stories'));
     }
@@ -38,7 +42,7 @@ class StoryController extends Controller
         unset($data['categories'], $data['tags']);
 
         $data['slug'] = $this->uniqueSlug($data['title']);
-        $data['status_publish'] = false;
+        $data['status_publish'] = true;
         $data['is_hot'] = $data['is_featured'] = $data['is_recommended'] = false;
 
         $cover = $request->file('cover_image')?->store('covers', 'public');
@@ -63,7 +67,7 @@ class StoryController extends Controller
         }
 
         return redirect()->route('writer.stories.index')
-            ->with('success', 'Đã gửi truyện. Truyện đang chờ quản trị viên duyệt.');
+            ->with('success', 'Đã đăng truyện. Truyện được công khai ngay; bạn hãy thêm chương đầu tiên.');
     }
 
     public function edit(Story $story)
@@ -92,8 +96,8 @@ class StoryController extends Controller
             $data['slug'] = $this->uniqueSlug($data['title'], $story->id);
         }
 
-        // Any author edit returns the story to the moderation queue.
-        $data['status_publish'] = false;
+        // Story submissions no longer require admin approval.
+        $data['status_publish'] = true;
 
         $oldCover = $story->cover_image;
         $newCover = $request->file('cover_image')?->store('covers', 'public');
@@ -123,7 +127,7 @@ class StoryController extends Controller
         }
 
         return redirect()->route('writer.stories.index')
-            ->with('success', 'Đã cập nhật truyện. Truyện được chuyển về trạng thái chờ duyệt.');
+            ->with('success', 'Đã cập nhật truyện thành công.');
     }
 
     public function destroy(Story $story)
