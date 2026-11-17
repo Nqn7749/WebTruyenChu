@@ -39,12 +39,21 @@ class ReadingHistoryController extends Controller
             'scroll_percent' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        ReadingHistory::where('user_id', Auth::id())
+        // A delayed request from the previous chapter must not overwrite the
+        // progress of the chapter that is currently active in this history row.
+        $updated = ReadingHistory::where('user_id', Auth::id())
             ->where('story_id', $data['story_id'])
+            ->where('chapter_id', $data['chapter_id'])
             ->update([
-                'chapter_id'     => $data['chapter_id'],
                 'scroll_percent' => $data['scroll_percent'],
             ]);
+
+        if ($updated === 0) {
+            return response()->json([
+                'status' => 'stale',
+                'message' => 'Tiến độ đọc đã thay đổi ở chương khác.',
+            ], 409);
+        }
 
         return response()->json(['status' => 'ok']);
     }
