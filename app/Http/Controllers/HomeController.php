@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Story;
-use Illuminate\Support\Facades\Cache;
+use App\\Models\\Story;
+use Illuminate\\Support\\Facades\\Cache;
 
 class HomeController extends Controller
 {
@@ -11,7 +11,7 @@ class HomeController extends Controller
 
     public function index()
     {
-        $page = request('recent', 1);
+        $page = max(1, (int) request()->query('recent', 1));
 
         $recentlyUpdated = Cache::remember(
             "home:recently_updated:page:{$page}",
@@ -19,31 +19,32 @@ class HomeController extends Controller
             fn () => Story::published()
                 ->with('categories')
                 ->recentlyUpdated()
+                ->orderByDesc('id')
                 ->paginate(20, ['*'], 'recent', $page)
         );
 
         $hotStories = Cache::remember(
             'home:hot',
             now()->addMinutes(self::CACHE_TTL_MINUTES),
-            fn () => Story::published()->with('categories')->hot()->take(20)->get()
+            fn () => Story::published()->with('categories')->hot()->orderByDesc('id')->take(20)->get()
         );
 
         $recommendedStories = Cache::remember(
             'home:recommended',
             now()->addMinutes(self::CACHE_TTL_MINUTES),
-            fn () => Story::published()->with('categories')->recommended()->take(20)->get()
+            fn () => Story::published()->with('categories')->recommended()->orderByDesc('id')->take(20)->get()
         );
 
         $newStories = Cache::remember(
             'home:newest',
             now()->addMinutes(self::CACHE_TTL_MINUTES),
-            fn () => Story::published()->with('categories')->newest()->take(20)->get()
+            fn () => Story::published()->with('categories')->newest()->orderByDesc('id')->take(20)->get()
         );
 
         $completedStories = Cache::remember(
             'home:completed',
             now()->addMinutes(self::CACHE_TTL_MINUTES),
-            fn () => Story::published()->with('categories')->completed()->take(20)->get()
+            fn () => Story::published()->with('categories')->completed()->orderByDesc('id')->take(20)->get()
         );
 
         return view('home', compact(
