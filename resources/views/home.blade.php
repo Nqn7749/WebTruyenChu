@@ -7,7 +7,7 @@
 {{-- HERO SPOTLIGHT --}}
 @if ($hotStories->isNotEmpty())
     @php $featured = $hotStories->first(); @endphp
-    <div class="hero-spotlight mb-5">
+    <section class="hero-spotlight mb-5" aria-label="Truyện nổi bật">
         <div class="row g-0 align-items-stretch">
             <div class="col-md-5">
                 <div class="hero-cover-wrap">
@@ -16,7 +16,7 @@
                          onerror="this.onerror=null;this.src='{{ asset('images/no-cover.jpg') }}';">
                 </div>
             </div>
-            <div class="col-md-7 p-4 p-lg-5 d-flex flex-column justify-content-center position-relative">
+            <div class="col-md-7 p-4 p-lg-5 d-flex flex-column justify-content-center position-relative hero-copy">
                 <span class="eyebrow">🔥 Đang hot nhất tuần</span>
                 <h1>{{ $featured->title }}</h1>
                 <p class="mb-4" style="max-width: 55ch;">
@@ -31,6 +31,7 @@
             </div>
         </div>
     </div>
+    </section>
 @endif
 
 {{-- HOT: kéo ngang --}}
@@ -38,7 +39,7 @@
     <span class="eyebrow">Bảng xếp hạng</span>
     <h2>Truyện hot</h2>
 </div>
-<div class="story-scroller mb-5">
+<div class="story-scroller mb-5" aria-label="Danh sách truyện" tabindex="0">
     @foreach ($hotStories as $story)
         <x-story-card :story="$story" />
     @endforeach
