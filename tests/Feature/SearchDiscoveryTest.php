@@ -47,3 +47,20 @@ test('search never exposes unpublished stories and supports status and view sort
 
     expect($popular->fresh()->status_publish)->toBeTrue();
 });
+
+
+test('story detail recommends other published stories from matching categories', function () {
+    $category = Category::factory()->create();
+    $story = Story::factory()->create(['status_publish' => true]);
+    $related = Story::factory()->create(['title' => 'Truyện cùng thể loại', 'status_publish' => true]);
+    $unpublished = Story::factory()->create(['title' => 'Truyện chưa xuất bản', 'status_publish' => false]);
+
+    $story->categories()->attach($category);
+    $related->categories()->attach($category);
+    $unpublished->categories()->attach($category);
+
+    $this->get(route('stories.show', $story))
+        ->assertOk()
+        ->assertSee('Truyện cùng thể loại')
+        ->assertDontSee('Truyện chưa xuất bản');
+});
