@@ -41,10 +41,16 @@
         })();
     </script>
     <link href="{{ asset('css/theme.css') }}" rel="stylesheet">
+    @unless (request()->routeIs('login', 'register'))
+        <link href="{{ asset('css/experience-refresh.css') }}" rel="stylesheet">
+    @endunless
 
     @stack('styles')
 </head>
 <body class="app-page">
+@if (!request()->routeIs('login', 'register'))
+    <script>document.body.classList.add('app-redesign');</script>
+@endif
 
 <a class="skip-link" href="#main-content">Bỏ qua điều hướng</a>
 

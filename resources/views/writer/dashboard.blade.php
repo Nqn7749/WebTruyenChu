@@ -1,17 +1,23 @@
 @extends('layouts.public')
 @section('title', 'Tổng quan tác giả')
 @section('content')
-<div class="mb-4">
-    <h1 class="h3 mb-1">Tổng quan tác giả</h1>
-    <p class="text-muted mb-0">Theo dõi hiệu quả các truyện bạn đã đăng.</p>
+<div class="writer-page-heading">
+    <div>
+        <span class="eyebrow text-uppercase small fw-bold">Không gian sáng tác</span>
+        <h1 class="mb-1">Tổng quan tác giả</h1>
+        <p class="text-muted mb-0">Theo dõi hiệu quả và hoạt động của những câu chuyện bạn đã đăng.</p>
+    </div>
+    <a href="{{ route('writer.stories.index') }}" class="btn btn-jade">
+        <i class="bi bi-journal-plus me-1" aria-hidden="true"></i> Quản lý truyện
+    </a>
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="text-muted small">Truyện</div><div class="fs-3 fw-bold">{{ number_format($totals['stories']) }}</div></div></div></div>
-    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="text-muted small">Lượt xem</div><div class="fs-3 fw-bold">{{ number_format($totals['views']) }}</div></div></div></div>
-    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="text-muted small">Chương</div><div class="fs-3 fw-bold">{{ number_format($totals['chapters']) }}</div></div></div></div>
-    <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="text-muted small">Bình luận hiển thị</div><div class="fs-3 fw-bold">{{ number_format($totals['comments']) }}</div></div></div></div>
-    <div class="col-12 col-lg"><div class="card h-100"><div class="card-body"><div class="text-muted small">Lịch sử đọc 30 ngày</div><div class="fs-3 fw-bold">{{ number_format($totals['readers_30_days']) }}</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100 writer-stat-card"><div class="card-body position-relative"><div class="text-muted small">Truyện</div><div class="stat-value">{{ number_format($totals['stories']) }}</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100 writer-stat-card"><div class="card-body position-relative"><div class="text-muted small">Lượt xem</div><div class="stat-value">{{ number_format($totals['views']) }}</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100 writer-stat-card"><div class="card-body position-relative"><div class="text-muted small">Chương</div><div class="stat-value">{{ number_format($totals['chapters']) }}</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card h-100 writer-stat-card"><div class="card-body position-relative"><div class="text-muted small">Bình luận hiển thị</div><div class="stat-value">{{ number_format($totals['comments']) }}</div></div></div></div>
+    <div class="col-12 col-lg"><div class="card h-100 writer-stat-card"><div class="card-body position-relative"><div class="text-muted small">Lịch sử đọc 30 ngày</div><div class="stat-value">{{ number_format($totals['readers_30_days']) }}</div></div></div></div>
 </div>
 
 @php($maxReads = max(1, $dailyActivity->max('reads')))
