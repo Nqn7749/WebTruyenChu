@@ -16,7 +16,7 @@ class CommunityModerationTest extends TestCase
 
     public function test_member_can_report_a_story_and_duplicate_pending_report_is_not_created(): void
     {
-        $memberRole = Role::factory()->create(['slug' => 'member']);
+        $memberRole = Role::factory()->create(['name' => 'Thành viên', 'slug' => 'member']);
         $author = User::factory()->create(['role_id' => $memberRole->id]);
         $reporter = User::factory()->create(['role_id' => $memberRole->id]);
         $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
@@ -36,7 +36,7 @@ class CommunityModerationTest extends TestCase
 
     public function test_member_cannot_report_own_story(): void
     {
-        $role = Role::factory()->create(['slug' => 'member']);
+        $role = Role::factory()->create(['name' => 'Thành viên', 'slug' => 'member']);
         $author = User::factory()->create(['role_id' => $role->id]);
         $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
 
@@ -49,8 +49,8 @@ class CommunityModerationTest extends TestCase
 
     public function test_admin_can_hide_reported_comment_and_action_is_logged(): void
     {
-        $memberRole = Role::factory()->create(['slug' => 'member']);
-        $adminRole = Role::factory()->create(['slug' => 'admin']);
+        $memberRole = Role::factory()->create(['name' => 'Thành viên', 'slug' => 'member']);
+        $adminRole = Role::factory()->create(['name' => 'Quản trị viên', 'slug' => 'admin']);
         $author = User::factory()->create(['role_id' => $memberRole->id]);
         $reporter = User::factory()->create(['role_id' => $memberRole->id]);
         $admin = User::factory()->create(['role_id' => $adminRole->id]);
@@ -81,7 +81,7 @@ class CommunityModerationTest extends TestCase
 
     public function test_non_admin_cannot_access_moderation_queue(): void
     {
-        $role = Role::factory()->create(['slug' => 'member']);
+        $role = Role::factory()->create(['name' => 'Thành viên', 'slug' => 'member']);
         $member = User::factory()->create(['role_id' => $role->id]);
 
         $this->actingAs($member)->get(route('admin.reports.index'))->assertForbidden();
