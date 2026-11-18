@@ -1,10 +1,10 @@
 <?php
 
-namespace App\\Http\\Controllers;
+namespace App\Http\Controllers;
 
-use App\\Models\\Comment;
-use App\\Models\\Story;
-use Illuminate\\Support\\Facades\\Auth;
+use App\Models\Comment;
+use App\Models\Story;
+use Illuminate\Support\Facades\Auth;
 
 class StoryController extends Controller
 {
