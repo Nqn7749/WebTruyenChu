@@ -36,6 +36,12 @@
              id="readerWrap"
              data-reader-theme="light">
 
+        <div class="reader-meta">
+            <a href="{{ route('stories.show', $story) }}">{{ $story->title }}</a>
+            <span aria-hidden="true">·</span>
+            <span>Đang đọc chương {{ $chapter->chapter_number }}</span>
+        </div>
+
         <span class="reader-chapter-badge">
             Chương {{ $chapter->chapter_number }}
         </span>
