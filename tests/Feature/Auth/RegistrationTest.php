@@ -1,11 +1,14 @@
 <?php
 
-use App\Models\User;
+use App\\Models\\User;
 
-test('registration screen can be rendered', function () {
+test('registration screen can be rendered with the redesigned form', function () {
     $response = $this->get('/register');
 
-    $response->assertStatus(200);
+    $response->assertOk()
+        ->assertSee('Gia nhập cộng đồng')
+        ->assertSee('Tên đăng nhập')
+        ->assertSee('auth.css');
 });
 
 test('new users can register without email verification', function () {
