@@ -62,10 +62,6 @@
                 aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
             <i class="bi bi-moon-stars" aria-hidden="true"></i>
         </button>
-        <button type="button" id="themeToggle" class="theme-toggle ms-auto me-2 d-lg-none"
-                aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
-            <i class="bi bi-moon-stars" aria-hidden="true"></i>
-        </button>
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav me-auto">
                 <li class="nav-item dropdown">
