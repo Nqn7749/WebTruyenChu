@@ -109,66 +109,40 @@
 
         {{-- Bình luận truyện --}}
         <section id="commentsSection">
-
-            <h5>
-                Bình luận ({{ $story->comment_count }})
-            </h5>
-
+            <h5>Bình luận ({{ $story->comment_count }})</h5>
             @auth
-
-                <form
-                    id="commentForm"
-                    action="{{ route('comments.store', $story) }}"
-                    method="POST"
-                    class="mb-3"
-                >
+                <form id="commentForm" action="{{ route('comments.store', $story) }}" method="POST" class="mb-3">
                     @csrf
-
-                    <textarea
-                        id="commentContent"
-                        name="content"
-                        class="form-control mb-2"
-                        rows="3"
-                        placeholder="Viết bình luận..."
-                        required
-                        maxlength="2000"
-                    ></textarea>
-
-                    <button
-                        type="submit"
-                        id="commentSubmit"
-                        class="btn btn-sm btn-primary"
-                    >
-                        Gửi bình luận
-                    </button>
-
+                    <textarea id="commentContent" name="content" class="form-control mb-2" rows="3"
+                              placeholder="Viết bình luận..." required maxlength="2000"></textarea>
+                    <button type="submit" id="commentSubmit" class="btn btn-sm btn-primary">Gửi bình luận</button>
                 </form>
-
             @else
-
-                <p>
-                    <a href="{{ route('login') }}">
-                        Đăng nhập
-                    </a>
-                    để bình luận.
-                </p>
-
+                <p><a href="{{ route('login') }}">Đăng nhập</a> để bình luận.</p>
             @endauth
 
+            @include('components.comments', ['comments' => $comments])
 
-            @include('components.comments', [
-                'comments' => $comments,
-            ])
-
-
-            {{-- Pagination --}}
             @if ($comments->hasPages())
                 <div class="mt-4">
                     {{ $comments->fragment('commentsSection')->links() }}
                 </div>
             @endif
-
         </section>
     </div>
 </div>
+
+@if ($relatedStories->isNotEmpty())
+    <section class="mt-5" aria-labelledby="related-stories-heading">
+        <div class="section-heading">
+            <span class="eyebrow">Có thể bạn sẽ thích</span>
+            <h2 id="related-stories-heading">Truyện cùng thể loại</h2>
+        </div>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+            @foreach ($relatedStories as $relatedStory)
+                <div class="col"><x-story-card :story="$relatedStory" /></div>
+            @endforeach
+        </div>
+    </section>
+@endif
 @endsection
