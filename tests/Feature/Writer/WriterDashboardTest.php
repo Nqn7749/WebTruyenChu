@@ -36,6 +36,7 @@ test('a writer can preview their own unpublished chapter without publishing it',
     $chapter = Chapter::factory()->create([
         'story_id' => $story->id,
         'status' => false,
+        'views' => 0,
         'content' => 'Nội dung bản nháp cần xem trước',
     ]);
 
