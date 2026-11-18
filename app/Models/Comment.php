@@ -22,7 +22,9 @@ class Comment extends Model
 
     protected function casts(): array
     {
-        return ['is_hidden' => 'boolean'];
+        return [
+            'is_hidden' => 'boolean',
+        ];
     }
 
     public function user()
