@@ -1,19 +1,20 @@
 <?php
 
-use App\\Http\\Controllers\\Auth\\AuthenticatedSessionController;
-use App\\Http\\Controllers\\Auth\\ConfirmablePasswordController;
-use App\\Http\\Controllers\\Auth\\NewPasswordController;
-use App\\Http\\Controllers\\Auth\\PasswordController;
-use App\\Http\\Controllers\\Auth\\PasswordResetLinkController;
-use App\\Http\\Controllers\\Auth\\RegisteredUserController;
-use Illuminate\\Support\\Facades\\Route;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
     Route::post('register', [RegisteredUserController::class, 'store'])
-        ->middleware('throttle:5,1');
+        ->middleware('throttle:5,1')
+        ->name('register.store');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
@@ -40,7 +41,8 @@ Route::middleware('auth')->group(function () {
         ->name('password.confirm');
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
-        ->middleware('throttle:6,1');
+        ->middleware('throttle:6,1')
+        ->name('password.confirm.store');
 
     Route::put('password', [PasswordController::class, 'update'])
         ->middleware('throttle:6,1')
