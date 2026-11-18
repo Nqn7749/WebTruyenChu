@@ -29,7 +29,8 @@
                         <option value="inappropriate">Nội dung không phù hợp</option>
                         <option value="other">Lý do khác</option>
                     </select>
-                    <textarea name="details" class="form-control form-control-sm mb-2" rows="2" maxlength="1000"
+                    <label for="story-report-details" class="visually-hidden">Mô tả báo cáo</label>
+                    <textarea id="story-report-details" name="details" class="form-control form-control-sm mb-2" rows="2" maxlength="1000"
                               placeholder="Mô tả thêm (không bắt buộc)"></textarea>
                     <button class="btn btn-sm btn-outline-secondary w-100">Gửi báo cáo</button>
                 </form>
@@ -106,6 +107,7 @@
             @auth
                 <form id="commentForm" action="{{ route('comments.store', $story) }}" method="POST" class="mb-3">
                     @csrf
+                    <label for="commentContent" class="visually-hidden">Nội dung bình luận</label>
                     <textarea id="commentContent" name="content" class="form-control mb-2" rows="3"
                               placeholder="Viết bình luận..." required maxlength="2000"></textarea>
                     <button type="submit" id="commentSubmit" class="btn btn-sm btn-primary">Gửi bình luận</button>
