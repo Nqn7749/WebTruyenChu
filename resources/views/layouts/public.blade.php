@@ -58,7 +58,7 @@
                 aria-controls="mainNav" aria-expanded="false" aria-label="Mở hoặc đóng menu">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <button type="button" id="themeToggle" class="theme-toggle ms-auto me-2 d-lg-none"
+        <button type="button" id="themeToggle" class="theme-toggle ms-2 me-lg-3"
                 aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
             <i class="bi bi-moon-stars" aria-hidden="true"></i>
         </button>
