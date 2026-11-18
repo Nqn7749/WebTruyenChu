@@ -10,7 +10,7 @@
     <h2>Tìm kiếm truyện</h2>
 </div>
 
-<form action="{{ route('search') }}" method="GET" class="border rounded-3 p-3 mb-4" style="background: var(--paper-raised); border-color: var(--sand-border) !important;">
+<form action="{{ route('search') }}" method="GET" id="search-filters" class="search-filter-panel p-3 mb-4">
     <div class="row g-2">
         <div class="col-lg-6">
             <label for="search-keyword" class="form-label fw-semibold">Tên truyện, tác giả, mô tả hoặc từ khóa</label>
@@ -60,7 +60,7 @@
     </div>
 </form>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3" aria-live="polite" aria-atomic="true">
     <p class="text-muted small mb-0">Tìm thấy {{ number_format($stories->total()) }} truyện phù hợp.</p>
 </div>
 
