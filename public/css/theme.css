@@ -890,3 +890,29 @@ body.reader-focus-mode .reader-wrap {
         transition-duration: .01ms !important;
     }
 }
+
+
+[data-theme="dark"] .text-dark {
+    color: var(--ink-900) !important;
+}
+
+.app-navbar .navbar-toggler {
+    border-color: rgba(255,255,255,.35);
+}
+
+.app-navbar .navbar-toggler-icon {
+    filter: invert(1);
+}
+
+@media (min-width: 992px) {
+    .app-navbar .theme-toggle {
+        margin-left: .75rem;
+        margin-right: .75rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .app-navbar .navbar-collapse .navbar-search {
+        margin-top: .75rem;
+    }
+}
