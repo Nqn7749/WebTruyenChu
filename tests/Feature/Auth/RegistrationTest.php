@@ -1,6 +1,6 @@
 <?php
 
-use App\\Models\\User;
+use App\Models\User;
 
 test('registration screen can be rendered with the redesigned form', function () {
     $response = $this->get('/register');
