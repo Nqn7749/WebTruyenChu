@@ -22,9 +22,7 @@ class Comment extends Model
 
     protected function casts(): array
     {
-        return [
-            'is_hidden' => 'boolean',
-        ];
+        return ['is_hidden' => 'boolean'];
     }
 
     public function user()
@@ -50,5 +48,10 @@ class Comment extends Model
     public function replies()
     {
         return $this->hasMany(Comment::class, 'parent_id');
+    }
+
+    public function reports()
+    {
+        return $this->morphMany(Report::class, 'reportable');
     }
 }

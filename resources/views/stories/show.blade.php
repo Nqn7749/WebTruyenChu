@@ -1,13 +1,11 @@
 @extends('layouts.public')
 
 @section('title', $story->meta_title ?? $story->title)
-
 @section('meta_description', Str::limit(strip_tags($story->meta_description ?? $story->description ?? ''), 160))
 @section('og_type', 'book')
 @section('og_image', $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'))
 
 @section('content')
-
 <div class="row">
     <div class="col-md-3">
         <img src="{{ $story->cover_image ? Storage::url($story->cover_image) : asset('images/no-cover.jpg') }}"
@@ -20,29 +18,38 @@
                     {{ $isFavorited ? '★ Bỏ yêu thích' : '☆ Yêu thích' }}
                 </button>
             </form>
+            @if (auth()->id() !== $story->user_id)
+                <form action="{{ route('reports.stories.store', $story) }}" method="POST" class="mb-3">
+                    @csrf
+                    <label for="story-report-reason" class="form-label small">Báo cáo nội dung</label>
+                    <select id="story-report-reason" name="reason" class="form-select form-select-sm mb-2">
+                        <option value="spam">Spam / quảng cáo</option>
+                        <option value="abuse">Quấy rối / xúc phạm</option>
+                        <option value="copyright">Vi phạm bản quyền</option>
+                        <option value="inappropriate">Nội dung không phù hợp</option>
+                        <option value="other">Lý do khác</option>
+                    </select>
+                    <textarea name="details" class="form-control form-control-sm mb-2" rows="2" maxlength="1000"
+                              placeholder="Mô tả thêm (không bắt buộc)"></textarea>
+                    <button class="btn btn-sm btn-outline-secondary w-100">Gửi báo cáo</button>
+                </form>
+            @endif
         @else
             <a href="{{ route('login') }}" class="btn btn-outline-danger d-grid mb-2">☆ Yêu thích</a>
         @endauth
 
         <ul class="list-group small">
+            <li class="list-group-item d-flex justify-content-between"><span>Lượt xem</span><strong>{{ number_format($story->views) }}</strong></li>
+            <li class="list-group-item d-flex justify-content-between"><span>Yêu thích</span><strong>{{ number_format($story->favorite_count) }}</strong></li>
             <li class="list-group-item d-flex justify-content-between">
-                <span>Lượt xem</span><strong>{{ number_format($story->views) }}</strong>
-            </li>
-            <li class="list-group-item d-flex justify-content-between">
-                <span>Yêu thích</span><strong>{{ number_format($story->favorite_count) }}</strong>
-            </li>
-            <li class="list-group-item d-flex justify-content-between">
-                <span>Đánh giá</span>
-                <strong>{{ number_format($story->average_rating, 1) }}/5 ({{ $story->rating_count }})</strong>
+                <span>Đánh giá</span><strong>{{ number_format($story->average_rating, 1) }}/5 ({{ $story->rating_count }})</strong>
             </li>
         </ul>
     </div>
 
     <div class="col-md-9">
         <h3>{{ $story->title }}</h3>
-        <p class="text-muted mb-2">
-            Tác giả: <strong>{{ $story->author_name ?? 'Đang cập nhật' }}</strong>
-        </p>
+        <p class="text-muted mb-2">Tác giả: <strong>{{ $story->author_name ?? 'Đang cập nhật' }}</strong></p>
 
         <div class="mb-3">
             @foreach ($story->categories as $cat)
@@ -57,12 +64,8 @@
 
         @if ($firstChapter)
             <div class="d-flex gap-2 mb-3">
-                <a href="{{ route('chapters.show', [$story, $firstChapter]) }}" class="btn btn-primary btn-sm">
-                    Đọc từ đầu
-                </a>
-                <a href="{{ route('chapters.show', [$story, $latestChapter]) }}" class="btn btn-outline-primary btn-sm">
-                    Chương mới nhất
-                </a>
+                <a href="{{ route('chapters.show', [$story, $firstChapter]) }}" class="btn btn-primary btn-sm">Đọc từ đầu</a>
+                <a href="{{ route('chapters.show', [$story, $latestChapter]) }}" class="btn btn-outline-primary btn-sm">Chương mới nhất</a>
             </div>
         @endif
 
@@ -70,25 +73,16 @@
         <div class="list-group mb-3" style="max-height: 400px; overflow-y: auto;">
             @forelse ($chapters as $chapter)
                 <a href="{{ route('chapters.show', [$story, $chapter]) }}"
-                class="list-group-item list-group-item-action chapter-list-item d-flex justify-content-between">
-                    <span>
-                        Chương {{ $chapter->chapter_number }}{{ $chapter->title ? ' - '.$chapter->title : '' }}
-                    </span>
-
-                    <small class="text-muted">
-                        {{ number_format($chapter->views) }} lượt xem
-                    </small>
+                   class="list-group-item list-group-item-action chapter-list-item d-flex justify-content-between">
+                    <span>Chương {{ $chapter->chapter_number }}{{ $chapter->title ? ' - '.$chapter->title : '' }}</span>
+                    <small class="text-muted">{{ number_format($chapter->views) }} lượt xem</small>
                 </a>
             @empty
                 <p class="text-muted p-3">Chưa có chương nào.</p>
             @endforelse
         </div>
+        <div class="d-flex justify-content-center mb-4">{{ $chapters->fragment('chapterList')->links() }}</div>
 
-        <div class="d-flex justify-content-center mb-4">
-                {{ $chapters->fragment('chapterList')->links() }}
-        </div>
-
-        {{-- Đánh giá --}}
         <h5>Đánh giá truyện</h5>
         @auth
             <form action="{{ route('ratings.store', $story) }}" method="POST" class="mb-4">
@@ -107,7 +101,6 @@
             <p><a href="{{ route('login') }}">Đăng nhập</a> để đánh giá truyện.</p>
         @endauth
 
-        {{-- Bình luận truyện --}}
         <section id="commentsSection">
             <h5>Bình luận ({{ $story->comment_count }})</h5>
             @auth
@@ -120,13 +113,9 @@
             @else
                 <p><a href="{{ route('login') }}">Đăng nhập</a> để bình luận.</p>
             @endauth
-
             @include('components.comments', ['comments' => $comments])
-
             @if ($comments->hasPages())
-                <div class="mt-4">
-                    {{ $comments->fragment('commentsSection')->links() }}
-                </div>
+                <div class="mt-4">{{ $comments->fragment('commentsSection')->links() }}</div>
             @endif
         </section>
     </div>
