@@ -28,14 +28,25 @@ class CommentController extends Controller
 
         DB::transaction(function () use ($comment) {
             $lockedComment = Comment::query()->lockForUpdate()->findOrFail($comment->id);
-            $lockedComment->is_hidden = ! $lockedComment->is_hidden;
-            $lockedComment->save();
+            $wasHidden = (bool) $lockedComment->is_hidden;
+            $isHidden = ! $wasHidden;
 
-            $delta = $lockedComment->is_hidden ? -1 : 1;
-            $lockedComment->story?->increment('comment_count', $delta);
+            DB::table('comments')
+                ->where('id', $lockedComment->id)
+                ->update(['is_hidden' => $isHidden]);
 
-            if ($lockedComment->chapter_id) {
-                $lockedComment->chapter?->increment('comment_count', $delta);
+            $delta = $isHidden ? -1 : 1;
+
+            if ($lockedComment->story) {
+                DB::table('stories')
+                    ->where('id', $lockedComment->story_id)
+                    ->decrement('comment_count', abs($delta));
+            }
+
+            if ($lockedComment->chapter_id && $lockedComment->chapter) {
+                DB::table('chapters')
+                    ->where('id', $lockedComment->chapter_id)
+                    ->decrement('comment_count', abs($delta));
             }
         });
 
