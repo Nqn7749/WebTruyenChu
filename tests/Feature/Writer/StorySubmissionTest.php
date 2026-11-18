@@ -57,7 +57,7 @@ test('editing a story does not send it back to an approval queue', function () {
         ->and($story->fresh()->is_featured)->toBeFalse();
 });
 
-test('a member can add a chapter only as a draft', function () {
+test('a member can publish a chapter immediately', function () {
     $user = User::factory()->create(['status' => true]);
     $story = Story::factory()->create(['user_id' => $user->id, 'status_publish' => true]);
 
@@ -69,7 +69,7 @@ test('a member can add a chapter only as a draft', function () {
     ])->assertRedirect(route('writer.stories.chapters.index', $story));
 
     $chapter = Chapter::query()->where('story_id', $story->id)->firstOrFail();
-    expect($chapter->status)->toBeFalse();
+    expect($chapter->status)->toBeTrue();
 });
 
 test('a member cannot edit a chapter owned by another member', function () {
