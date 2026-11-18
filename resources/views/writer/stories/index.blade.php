@@ -1,12 +1,16 @@
 @extends('layouts.public')
 @section('title', 'Truyện của tôi')
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
         <h1 class="h3 mb-1">Truyện của tôi</h1>
         <p class="text-muted mb-0">Truyện được công khai ngay sau khi đăng. Hãy thêm chương đầu tiên trong thời hạn quy định.</p>
     </div>
-    <a href="{{ route('writer.stories.create') }}" class="btn btn-primary">+ Đăng truyện</a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('writer.dashboard') }}" class="btn btn-outline-primary">Tổng quan</a>
+        <a href="{{ route('writer.comments.index') }}" class="btn btn-outline-secondary">Bình luận</a>
+        <a href="{{ route('writer.stories.create') }}" class="btn btn-primary">+ Đăng truyện</a>
+    </div>
 </div>
 
 @if (session('success'))
