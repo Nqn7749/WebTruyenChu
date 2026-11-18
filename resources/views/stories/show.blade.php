@@ -6,10 +6,10 @@
 @section('og_image', $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'))
 
 @section('content')
-<div class="row">
-    <div class="col-md-3">
+<div class="row g-4 story-detail-layout">
+    <aside class="col-12 col-md-4 col-lg-3 story-detail-sidebar" aria-label="Thông tin truyện">
         <img src="{{ $story->cover_image ? Storage::url($story->cover_image) : asset('images/no-cover.jpg') }}"
-             class="story-cover w-100 mb-3" alt="{{ $story->title }}">
+             class="story-cover story-detail-cover mb-3" loading="lazy" alt="{{ $story->title }}">
 
         @auth
             <form action="{{ route('favorites.toggle', $story) }}" method="POST" class="d-grid mb-2">
@@ -47,8 +47,10 @@
         </ul>
     </div>
 
-    <div class="col-md-9">
-        <h3>{{ $story->title }}</h3>
+    </aside>
+
+    <section class="col-12 col-md-8 col-lg-9 story-detail-main" aria-labelledby="story-title">
+        <h1 id="story-title" class="h2">{{ $story->title }}</h1>
         <p class="text-muted mb-2">Tác giả: <strong>{{ $story->author_name ?? 'Đang cập nhật' }}</strong></p>
 
         <div class="mb-3">
@@ -60,17 +62,17 @@
             @endforeach
         </div>
 
-        <p style="white-space: pre-line;">{{ $story->description }}</p>
+        <div class="story-detail-description mb-4" style="white-space: pre-line;">{{ $story->description }}</div>
 
         @if ($firstChapter)
-            <div class="d-flex gap-2 mb-3">
+            <div class="d-flex flex-wrap gap-2 mb-3 story-detail-actions">
                 <a href="{{ route('chapters.show', [$story, $firstChapter]) }}" class="btn btn-primary btn-sm">Đọc từ đầu</a>
                 <a href="{{ route('chapters.show', [$story, $latestChapter]) }}" class="btn btn-outline-primary btn-sm">Chương mới nhất</a>
             </div>
         @endif
 
         <h5 id="chapterList">Danh sách chương ({{ number_format($chapters->total()) }})</h5>
-        <div class="list-group mb-3" style="max-height: 400px; overflow-y: auto;">
+        <div class="list-group mb-3 chapter-list" aria-label="Danh sách chương">
             @forelse ($chapters as $chapter)
                 <a href="{{ route('chapters.show', [$story, $chapter]) }}"
                    class="list-group-item list-group-item-action chapter-list-item d-flex justify-content-between">
@@ -118,7 +120,7 @@
                 <div class="mt-4">{{ $comments->fragment('commentsSection')->links() }}</div>
             @endif
         </section>
-    </div>
+    </section>
 </div>
 
 @if ($relatedStories->isNotEmpty())
