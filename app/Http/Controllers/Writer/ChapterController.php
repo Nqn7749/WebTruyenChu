@@ -1,17 +1,17 @@
 <?php
 
-namespace App\\Http\\Controllers\\Writer;
+namespace App\Http\Controllers\Writer;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Http\\Requests\\Admin\\StoreChapterRequest;
-use App\\Http\\Requests\\Admin\\UpdateChapterRequest;
-use App\\Models\\Chapter;
-use App\\Models\\Story;
-use App\\Models\\User;
-use App\\Notifications\\NewChapterPublished;
-use App\\Services\\StoryStatsService;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Str;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreChapterRequest;
+use App\Http\Requests\Admin\UpdateChapterRequest;
+use App\Models\Chapter;
+use App\Models\Story;
+use App\Models\User;
+use App\Notifications\NewChapterPublished;
+use App\Services\StoryStatsService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ChapterController extends Controller
 {
