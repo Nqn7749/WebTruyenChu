@@ -48,7 +48,6 @@ test('search never exposes unpublished stories and supports status and view sort
     expect($popular->fresh()->status_publish)->toBeTrue();
 });
 
-
 test('story detail recommends other published stories from matching categories', function () {
     $category = Category::factory()->create();
     $story = Story::factory()->create(['status_publish' => true]);
