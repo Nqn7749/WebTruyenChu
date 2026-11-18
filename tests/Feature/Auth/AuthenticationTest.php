@@ -6,7 +6,7 @@ test('login screen can be rendered with the redesigned form', function () {
     $response = $this->get('/login');
 
     $response->assertOk()
-        ->assertSee('Chào mừng trở lại')
+        ->assertSee('Đăng nhập')
         ->assertSee('Email hoặc tên đăng nhập')
         ->assertSee('auth.css');
 });
