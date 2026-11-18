@@ -38,15 +38,19 @@ class CommentController extends Controller
             $delta = $isHidden ? -1 : 1;
 
             if ($lockedComment->story) {
-                DB::table('stories')
-                    ->where('id', $lockedComment->story_id)
-                    ->decrement('comment_count', abs($delta));
+                $storyQuery = DB::table('stories')->where('id', $lockedComment->story_id);
+
+                $delta < 0
+                    ? $storyQuery->decrement('comment_count')
+                    : $storyQuery->increment('comment_count');
             }
 
             if ($lockedComment->chapter_id && $lockedComment->chapter) {
-                DB::table('chapters')
-                    ->where('id', $lockedComment->chapter_id)
-                    ->decrement('comment_count', abs($delta));
+                $chapterQuery = DB::table('chapters')->where('id', $lockedComment->chapter_id);
+
+                $delta < 0
+                    ? $chapterQuery->decrement('comment_count')
+                    : $chapterQuery->increment('comment_count');
             }
         });
 
