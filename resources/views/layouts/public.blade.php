@@ -44,7 +44,7 @@
 
     @stack('styles')
 </head>
-<body>
+<body class="app-page">
 
 <a class="skip-link" href="#main-content">Bỏ qua điều hướng</a>
 
@@ -174,7 +174,7 @@
     </div>
 </nav>
 
-<main id="main-content" class="container py-4" tabindex="-1">
+<main id="main-content" class="container py-4 app-main" tabindex="-1">
     @if (session('success'))
         <div class="alert alert-success alert-dismissible fade show"
              style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
