@@ -58,6 +58,14 @@
                 aria-controls="mainNav" aria-expanded="false" aria-label="Mở hoặc đóng menu">
             <span class="navbar-toggler-icon"></span>
         </button>
+        <button type="button" id="themeToggle" class="theme-toggle ms-auto me-2 d-lg-none"
+                aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
+            <i class="bi bi-moon-stars" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="themeToggle" class="theme-toggle ms-auto me-2 d-lg-none"
+                aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
+            <i class="bi bi-moon-stars" aria-hidden="true"></i>
+        </button>
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav me-auto">
                 <li class="nav-item dropdown">
@@ -83,11 +91,6 @@
                     <i class="bi bi-search" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Tìm kiếm</span>
                 </button>
             </form>
-
-            <button type="button" id="themeToggle" class="theme-toggle mb-2 mb-lg-0 me-lg-3"
-                    aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
-                <i class="bi bi-moon-stars" aria-hidden="true"></i>
-            </button>
 
             <ul class="navbar-nav align-items-lg-center">
                 @guest
