@@ -4,6 +4,17 @@
 
 @section('content')
 
+<section class="home-intro" aria-label="Giới thiệu">
+    <div>
+        <span class="eyebrow">Không gian đọc của bạn</span>
+        <h2>Chọn một câu chuyện, bắt đầu hành trình mới.</h2>
+        <p>Khám phá truyện nổi bật, theo dõi chương mới và lưu lại những câu chuyện bạn yêu thích.</p>
+    </div>
+    <a href="{{ route('search') }}" class="btn btn-outline-jade">
+        <i class="bi bi-compass me-1" aria-hidden="true"></i> Khám phá kho truyện
+    </a>
+</section>
+
 {{-- HERO SPOTLIGHT --}}
 @if ($hotStories->isNotEmpty())
     @php $featured = $hotStories->first(); @endphp
