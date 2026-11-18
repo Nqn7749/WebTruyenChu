@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Chapter;
 use App\Models\ReadingHistory;
 use App\Models\Role;
 use App\Models\Story;
@@ -23,6 +24,11 @@ test('admin dashboard shows system analytics and excludes unpublished stories fr
         'status_publish' => true,
         'views' => 250,
     ]);
+    $chapter = Chapter::factory()->create([
+        'story_id' => $publishedStory->id,
+        'chapter_number' => 1,
+        'views' => 0,
+    ]);
     Story::factory()->create([
         'user_id' => $author->id,
         'title' => 'Truyện chưa công khai',
@@ -33,7 +39,7 @@ test('admin dashboard shows system analytics and excludes unpublished stories fr
     ReadingHistory::query()->create([
         'user_id' => $reader->id,
         'story_id' => $publishedStory->id,
-        'chapter_id' => null,
+        'chapter_id' => $chapter->id,
         'read_at' => now()->subDays(2),
         'scroll_percent' => 50,
     ]);
@@ -63,18 +69,28 @@ test('writer analytics only count reading histories from stories owned by that w
         'title' => 'Truyện người khác',
         'status_publish' => true,
     ]);
+    $ownChapter = Chapter::factory()->create([
+        'story_id' => $ownStory->id,
+        'chapter_number' => 1,
+        'views' => 0,
+    ]);
+    $otherChapter = Chapter::factory()->create([
+        'story_id' => $otherStory->id,
+        'chapter_number' => 1,
+        'views' => 0,
+    ]);
 
     ReadingHistory::query()->create([
         'user_id' => $reader->id,
         'story_id' => $ownStory->id,
-        'chapter_id' => null,
+        'chapter_id' => $ownChapter->id,
         'read_at' => now()->subDays(2),
         'scroll_percent' => 50,
     ]);
     ReadingHistory::query()->create([
         'user_id' => $reader->id,
         'story_id' => $otherStory->id,
-        'chapter_id' => null,
+        'chapter_id' => $otherChapter->id,
         'read_at' => now()->subDays(2),
         'scroll_percent' => 50,
     ]);
