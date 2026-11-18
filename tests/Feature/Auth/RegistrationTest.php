@@ -6,7 +6,7 @@ test('registration screen can be rendered with the redesigned form', function ()
     $response = $this->get('/register');
 
     $response->assertOk()
-        ->assertSee('Gia nhập cộng đồng')
+        ->assertSee('Tạo tài khoản')
         ->assertSee('Tên đăng nhập')
         ->assertSee('auth.css');
 });
