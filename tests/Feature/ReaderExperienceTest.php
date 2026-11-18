@@ -1,7 +1,7 @@
 <?php
 
-use App\\Models\\Chapter;
-use App\\Models\\Story;
+use App\Models\Chapter;
+use App\Models\Story;
 
 test('chapter reader exposes accessibility and focus controls', function () {
     $story = Story::factory()->create([
