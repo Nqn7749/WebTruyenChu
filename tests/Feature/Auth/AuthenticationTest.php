@@ -2,13 +2,16 @@
 
 use App\Models\User;
 
-test('login screen can be rendered', function () {
+test('login screen can be rendered with the redesigned form', function () {
     $response = $this->get('/login');
 
-    $response->assertStatus(200);
+    $response->assertOk()
+        ->assertSee('Đăng nhập')
+        ->assertSee('Email hoặc tên đăng nhập')
+        ->assertSee('auth.css');
 });
 
-test('users can authenticate using the login screen', function () {
+test('users can authenticate using the login screen and return to home by default', function () {
     $user = User::factory()->create();
 
     $response = $this->post('/login', [
@@ -17,7 +20,19 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('home', absolute: false));
+});
+
+test('users are redirected to their intended page after login', function () {
+    $user = User::factory()->create();
+
+    $response = $this->withSession(['url.intended' => route('profile.edit')])
+        ->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+    $response->assertRedirect(route('profile.edit'));
 });
 
 test('users can not authenticate with invalid password', function () {

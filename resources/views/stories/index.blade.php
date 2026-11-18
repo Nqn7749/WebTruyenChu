@@ -14,12 +14,12 @@
 <div class="row g-4">
     {{-- BỘ LỌC --}}
     <div class="col-lg-3">
-        <form action="{{ route('stories.index') }}" method="GET" class="border rounded-3 p-3" style="background: var(--paper-raised); border-color: var(--sand-border) !important;">
+        <form action="{{ route('stories.index') }}" method="GET" id="story-filters" class="story-filter-panel p-3">
 
             {{-- Sắp xếp --}}
             <div class="mb-3">
-                <label class="form-label fw-semibold">Sắp xếp theo</label>
-                <select name="sort" class="form-select form-select-sm">
+                <label for="story-sort" class="form-label fw-semibold">Sắp xếp theo</label>
+                <select id="story-sort" name="sort" class="form-select form-select-sm">
                     <option value="latest_chapter" {{ $sort === 'latest_chapter' ? 'selected' : '' }}>
                         Mới thêm chương
                     </option>
@@ -37,8 +37,8 @@
 
             {{-- Trạng thái --}}
             <div class="mb-3">
-                <label class="form-label fw-semibold">Trạng thái</label>
-                <select name="status" class="form-select form-select-sm">
+                <label for="story-status" class="form-label fw-semibold">Trạng thái</label>
+                <select id="story-status" name="status" class="form-select form-select-sm">
                     <option value="">-- Tất cả --</option>
                     @foreach (['ongoing' => 'Đang tiến hành', 'completed' => 'Hoàn thành', 'paused' => 'Tạm dừng'] as $value => $label)
                         <option value="{{ $value }}" {{ $status === $value ? 'selected' : '' }}>
@@ -50,8 +50,8 @@
 
             {{-- Số chương --}}
             <div class="mb-3">
-                <label class="form-label fw-semibold">Số chương</label>
-                <select name="chapters" class="form-select form-select-sm">
+                <label for="story-chapters" class="form-label fw-semibold">Số chương</label>
+                <select id="story-chapters" name="chapters" class="form-select form-select-sm">
                     <option value="">-- Tất cả --</option>
                     <option value="under_300" {{ $chapterRange === 'under_300' ? 'selected' : '' }}>Dưới 300 chương</option>
                     <option value="300_600" {{ $chapterRange === '300_600' ? 'selected' : '' }}>300 - 600 chương</option>
@@ -62,8 +62,8 @@
 
             {{-- Thể loại --}}
             <div class="mb-3">
-                <label class="form-label fw-semibold">Thể loại</label>
-                <div style="max-height: 320px; overflow-y: auto; border-color: var(--sand-border) !important;" class="border rounded-2 p-2">
+                <span class="form-label fw-semibold d-block" id="story-category-label">Thể loại</span>
+                <div role="group" aria-labelledby="story-category-label" style="max-height: 320px; overflow-y: auto; border-color: var(--sand-border) !important;" class="border rounded-2 p-2">
                     @foreach ($categories->whereNull('parent_id') as $parent)
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="categories[]"

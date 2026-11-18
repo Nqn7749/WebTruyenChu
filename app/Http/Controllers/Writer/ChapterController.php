@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\StoreChapterRequest;
 use App\Http\Requests\Admin\UpdateChapterRequest;
 use App\Models\Chapter;
 use App\Models\Story;
+use App\Models\User;
+use App\Notifications\NewChapterPublished;
 use App\Services\StoryStatsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -35,16 +37,24 @@ class ChapterController extends Controller
         $data = $request->validated();
         $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
         $data['slug'] = $this->uniqueSlug($title, $story->id);
-        $data['status'] = false;
+        $data['status'] = $request->boolean('status');
 
-        DB::transaction(function () use ($story, $data, $stats) {
+        $chapter = DB::transaction(function () use ($story, $data, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
-            $lockedStory->chapters()->create($data);
+            $chapter = $lockedStory->chapters()->create($data);
             $stats->refreshChapterStats($lockedStory);
+
+            return $chapter;
         });
 
+        if ($chapter->status) {
+            $this->notifyFollowers($story, $chapter);
+        }
+
         return redirect()->route('writer.stories.chapters.index', $story)
-            ->with('success', 'Đã lưu chương ở trạng thái nháp để quản trị viên duyệt.');
+            ->with('success', $chapter->status
+                ? 'Đã đăng chương công khai thành công.'
+                : 'Đã lưu chương ở trạng thái nháp.');
     }
 
     public function preview(Chapter $chapter)
@@ -70,17 +80,26 @@ class ChapterController extends Controller
         if (Str::slug($title) !== $chapter->slug) {
             $data['slug'] = $this->uniqueSlug($title, $story->id, $chapter->id);
         }
-        $data['status'] = false;
+        $data['status'] = $request->boolean('status');
 
-        DB::transaction(function () use ($chapter, $data, $story, $stats) {
+        [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+            $wasPublished = (bool) $lockedChapter->status;
             $lockedChapter->update($data);
             $stats->refreshChapterStats($lockedStory);
+
+            return [$lockedStory, $lockedChapter, $wasPublished];
         });
 
+        if (! $wasPublished && $chapter->status) {
+            $this->notifyFollowers($story, $chapter);
+        }
+
         return redirect()->route('writer.stories.chapters.index', $story)
-            ->with('success', 'Đã cập nhật chương. Chương được chuyển về trạng thái nháp để duyệt lại.');
+            ->with('success', $chapter->status
+                ? 'Đã lưu và đăng chương công khai thành công.'
+                : 'Đã lưu chương ở trạng thái nháp.');
     }
 
     public function destroy(Chapter $chapter, StoryStatsService $stats)
@@ -95,6 +114,20 @@ class ChapterController extends Controller
         });
 
         return redirect()->route('writer.stories.chapters.index', $story)->with('success', 'Đã xóa chương.');
+    }
+
+    private function notifyFollowers(Story $story, Chapter $chapter): void
+    {
+        User::query()
+            ->whereHas('favorites', function ($query) use ($story) {
+                $query->where('story_id', $story->id)
+                    ->where('notify_new_chapter', true);
+            })
+            ->chunkById(200, function ($users) use ($chapter) {
+                foreach ($users as $user) {
+                    $user->notify(new NewChapterPublished($chapter));
+                }
+            });
     }
 
     private function ownedStoryFor(Chapter $chapter): Story
