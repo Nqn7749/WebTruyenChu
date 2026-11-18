@@ -29,19 +29,33 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=literata:400,500,600,700|be-vietnam-pro:400,500,600,700" rel="stylesheet">
 
+    <script>
+        (() => {
+            try {
+                const savedTheme = localStorage.getItem('theme');
+                const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+                document.documentElement.dataset.theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+            } catch (error) {
+                document.documentElement.dataset.theme = 'light';
+            }
+        })();
+    </script>
     <link href="{{ asset('css/theme.css') }}" rel="stylesheet">
 
     @stack('styles')
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg app-navbar sticky-top py-2">
+<a class="skip-link" href="#main-content">Bỏ qua điều hướng</a>
+
+<nav class="navbar navbar-expand-lg app-navbar sticky-top py-2" aria-label="Điều hướng chính">
     <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="{{ route('home') }}">
             <span class="brand-mark">読</span>
             <span class="brand-name">Đọc Truyện</span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                aria-controls="mainNav" aria-expanded="false" aria-label="Mở hoặc đóng menu">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNav">
@@ -61,10 +75,19 @@
                 @endauth
             </ul>
 
-            <form action="{{ route('search') }}" method="GET" class="d-flex me-3" style="max-width:320px;">
-                <input type="search" name="q" class="form-control form-control-sm" placeholder="Tìm truyện..." value="{{ request('q') }}">
-                <button class="btn btn-sm btn-search"><i class="bi bi-search"></i> Tìm kiếm</button>
+            <form action="{{ route('search') }}" method="GET" class="navbar-search d-flex me-lg-3" role="search">
+                <label for="navbar-search-query" class="visually-hidden">Tìm truyện</label>
+                <input id="navbar-search-query" type="search" name="q" class="form-control form-control-sm"
+                       placeholder="Tìm truyện..." value="{{ request('q') }}" maxlength="100">
+                <button type="submit" class="btn btn-sm btn-search" aria-label="Tìm kiếm">
+                    <i class="bi bi-search" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Tìm kiếm</span>
+                </button>
             </form>
+
+            <button type="button" id="themeToggle" class="theme-toggle mb-2 mb-lg-0 me-lg-3"
+                    aria-label="Chuyển sang giao diện tối" aria-pressed="false" title="Đổi giao diện">
+                <i class="bi bi-moon-stars" aria-hidden="true"></i>
+            </button>
 
             <ul class="navbar-nav align-items-lg-center">
                 @guest
@@ -152,7 +175,7 @@
     </div>
 </nav>
 
-<main class="container py-4">
+<main id="main-content" class="container py-4" tabindex="-1">
     @if (session('success'))
         <div class="alert alert-success alert-dismissible fade show"
              style="border-radius: var(--radius-sm); border: none; background: var(--jade-tint); color: var(--jade-dark);">
@@ -739,8 +762,36 @@ document.addEventListener('DOMContentLoaded', () => {
 |--------------------------------------------------------------------------
 */
 
-document.documentElement.dataset.theme =
-    localStorage.getItem('theme') ?? 'light';
+const themeToggle = document.getElementById('themeToggle');
+
+function applySiteTheme(theme) {
+    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = normalizedTheme;
+
+    try {
+        localStorage.setItem('theme', normalizedTheme);
+    } catch (error) {
+        // Theme remains active for the current page when storage is unavailable.
+    }
+
+    if (themeToggle) {
+        const isDark = normalizedTheme === 'dark';
+        themeToggle.setAttribute('aria-pressed', String(isDark));
+        themeToggle.setAttribute(
+            'aria-label',
+            isDark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'
+        );
+        themeToggle.innerHTML = isDark
+            ? '<i class="bi bi-sun" aria-hidden="true"></i>'
+            : '<i class="bi bi-moon-stars" aria-hidden="true"></i>';
+    }
+}
+
+applySiteTheme(document.documentElement.dataset.theme || 'light');
+
+themeToggle?.addEventListener('click', () => {
+    applySiteTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+});
 </script>
 
 @stack('scripts')
