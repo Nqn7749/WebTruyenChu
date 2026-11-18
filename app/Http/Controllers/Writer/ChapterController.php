@@ -47,6 +47,13 @@ class ChapterController extends Controller
             ->with('success', 'Đã lưu chương ở trạng thái nháp để quản trị viên duyệt.');
     }
 
+    public function preview(Chapter $chapter)
+    {
+        $story = $this->ownedStoryFor($chapter);
+
+        return view('writer.chapters.preview', compact('story', 'chapter'));
+    }
+
     public function edit(Chapter $chapter)
     {
         $story = $this->ownedStoryFor($chapter);
