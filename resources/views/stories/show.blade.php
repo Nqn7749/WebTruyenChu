@@ -45,8 +45,6 @@
                 <span>Đánh giá</span><strong>{{ number_format($story->average_rating, 1) }}/5 ({{ $story->rating_count }})</strong>
             </li>
         </ul>
-    </div>
-
     </aside>
 
     <section class="col-12 col-md-8 col-lg-9 story-detail-main" aria-labelledby="story-title">
