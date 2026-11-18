@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Story;
+use App\Services\AdminActivityLogger;
 use App\Services\StoryDeletionService;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ class StoryController extends Controller
         return view('admin.stories.index', compact('stories'));
     }
 
-    public function destroy(Request $request, Story $story, StoryDeletionService $deletion)
+    public function destroy(Request $request, Story $story, StoryDeletionService $deletion, AdminActivityLogger $logger)
     {
         $validated = $request->validate([
             'deletion_reason' => ['required', 'string', 'min:10', 'max:1000'],
@@ -30,15 +31,11 @@ class StoryController extends Controller
             'deletion_reason.max' => 'Lý do xóa không được vượt quá 1000 ký tự.',
         ]);
 
-        $deleted = $deletion->delete(
-            $story,
-            $validated['deletion_reason'],
-            $request->user()->id
-        );
-
+        $deleted = $deletion->delete($story, $validated['deletion_reason'], $request->user()->id);
         abort_unless($deleted, 404);
 
-        return redirect()->route('admin.stories.index')
-            ->with('success', 'Đã xóa truyện và lưu lý do xóa.');
+        $logger->record($request, 'story.deleted', $story, 'Xóa truyện "'.$story->title.'": '.$validated['deletion_reason']);
+
+        return redirect()->route('admin.stories.index')->with('success', 'Đã xóa truyện và lưu lý do xóa.');
     }
 }

@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ChapterController;
 use App\Http\Controllers\Admin\CommentController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StoryController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\UserController;
@@ -11,6 +13,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', DashboardController::class)
     ->name('dashboard');
+
+Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+Route::patch('reports/{report}', [ReportController::class, 'update'])->name('reports.update');
+Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
 Route::resource('categories', CategoryController::class)
     ->except(['show']);

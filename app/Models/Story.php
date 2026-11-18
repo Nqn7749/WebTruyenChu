@@ -76,6 +76,11 @@ class Story extends Model
         return $this->hasMany(Comment::class);
     }
 
+    public function reports()
+    {
+        return $this->morphMany(Report::class, 'reportable');
+    }
+
     public function ratings()
     {
         return $this->hasMany(Rating::class);

@@ -9,6 +9,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReadingHistoryController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoryController;
@@ -57,6 +58,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::post('/truyen/{story:slug}/bao-cao', [ReportController::class, 'story'])
+        ->middleware('throttle:10,1')
+        ->name('reports.stories.store');
+    Route::post('/binh-luan/{comment}/bao-cao', [ReportController::class, 'comment'])
+        ->middleware('throttle:10,1')
+        ->name('reports.comments.store');
 
     Route::post('/truyen/{story:slug}/yeu-thich', [FavoriteController::class, 'toggle'])
         ->middleware('throttle:20,1')
