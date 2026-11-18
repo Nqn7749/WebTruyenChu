@@ -11,8 +11,8 @@ use App\Services\StoryDeletionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class ReportController extends Controller
 {
@@ -50,13 +50,13 @@ class ReportController extends Controller
             $target = $lockedReport->reportable;
 
             if ($data['action'] === 'hide_comment') {
-                if (! $target instanceof Comment) {
+                if (! ($target instanceof Comment)) {
                     throw ValidationException::withMessages([
                         'action' => 'Chỉ có thể ẩn nội dung bình luận bằng thao tác này.',
                     ]);
                 }
 
-                if (! $target->is_hidden) {
+                if ($target->is_hidden === false) {
                     $target->update(['is_hidden' => true]);
                     DB::table('stories')->where('id', $target->story_id)->where('comment_count', '>', 0)->decrement('comment_count');
 
@@ -67,7 +67,7 @@ class ReportController extends Controller
             }
 
             if ($data['action'] === 'delete_story') {
-                if (! $target instanceof Story) {
+                if (! ($target instanceof Story)) {
                     throw ValidationException::withMessages([
                         'action' => 'Chỉ có thể xóa truyện bằng thao tác này.',
                     ]);

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Comment;
-use App\Models\Report;
 use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
