@@ -17,7 +17,7 @@
 <div class="mx-auto" style="max-width: 900px;">
 
     {{-- Breadcrumb --}}
-    <nav aria-label="breadcrumb" class="small mb-3">
+    <nav aria-label="breadcrumb" class="small mb-3" id="readerBreadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item">
                 <a href="{{ route('stories.show', $story) }}">
@@ -82,6 +82,22 @@
         <div class="divider"></div>
 
         <button type="button"
+                id="lineHeightDecrease"
+                title="Giảm giãn dòng"
+                aria-label="Giảm giãn dòng">
+            <i class="bi bi-arrows-collapse"></i>
+        </button>
+
+        <button type="button"
+                id="lineHeightIncrease"
+                title="Tăng giãn dòng"
+                aria-label="Tăng giãn dòng">
+            <i class="bi bi-arrows-expand"></i>
+        </button>
+
+        <div class="divider"></div>
+
+        <button type="button"
                 class="theme-btn active"
                 data-theme="light"
                 title="Sáng"
@@ -107,6 +123,16 @@
 
         <div class="divider"></div>
 
+        <button type="button"
+                id="focusModeToggle"
+                title="Bật chế độ tập trung"
+                aria-label="Bật chế độ tập trung"
+                aria-pressed="false">
+            <i class="bi bi-eye"></i>
+        </button>
+
+        <div class="divider"></div>
+
         @if ($nextChapter)
             <a href="{{ route('chapters.show', [$story, $nextChapter]) }}"
                title="Chương sau"
@@ -118,7 +144,7 @@
     </div>
 
     {{-- Chuyển chương --}}
-    <div class="d-flex justify-content-between my-4">
+    <div class="d-flex justify-content-between my-4" id="readerChapterNavigation">
 
         @if ($prevChapter)
             <a href="{{ route('chapters.show', [$story, $prevChapter]) }}"
@@ -138,7 +164,7 @@
 
     </div>
 
-    <hr>
+    <hr id="commentsDivider">
 
 {{-- =========================================================
     COMMENTS
@@ -276,7 +302,9 @@
     const storageKeys = {
         position: `chapter_${chapterId}`,
         fontSize: 'reader_font_size',
-        theme: 'reader_theme'
+        lineHeight: 'reader_line_height',
+        theme: 'reader_theme',
+        focusMode: 'reader_focus_mode'
     };
 
 
@@ -536,6 +564,41 @@
 
 
     /* =========================================================
+       LINE HEIGHT
+    ========================================================= */
+
+    let lineHeight =
+        parseFloat(localStorage.getItem(storageKeys.lineHeight)) || 1.9;
+
+    function applyLineHeight() {
+        lineHeight = clamp(lineHeight, 1.5, 2.4);
+        content.style.setProperty('--reader-line-height', lineHeight.toFixed(1));
+    }
+
+    function saveLineHeight() {
+        localStorage.setItem(storageKeys.lineHeight, lineHeight.toString());
+    }
+
+    document.getElementById('lineHeightIncrease')
+        ?.addEventListener('click', () => {
+            lineHeight = Math.round((lineHeight + 0.1) * 10) / 10;
+            applyLineHeight();
+            saveLineHeight();
+            updateProgressBar();
+        });
+
+    document.getElementById('lineHeightDecrease')
+        ?.addEventListener('click', () => {
+            lineHeight = Math.round((lineHeight - 0.1) * 10) / 10;
+            applyLineHeight();
+            saveLineHeight();
+            updateProgressBar();
+        });
+
+    applyLineHeight();
+
+
+    /* =========================================================
        READER THEME
     ========================================================= */
 
@@ -601,6 +664,42 @@
             }
         );
 
+    });
+
+
+    /* =========================================================
+       FOCUS MODE
+    ========================================================= */
+
+    const focusModeToggle = document.getElementById('focusModeToggle');
+
+    function applyFocusMode(enabled) {
+        const isEnabled = Boolean(enabled);
+
+        document.body.classList.toggle('reader-focus-mode', isEnabled);
+        localStorage.setItem(storageKeys.focusMode, isEnabled ? '1' : '0');
+
+        if (focusModeToggle) {
+            focusModeToggle.classList.toggle('active', isEnabled);
+            focusModeToggle.setAttribute('aria-pressed', String(isEnabled));
+            focusModeToggle.setAttribute(
+                'aria-label',
+                isEnabled ? 'Tắt chế độ tập trung' : 'Bật chế độ tập trung'
+            );
+            focusModeToggle.setAttribute(
+                'title',
+                isEnabled ? 'Tắt chế độ tập trung' : 'Bật chế độ tập trung'
+            );
+            focusModeToggle.innerHTML = isEnabled
+                ? '<i class="bi bi-eye-slash"></i>'
+                : '<i class="bi bi-eye"></i>';
+        }
+    }
+
+    applyFocusMode(localStorage.getItem(storageKeys.focusMode) === '1');
+
+    focusModeToggle?.addEventListener('click', () => {
+        applyFocusMode(!document.body.classList.contains('reader-focus-mode'));
     });
 
 
