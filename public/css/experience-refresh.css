@@ -271,3 +271,51 @@ body.app-redesign .story-scroller:focus-visible { outline-offset: 5px; }
         animation-iteration-count: 1 !important; transition-duration: .01ms !important;
     }
 }
+
+/* Editorial landing header and shared content rhythm */
+body.app-redesign .home-intro {
+    display: flex; align-items: end; justify-content: space-between; gap: 1.5rem;
+    padding: .25rem .15rem 1.5rem;
+}
+body.app-redesign .home-intro .eyebrow {
+    color: var(--ui-highlight); font-size: .68rem; font-weight: 800;
+    letter-spacing: .16em; text-transform: uppercase;
+}
+body.app-redesign .home-intro h2 {
+    margin: .35rem 0 .35rem; font-size: clamp(1.65rem, 3vw, 2.35rem);
+}
+body.app-redesign .home-intro p {
+    max-width: 56ch; margin: 0; color: var(--ui-muted); line-height: 1.75; font-size: .9rem;
+}
+body.app-redesign .home-intro .btn { flex: 0 0 auto; }
+body.app-redesign .app-main > .section-heading:first-child { margin-top: .4rem; }
+body.app-redesign .breadcrumb {
+    padding: .7rem 1rem; border-radius: 12px; background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+}
+body.app-redesign .breadcrumb-item + .breadcrumb-item::before { color: var(--ui-muted); }
+body.app-redesign .reader-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+    margin-bottom: 1.1rem; color: var(--ui-muted); font-size: .82rem;
+}
+body.app-redesign .reader-meta a { color: var(--ui-accent); font-weight: 700; text-decoration: none; }
+body.app-redesign .reader-meta a:hover { text-decoration: underline; }
+body.app-redesign .writer-page-heading {
+    display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem;
+}
+body.app-redesign .writer-page-heading h1 { font-size: clamp(1.7rem, 3vw, 2.3rem); margin-bottom: .25rem; }
+body.app-redesign .writer-stat-card {
+    position: relative; overflow: hidden; min-height: 126px;
+}
+body.app-redesign .writer-stat-card::after {
+    content: ""; position: absolute; width: 100px; height: 100px; border-radius: 50%;
+    right: -34px; bottom: -44px; background: rgba(36,107,85,.09);
+}
+body.app-redesign .writer-stat-card .stat-value {
+    font-size: clamp(1.7rem, 3vw, 2.2rem); font-weight: 800; letter-spacing: -.05em;
+}
+@media (max-width: 767.98px) {
+    body.app-redesign .home-intro { align-items: start; flex-direction: column; padding-bottom: 1.1rem; }
+    body.app-redesign .home-intro .btn { width: 100%; }
+    body.app-redesign .writer-page-heading { align-items: start; flex-direction: column; }
+}
