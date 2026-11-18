@@ -54,17 +54,15 @@ class CommunityModerationTest extends TestCase
         $author = User::factory()->create(['role_id' => $memberRole->id]);
         $reporter = User::factory()->create(['role_id' => $memberRole->id]);
         $admin = User::factory()->create(['role_id' => $adminRole->id]);
-        $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true, 'comment_count' => 1]);
+        $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
         $comment = Comment::factory()->create([
             'user_id' => $author->id,
             'story_id' => $story->id,
             'is_hidden' => false,
         ]);
-        $report = Report::create([
+        $report = $comment->reports()->create([
             'reporter_id' => $reporter->id,
             'reason' => 'abuse',
-            'reportable_type' => $comment->getMorphClass(),
-            'reportable_id' => $comment->id,
             'status' => 'pending',
         ]);
 

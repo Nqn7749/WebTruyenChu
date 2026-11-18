@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\Story;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
@@ -32,23 +33,33 @@ class ReportController extends Controller
             'details' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $exists = Report::query()
-            ->where('reporter_id', $request->user()->id)
-            ->where('reportable_type', $target->getMorphClass())
-            ->where('reportable_id', $target->getKey())
-            ->where('status', 'pending')
-            ->exists();
+        $created = DB::transaction(function () use ($request, $target, $validated): bool {
+            $lockedTarget = $target->newQuery()
+                ->lockForUpdate()
+                ->findOrFail($target->getKey());
 
-        if (! $exists) {
-            $target->reports()->create([
+            $exists = Report::query()
+                ->where('reporter_id', $request->user()->id)
+                ->where('reportable_type', $lockedTarget->getMorphClass())
+                ->where('reportable_id', $lockedTarget->getKey())
+                ->where('status', 'pending')
+                ->exists();
+
+            if ($exists) {
+                return false;
+            }
+
+            $lockedTarget->reports()->create([
                 'reporter_id' => $request->user()->id,
                 'reason' => $validated['reason'],
                 'details' => $validated['details'] ?? null,
             ]);
-        }
 
-        return back()->with('success', $exists
-            ? 'Bạn đã gửi báo cáo này trước đó. Báo cáo đang được xem xét.'
-            : 'Đã gửi báo cáo. Cảm ơn bạn đã góp phần xây dựng cộng đồng.');
+            return true;
+        });
+
+        return back()->with('success', $created
+            ? 'Đã gửi báo cáo. Cảm ơn bạn đã góp phần xây dựng cộng đồng.'
+            : 'Bạn đã gửi báo cáo này trước đó. Báo cáo đang được xem xét.');
     }
 }
