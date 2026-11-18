@@ -14,6 +14,8 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\StoryListController;
 use App\Http\Controllers\Writer\ChapterController as WriterChapterController;
+use App\Http\Controllers\Writer\CommentController as WriterCommentController;
+use App\Http\Controllers\Writer\DashboardController as WriterDashboardController;
 use App\Http\Controllers\Writer\StoryController as WriterStoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +33,10 @@ Route::get('/dashboard', function () {
 })->middleware('auth')->name('dashboard');
 
 Route::middleware('auth')->prefix('sang-tac')->name('writer.')->group(function () {
+    Route::get('/', WriterDashboardController::class)->name('dashboard');
+    Route::get('/binh-luan', [WriterCommentController::class, 'index'])->name('comments.index');
+    Route::patch('/binh-luan/{comment}/an-hien', [WriterCommentController::class, 'toggleHidden'])->name('comments.toggle-hidden');
+
     Route::get('/truyen', [WriterStoryController::class, 'index'])->name('stories.index');
     Route::get('/truyen/create', [WriterStoryController::class, 'create'])->name('stories.create');
     Route::post('/truyen', [WriterStoryController::class, 'store'])->middleware('throttle:10,1')->name('stories.store');
@@ -41,6 +47,7 @@ Route::middleware('auth')->prefix('sang-tac')->name('writer.')->group(function (
     Route::get('/truyen/{story}/chuong', [WriterChapterController::class, 'index'])->name('stories.chapters.index');
     Route::get('/truyen/{story}/chuong/create', [WriterChapterController::class, 'create'])->name('stories.chapters.create');
     Route::post('/truyen/{story}/chuong', [WriterChapterController::class, 'store'])->middleware('throttle:20,1')->name('stories.chapters.store');
+    Route::get('/chuong/{chapter}/preview', [WriterChapterController::class, 'preview'])->name('chapters.preview');
     Route::get('/chuong/{chapter}/edit', [WriterChapterController::class, 'edit'])->name('chapters.edit');
     Route::put('/chuong/{chapter}', [WriterChapterController::class, 'update'])->middleware('throttle:30,1')->name('chapters.update');
     Route::delete('/chuong/{chapter}', [WriterChapterController::class, 'destroy'])->name('chapters.destroy');
