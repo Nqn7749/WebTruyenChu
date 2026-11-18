@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Comment;
-use App\Models\Story;
-use Illuminate\Support\Facades\Auth;
+use App\\Models\\Comment;
+use App\\Models\\Story;
+use Illuminate\\Support\\Facades\\Auth;
 
 class StoryController extends Controller
 {
@@ -63,6 +63,19 @@ class StoryController extends Controller
 
         $isFavorited = $story->isFavoritedBy(Auth::user());
 
+        $categoryIds = $story->categories->modelKeys();
+        $relatedStories = $categoryIds === []
+            ? collect()
+            : Story::published()
+                ->whereKeyNot($story->id)
+                ->whereHas('categories', fn ($categories) => $categories->whereIn('categories.id', $categoryIds))
+                ->with('categories')
+                ->orderByDesc('is_featured')
+                ->orderByDesc('views')
+                ->orderByDesc('id')
+                ->limit(6)
+                ->get();
+
         return view(
             'stories.show',
             compact(
@@ -72,7 +85,8 @@ class StoryController extends Controller
                 'latestChapter',
                 'comments',
                 'userRating',
-                'isFavorited'
+                'isFavorited',
+                'relatedStories'
             )
         );
     }
