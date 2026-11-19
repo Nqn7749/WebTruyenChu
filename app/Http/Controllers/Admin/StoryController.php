@@ -21,6 +21,29 @@ class StoryController extends Controller
         return view('admin.stories.index', compact('stories'));
     }
 
+    /**
+     * Duyệt truyện đang chờ (công khai) hoặc gỡ truyện đã công khai khỏi website.
+     * Truyện mới do thành viên đăng mặc định status_publish = false và chỉ
+     * hiện công khai sau khi admin duyệt ở đây.
+     */
+    public function togglePublish(Request $request, Story $story, AdminActivityLogger $logger)
+    {
+        $published = ! $story->status_publish;
+
+        $story->forceFill(['status_publish' => $published])->save();
+
+        $logger->record(
+            $request,
+            $published ? 'story.published' : 'story.unpublished',
+            $story,
+            ($published ? 'Duyệt và công khai truyện "' : 'Gỡ công khai truyện "').$story->title.'"'
+        );
+
+        return back()->with('success', $published
+            ? 'Đã duyệt và công khai truyện.'
+            : 'Đã gỡ truyện khỏi website.');
+    }
+
     public function destroy(Request $request, Story $story, StoryDeletionService $deletion, AdminActivityLogger $logger)
     {
         $validated = $request->validate([

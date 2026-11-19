@@ -2,18 +2,24 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Database\Factories\StoryFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Story extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoryFactory> */
+    /** @use HasFactory<StoryFactory> */
     use HasFactory, SoftDeletes;
 
+    /**
+     * Chỉ các trường người dùng được phép nhập (đã qua validation).
+     * Các trường hệ thống/quản trị (user_id, is_hot, is_featured,
+     * is_recommended, status_publish) KHÔNG nằm ở đây — chỉ gán qua
+     * forceFill() ở đúng chỗ có thẩm quyền (đăng truyện, duyệt truyện).
+     */
     protected $fillable = [
-        'user_id',
         'title',
         'slug',
         'author_name',
@@ -23,10 +29,6 @@ class Story extends Model
         'meta_title',
         'meta_description',
         'meta_keywords',
-        'is_hot',
-        'is_featured',
-        'is_recommended',
-        'status_publish',
     ];
 
     /**
@@ -35,7 +37,6 @@ class Story extends Model
      * (views, chapter_count, comment_count, favorite_count,
      *  rating_count, average_rating, last_chapter_at, last_view_at)
      */
-
     protected function casts(): array
     {
         return [

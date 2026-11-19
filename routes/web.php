@@ -40,7 +40,9 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware('auth')->name('dashboard');
 
-Route::middleware('auth')->prefix('sang-tac')->name('writer.')->group(function () {
+// Khu vực sáng tác yêu cầu xác minh email: chỉ tài khoản đã xác minh email
+// mới được đăng truyện/chương/bình luận ẩn-hiện, để hạn chế tài khoản rác.
+Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
     Route::get('/', WriterDashboardController::class)->name('dashboard');
     Route::get('/binh-luan', [WriterCommentController::class, 'index'])->name('comments.index');
     Route::patch('/binh-luan/{comment}/an-hien', [WriterCommentController::class, 'toggleHidden'])->name('comments.toggle-hidden');

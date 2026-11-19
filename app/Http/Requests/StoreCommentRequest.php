@@ -12,7 +12,8 @@ class StoreCommentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ tài khoản đã đăng nhập mới được bình luận.
+        return $this->user() !== null;
     }
 
     /**
@@ -25,8 +26,8 @@ class StoreCommentRequest extends FormRequest
         return [
             //
             'chapter_id' => ['nullable', 'exists:chapters,id'],
-            'parent_id'  => ['nullable', 'exists:comments,id'],
-            'content'    => ['required', 'string', 'max:2000'],
+            'parent_id' => ['nullable', 'exists:comments,id'],
+            'content' => ['required', 'string', 'max:2000'],
         ];
     }
 }

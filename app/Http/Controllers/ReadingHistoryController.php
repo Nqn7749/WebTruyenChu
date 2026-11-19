@@ -29,8 +29,8 @@ class ReadingHistoryController extends Controller
     public function updateProgress(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'story_id'       => ['required', 'integer', 'exists:stories,id'],
-            'chapter_id'     => [
+            'story_id' => ['required', 'integer', 'exists:stories,id'],
+            'chapter_id' => [
                 'required',
                 'integer',
                 Rule::exists('chapters', 'id')

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Story;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+
 class UpdateStoryRequest extends FormRequest
 {
     /**
@@ -12,7 +14,23 @@ class UpdateStoryRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ chủ truyện hoặc admin mới được sửa truyện này.
+        $user = $this->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        $story = $this->route('story');
+
+        if (! $story) {
+            return false;
+        }
+
+        $storyUserId = $story instanceof Story ? $story->user_id : null;
+
+        return $storyUserId === $user->id
+            || ($user->role?->slug === 'admin');
     }
 
     /**
@@ -23,19 +41,19 @@ class UpdateStoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-        'title'            => ['required', 'string', 'max:255'],
-        'author_name'      => ['nullable', 'string', 'max:255'],
-        'cover_image'      => ['nullable', 'image', 'max:2048'],
-        'description'      => ['nullable', 'string'],
-        'status'           => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
-        'status_publish'   => ['nullable', 'boolean'],
-        'categories'       => ['required', 'array'],
-        'categories.*'     => ['exists:categories,id'],
-        'tags'             => ['nullable', 'array'],
-        'tags.*'           => ['exists:tags,id'],
-        'meta_title'       => ['nullable', 'string', 'max:255'],
-        'meta_description' => ['nullable', 'string'],
-        'meta_keywords'    => ['nullable', 'string', 'max:255'],
-    ];
+            'title' => ['required', 'string', 'max:255', 'not_regex:/[<>]/'],
+            'author_name' => ['nullable', 'string', 'max:255'],
+            'cover_image' => ['nullable', 'image', 'max:2048'],
+            'description' => ['nullable', 'string', 'max:1000000'],
+            'status' => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
+            'status_publish' => ['nullable', 'boolean'],
+            'categories' => ['required', 'array', 'max:10'],
+            'categories.*' => ['exists:categories,id'],
+            'tags' => ['nullable', 'array', 'max:10'],
+            'tags.*' => ['exists:tags,id'],
+            'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+            'meta_description' => ['nullable', 'string', 'max:60000'],
+            'meta_keywords' => ['nullable', 'string', 'max:255'],
+        ];
     }
 }

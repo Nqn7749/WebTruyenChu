@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('ratings', function (Blueprint $table) {
-            
+
             $table->id();
 
             $table->foreignId('user_id')
@@ -29,7 +29,7 @@ return new class extends Migration
 
             $table->unique([
                 'user_id',
-                'story_id'
+                'story_id',
             ]);
 
         });

@@ -4,7 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+
 class StoreCategoryRequest extends FormRequest
 {
     /**
@@ -23,8 +23,8 @@ class StoreCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'parent_id'   => ['nullable', 'exists:categories,id'],
-            'name'        => ['required', 'string', 'max:100'],
+            'parent_id' => ['nullable', 'exists:categories,id'],
+            'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
         ];
     }

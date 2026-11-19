@@ -40,8 +40,9 @@ class CommentController extends Controller
             if ($lockedComment->story) {
                 $storyQuery = DB::table('stories')->where('id', $lockedComment->story_id);
 
+                // Chặn ở 0 như bản admin: counter đã lệch thì không được âm.
                 $delta < 0
-                    ? $storyQuery->decrement('comment_count')
+                    ? $storyQuery->where('comment_count', '>', 0)->decrement('comment_count')
                     : $storyQuery->increment('comment_count');
             }
 
@@ -49,7 +50,7 @@ class CommentController extends Controller
                 $chapterQuery = DB::table('chapters')->where('id', $lockedComment->chapter_id);
 
                 $delta < 0
-                    ? $chapterQuery->decrement('comment_count')
+                    ? $chapterQuery->where('comment_count', '>', 0)->decrement('comment_count')
                     : $chapterQuery->increment('comment_count');
             }
         });

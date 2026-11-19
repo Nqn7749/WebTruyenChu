@@ -57,7 +57,8 @@ class ReportController extends Controller
                 }
 
                 if ($target->is_hidden === false) {
-                    $target->update(['is_hidden' => true]);
+                    // is_hidden không nằm trong $fillable của Comment nên gán riêng ở đây.
+                    $target->forceFill(['is_hidden' => true])->save();
                     DB::table('stories')->where('id', $target->story_id)->where('comment_count', '>', 0)->decrement('comment_count');
 
                     if ($target->chapter_id) {
@@ -82,12 +83,13 @@ class ReportController extends Controller
                 abort_unless($deleted, 409, 'Truyện không còn tồn tại hoặc đã bị xóa.');
             }
 
-            $lockedReport->update([
+            // Các trường xử lý không nằm trong $fillable của Report nên gán riêng ở đây.
+            $lockedReport->forceFill([
                 'status' => $data['action'] === 'none' ? 'dismissed' : 'resolved',
                 'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
                 'resolution_note' => $data['resolution_note'],
-            ]);
+            ])->save();
 
             $logger->record(
                 $request,

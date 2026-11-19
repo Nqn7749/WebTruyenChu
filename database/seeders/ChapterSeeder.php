@@ -20,16 +20,16 @@ class ChapterSeeder extends Seeder
                 ->count($chapterCount)
                 ->sequence(fn ($sequence) => [
                     'chapter_number' => $sequence->index + 1,
-                    'title'          => 'Chương ' . ($sequence->index + 1) . ': ' . fake()->sentence(4),
-                    'slug'           => 'chuong-' . ($sequence->index + 1),
-                    'content'        => fake()->paragraphs(random_int(15, 30), true),
+                    'title' => 'Chương '.($sequence->index + 1).': '.fake()->sentence(4),
+                    'slug' => 'chuong-'.($sequence->index + 1),
+                    'content' => fake()->paragraphs(random_int(15, 30), true),
                 ])
                 ->for($story)
                 ->create();
 
             // chapter_count / last_chapter_at KHÔNG nằm trong $fillable => dùng forceFill()
             $story->forceFill([
-                'chapter_count'   => $chapters->count(),
+                'chapter_count' => $chapters->count(),
                 'last_chapter_at' => now(),
             ])->save();
         });

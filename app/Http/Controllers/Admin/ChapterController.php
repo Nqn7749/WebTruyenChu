@@ -35,7 +35,7 @@ class ChapterController extends Controller
     public function store(StoreChapterRequest $request, Story $story, StoryStatsService $stats)
     {
         $data = $request->validated();
-        $title = $data['title'] ?? ('chuong-' . $data['chapter_number']);
+        $title = $data['title'] ?? ('chuong-'.$data['chapter_number']);
 
         $chapter = DB::transaction(function () use ($story, $data, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);

@@ -2,23 +2,28 @@
 
 namespace App\Models;
 
+use Database\Factories\ChapterFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Chapter extends Model
 {
-    /** @use HasFactory<\Database\Factories\ChapterFactory> */
+    /** @use HasFactory<ChapterFactory> */
     use HasFactory, SoftDeletes;
 
+    /**
+     * Chỉ các trường được phép nhập (đã qua validation). `status` là cờ
+     * xuất bản do chính chủ truyện/admin chọn nên giữ lại. Các counter
+     * (views, comment_count) KHÔNG nằm ở đây — chỉ update qua
+     * increment()/decrement() hoặc forceFill() nội bộ.
+     */
     protected $fillable = [
         'story_id',
         'chapter_number',
         'title',
         'slug',
         'content',
-        'views',
-        'comment_count',
         'status',
     ];
 

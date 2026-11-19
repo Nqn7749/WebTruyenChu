@@ -34,7 +34,7 @@ class ReadingHistorySeeder extends Seeder
                     ['user_id' => $user->id, 'story_id' => $story->id],
                     [
                         'chapter_id' => $chapter->id,
-                        'read_at'    => fake()->dateTimeBetween('-1 month', 'now'),
+                        'read_at' => fake()->dateTimeBetween('-1 month', 'now'),
                     ]
                 );
             }

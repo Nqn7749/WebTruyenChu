@@ -48,12 +48,14 @@ class RegisteredUserController extends Controller
         $userRoleId = Role::where('slug', 'user')->value('id');
 
         $user = User::create([
-            'role_id' => $userRoleId,
             'username' => $request->username,
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        // role_id không nằm trong $fillable của User nên gán riêng ở đây.
+        $user->forceFill(['role_id' => $userRoleId])->save();
 
         event(new Registered($user));
 

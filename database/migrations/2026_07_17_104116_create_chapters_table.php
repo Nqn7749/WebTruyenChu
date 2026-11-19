@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('chapters', function (Blueprint $table) {
-            
+
             $table->id();
 
             $table->foreignId('story_id')
@@ -43,17 +43,17 @@ return new class extends Migration
 
             $table->unique([
                 'story_id',
-                'chapter_number'
+                'chapter_number',
             ]);
 
             $table->unique([
                 'story_id',
-                'slug'
+                'slug',
             ]);
 
             $table->index([
                 'story_id',
-                'chapter_number'
+                'chapter_number',
             ]);
         });
 

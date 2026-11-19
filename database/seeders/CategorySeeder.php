@@ -14,30 +14,30 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $tree = [
-            'Tiên Hiệp'   => ['Tiên Hiệp Trọng Sinh', 'Tiên Hiệp Hệ Thống'],
-            'Kiếm Hiệp'   => [],
-            'Ngôn Tình'   => ['Ngôn Tình Hiện Đại', 'Ngôn Tình Cổ Đại'],
-            'Đô Thị'      => [],
+            'Tiên Hiệp' => ['Tiên Hiệp Trọng Sinh', 'Tiên Hiệp Hệ Thống'],
+            'Kiếm Hiệp' => [],
+            'Ngôn Tình' => ['Ngôn Tình Hiện Đại', 'Ngôn Tình Cổ Đại'],
+            'Đô Thị' => [],
             'Huyền Huyễn' => [],
-            'Khoa Huyễn'  => [],
-            'Trinh Thám'  => [],
-            'Quân Sự'     => [],
+            'Khoa Huyễn' => [],
+            'Trinh Thám' => [],
+            'Quân Sự' => [],
             'Light Novel' => [],
-            'Đồng Nhân'   => [],
+            'Đồng Nhân' => [],
         ];
 
         foreach ($tree as $parentName => $children) {
             $parent = Category::create([
-                'name'        => $parentName,
-                'slug'        => Str::slug($parentName),
+                'name' => $parentName,
+                'slug' => Str::slug($parentName),
                 'description' => "Truyện thuộc thể loại {$parentName}.",
             ]);
 
             foreach ($children as $childName) {
                 Category::create([
-                    'parent_id'   => $parent->id,
-                    'name'        => $childName,
-                    'slug'        => Str::slug($childName),
+                    'parent_id' => $parent->id,
+                    'name' => $childName,
+                    'slug' => Str::slug($childName),
                     'description' => "Truyện thuộc thể loại {$childName}.",
                 ]);
             }

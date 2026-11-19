@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('categories', function (Blueprint $table) {
-                    
+
             $table->id();
 
             $table->foreignId('parent_id')
@@ -32,7 +32,7 @@ return new class extends Migration
 
             $table->index('parent_id');
 
-        }); 
+        });
     }
 
     /**

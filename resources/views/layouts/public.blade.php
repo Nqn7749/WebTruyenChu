@@ -9,16 +9,21 @@
     <title>@yield('title', 'Web Đọc Truyện Chữ')</title>
 
     {{-- SEO cơ bản --}}
-    <meta name="description" content="@yield('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.')">
+    {{-- Lưu ý bảo mật: @yield xuất nội dung section KHÔNG escape, nên tuyệt đối
+         không dùng @yield trực tiếp trong thuộc tính HTML. Tiêu đề truyện/chương
+         do người dùng nhập có thể chứa dấu " để thoát khỏi thuộc tính content
+         và chèn script (stored XSS). Dùng {{ $__env->yieldContent(...) }} để
+         escape đầy đủ, kể cả dấu ngoặc kép. --}}
+    <meta name="description" content="{{ $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
     <link rel="canonical" href="{{ url()->current() }}">
 
     {{-- Open Graph (Facebook, Zalo) --}}
-    <meta property="og:type" content="@yield('og_type', 'website')">
+    <meta property="og:type" content="{{ $__env->yieldContent('og_type', 'website') }}">
     <meta property="og:site_name" content="Web Đọc Truyện Chữ">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:title" content="@yield('og_title', $__env->yieldContent('title', 'Web Đọc Truyện Chữ'))">
-    <meta property="og:description" content="@yield('og_description', $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh.'))">
-    <meta property="og:image" content="@yield('og_image', asset('images/no-cover.jpg'))">
+    <meta property="og:title" content="{{ $__env->yieldContent('og_title', $__env->yieldContent('title', 'Web Đọc Truyện Chữ')) }}">
+    <meta property="og:description" content="{{ $__env->yieldContent('og_description', $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh.')) }}">
+    <meta property="og:image" content="{{ $__env->yieldContent('og_image', asset('images/no-cover.jpg')) }}">
 
     {{-- Twitter Card --}}
     <meta name="twitter:card" content="summary_large_image">

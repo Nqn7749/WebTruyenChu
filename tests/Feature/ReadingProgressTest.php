@@ -55,7 +55,6 @@ test('reading progress accepts repeated identical percentages for the active cha
         ->assertJson(['status' => 'ok']);
 });
 
-
 test('opening a chapter atomically creates or updates the reading history', function () {
     $user = User::factory()->create();
     $story = Story::factory()->create(['status_publish' => true]);

@@ -52,8 +52,9 @@ class StoryObserver
         Cache::forget('home:newest');
         Cache::forget('home:completed');
 
-        for ($page = 1; $page <= 3; $page++) {
-            Cache::forget("home:recently_updated:page:{$page}");
-        }
+        // Tăng phiên bản cache của danh sách "mới cập nhật" thay vì liệt kê
+        // từng trang: HomeController đưa version vào key nên mọi trang đều
+        // được làm mới, kể cả trang 4 trở đi. Key cũ tự hết hạn sau 10 phút.
+        Cache::increment('home:recently_updated:version');
     }
 }

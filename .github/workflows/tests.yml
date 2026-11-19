@@ -33,6 +33,9 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Check code style with Pint
+        run: vendor/bin/pint --test
+
       - name: Install Node dependencies
         run: npm ci
 

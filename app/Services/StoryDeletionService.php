@@ -8,20 +8,24 @@ use Illuminate\Support\Facades\Storage;
 
 class StoryDeletionService
 {
+    /**
+     * Xóa mềm truyện (soft-delete) và ghi lý do/người xóa.
+     *
+     * Ảnh bìa được GIỮ LẠI cố ý: soft-delete nghĩa là truyện vẫn có thể
+     * khôi phục, xóa file bìa lúc này sẽ khiến truyện khôi phục bị mất bìa
+     * vĩnh viễn. Chỉ xóa file bìa khi xóa vĩnh viễn, xem forceDelete().
+     */
     public function delete(
         Story $story,
         string $reason,
         ?int $deletedBy = null,
         bool $onlyWithoutChapters = false
     ): bool {
-        $coverPath = null;
-
-        $deleted = DB::transaction(function () use (
+        return DB::transaction(function () use (
             $story,
             $reason,
             $deletedBy,
-            $onlyWithoutChapters,
-            &$coverPath
+            $onlyWithoutChapters
         ): bool {
             $lockedStory = Story::query()
                 ->lockForUpdate()
@@ -35,6 +39,43 @@ class StoryDeletionService
                 return false;
             }
 
+            $lockedStory->forceFill([
+                'deletion_reason' => $reason,
+                'deleted_by' => $deletedBy,
+            ])->save();
+
+            $lockedStory->delete();
+
+            return true;
+        });
+    }
+
+    /**
+     * Xóa vĩnh viễn truyện đã xóa mềm (hoặc chưa xóa) và xóa luôn file ảnh bìa.
+     * Đây là nơi duy nhất được phép xóa file bìa.
+     */
+    public function forceDelete(
+        Story $story,
+        string $reason,
+        ?int $deletedBy = null
+    ): bool {
+        $coverPath = null;
+
+        $deleted = DB::transaction(function () use (
+            $story,
+            $reason,
+            $deletedBy,
+            &$coverPath
+        ): bool {
+            $lockedStory = Story::query()
+                ->withTrashed()
+                ->lockForUpdate()
+                ->find($story->id);
+
+            if (! $lockedStory) {
+                return false;
+            }
+
             $coverPath = $lockedStory->cover_image;
 
             $lockedStory->forceFill([
@@ -42,7 +83,7 @@ class StoryDeletionService
                 'deleted_by' => $deletedBy,
             ])->save();
 
-            $lockedStory->delete();
+            $lockedStory->forceDelete();
 
             return true;
         });

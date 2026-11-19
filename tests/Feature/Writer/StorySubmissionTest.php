@@ -6,7 +6,7 @@ use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
 
-test('a verified member can publish a story without admin approval', function () {
+test('a verified member submits a story pending admin approval', function () {
     $user = User::factory()->create(['status' => true]);
     $category = Category::factory()->create();
 
@@ -16,15 +16,36 @@ test('a verified member can publish a story without admin approval', function ()
         'description' => 'Giới thiệu truyện',
         'status' => 'ongoing',
         'categories' => [$category->id],
-        'status_publish' => false,
+        'status_publish' => true,
         'is_hot' => true,
     ])->assertRedirect(route('writer.stories.index'));
 
     $story = Story::query()->where('title', 'Truyện do thành viên đăng')->firstOrFail();
 
+    // Kể cả khi gửi status_publish=true hay is_hot=true, truyện mới vẫn
+    // chờ duyệt và không được gắn cờ nổi bật: các trường đó do hệ thống/admin quyết định.
     expect($story->user_id)->toBe($user->id)
-        ->and($story->status_publish)->toBeTrue()
+        ->and($story->status_publish)->toBeFalse()
         ->and($story->is_hot)->toBeFalse();
+});
+
+test('an admin can approve a pending story and unpublish it again', function () {
+    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+    $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
+    $author = User::factory()->create(['status' => true]);
+    $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => false]);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.stories.toggle-publish', $story))
+        ->assertRedirect();
+
+    expect($story->fresh()->status_publish)->toBeTrue();
+
+    $this->actingAs($admin)
+        ->patch(route('admin.stories.toggle-publish', $story))
+        ->assertRedirect();
+
+    expect($story->fresh()->status_publish)->toBeFalse();
 });
 
 test('a member can only manage their own stories', function () {
@@ -171,9 +192,10 @@ test('admin deletion stores the reason and the author can see it', function () {
         ->assertSee('Truyện vi phạm quy định nội dung của website.');
 });
 
-test('admin story management does not expose create edit or approval routes', function () {
+test('admin story management does not expose create or edit routes', function () {
     $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
     $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
 
     $this->actingAs($admin)->get('/admin/stories/create')->assertMethodNotAllowed();
+    $this->actingAs($admin)->get('/admin/stories/1/edit')->assertNotFound();
 });
