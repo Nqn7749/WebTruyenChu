@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Category;
-use App\Models\Story;
+use App\\Models\\Category;
+use App\\Models\\Story;
 
 test('search finds published stories by title author category and tag', function () {
     $category = Category::factory()->create(['name' => 'Kiếm hiệp']);
@@ -103,6 +103,62 @@ test('top rated search excludes stories with fewer than five ratings', function 
         ->assertOk()
         ->assertSee('Điểm tốt đủ đánh giá')
         ->assertDontSee('Điểm cao nhưng ít đánh giá');
+});
+
+test('relevance sorting prioritizes exact title then title prefix author and description matches', function () {
+    Story::factory()->create([
+        'title' => 'A story mentioning Ember later',
+        'description' => 'An unrelated description.',
+        'status_publish' => true,
+    ]);
+    Story::factory()->create([
+        'title' => 'Ember Rising',
+        'description' => 'An unrelated description.',
+        'status_publish' => true,
+    ]);
+    Story::factory()->create([
+        'title' => 'An unrelated title',
+        'author_name' => 'Ember',
+        'description' => 'An unrelated description.',
+        'status_publish' => true,
+    ]);
+    Story::factory()->create([
+        'title' => 'Ember',
+        'description' => 'An unrelated description.',
+        'status_publish' => true,
+    ]);
+    Story::factory()->create([
+        'title' => 'Another unrelated title',
+        'description' => 'The word Ember appears in this description.',
+        'status_publish' => true,
+    ]);
+
+    $this->get(route('search', ['q' => 'Ember', 'sort' => 'relevance']))
+        ->assertOk()
+        ->assertSeeInOrder([
+            'Ember</',
+            'Ember Rising',
+            'Ember</',
+            'A story mentioning Ember later',
+            'The word Ember appears in this description.',
+        ]);
+});
+
+test('relevance sort is accepted without a keyword and falls back to newest ordering', function () {
+    Story::factory()->create([
+        'title' => 'Older published story',
+        'status_publish' => true,
+        'created_at' => now()->subDay(),
+    ]);
+    Story::factory()->create([
+        'title' => 'Newer published story',
+        'status_publish' => true,
+        'created_at' => now(),
+    ]);
+
+    $this->get(route('search', ['sort' => 'relevance']))
+        ->assertOk()
+        ->assertSeeInOrder(['Newer published story', 'Older published story']);
 });
 
 test('story detail recommends other published stories from matching categories', function () {
