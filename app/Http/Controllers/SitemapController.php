@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Chapter;
 use App\Models\Story;
+use App\Services\SitemapCacheService;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 
@@ -12,9 +13,13 @@ class SitemapController extends Controller
 {
     public const STORIES_PER_PAGE = 5000;
 
+    public function __construct(private readonly SitemapCacheService $sitemapCache)
+    {
+    }
+
     public function index(): Response
     {
-        $xml = Cache::remember('sitemap:v2:index', now()->addHour(), function () {
+        $xml = Cache::remember($this->sitemapCache->key('index'), now()->addHour(), function () {
             $totalStories = Story::published()->count();
             $totalStoryPages = (int) ceil($totalStories / self::STORIES_PER_PAGE);
             $totalChapters = Chapter::query()
@@ -42,7 +47,7 @@ class SitemapController extends Controller
     {
         abort_if($page < 1, 404);
 
-        $xml = Cache::remember("sitemap:v2:stories:{$page}", now()->addHour(), function () use ($page) {
+        $xml = Cache::remember($this->sitemapCache->key("stories:{$page}"), now()->addHour(), function () use ($page) {
             $stories = Story::published()
                 ->orderBy('id')
                 ->skip(($page - 1) * self::STORIES_PER_PAGE)
@@ -61,7 +66,7 @@ class SitemapController extends Controller
     {
         abort_if($page < 1, 404);
 
-        $xml = Cache::remember("sitemap:v2:chapters:{$page}", now()->addHour(), function () use ($page) {
+        $xml = Cache::remember($this->sitemapCache->key("chapters:{$page}"), now()->addHour(), function () use ($page) {
             $chapters = Chapter::query()
                 ->where('status', true)
                 ->whereHas('story', fn ($query) => $query->published())
@@ -81,7 +86,7 @@ class SitemapController extends Controller
 
     public function categories(): Response
     {
-        $xml = Cache::remember('sitemap:v2:categories', now()->addHour(), function () {
+        $xml = Cache::remember($this->sitemapCache->key('categories'), now()->addHour(), function () {
             $categories = Category::orderBy('id')->get(['slug', 'updated_at']);
 
             return view('sitemap.categories', compact('categories'))->render();
@@ -92,7 +97,7 @@ class SitemapController extends Controller
 
     public function staticPages(): Response
     {
-        $xml = Cache::remember('sitemap:v2:static', now()->addHour(), function () {
+        $xml = Cache::remember($this->sitemapCache->key('static'), now()->addHour(), function () {
             return view('sitemap.static')->render();
         });
 
