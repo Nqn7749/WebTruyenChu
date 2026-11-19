@@ -31,12 +31,12 @@ class StoryController extends Controller
         $firstChapter = $publishedChapters()
             ->orderBy('chapter_number')
             ->orderBy('id')
-            ->first(['id', 'chapter_number']);
+            ->first(['id', 'chapter_number', 'slug']);
 
         $latestChapter = $publishedChapters()
             ->orderByDesc('chapter_number')
             ->orderByDesc('id')
-            ->first(['id', 'chapter_number']);
+            ->first(['id', 'chapter_number', 'slug']);
 
         $comments = Comment::query()
             ->where('story_id', $story->id)

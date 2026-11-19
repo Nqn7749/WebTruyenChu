@@ -19,6 +19,7 @@ class ChapterController extends Controller
     {
         $chapters = $story->chapters()
             ->orderBy('chapter_number')
+            ->orderBy('id')
             ->paginate(20);
 
         return view('admin.chapters.index', compact('story', 'chapters'));
@@ -35,10 +36,10 @@ class ChapterController extends Controller
     {
         $data = $request->validated();
         $title = $data['title'] ?? ('chuong-' . $data['chapter_number']);
-        $data['slug'] = $this->generateUniqueSlug($title, $story->id);
 
-        $chapter = DB::transaction(function () use ($story, $data, $stats) {
+        $chapter = DB::transaction(function () use ($story, $data, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+            $data['slug'] = $this->generateUniqueSlug($title, $lockedStory->id);
             $chapter = $lockedStory->chapters()->create($data);
             $stats->refreshChapterStats($lockedStory);
 
@@ -66,25 +67,17 @@ class ChapterController extends Controller
         Chapter $chapter,
         StoryStatsService $stats
     ) {
-        $wasPublished = (bool) $chapter->status;
         $data = $request->validated();
-        $expectedTitle = $data['title'] ?? ('chuong-' . $data['chapter_number']);
 
-        if (Str::slug($expectedTitle) !== $chapter->slug) {
-            $data['slug'] = $this->generateUniqueSlug(
-                $expectedTitle,
-                $chapter->story_id,
-                $chapter->id
-            );
-        }
-
-        [$story, $chapter] = DB::transaction(function () use ($chapter, $data, $stats) {
+        [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $stats) {
             $story = Story::query()->lockForUpdate()->findOrFail($chapter->story_id);
             $chapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+            $wasPublished = (bool) $chapter->status;
+            // Keep the original slug stable when an administrator edits the title.
             $chapter->update($data);
             $stats->refreshChapterStats($story);
 
-            return [$story, $chapter];
+            return [$story, $chapter, $wasPublished];
         });
 
         if (! $wasPublished && $chapter->status) {
@@ -129,6 +122,11 @@ class ChapterController extends Controller
     private function generateUniqueSlug(string $title, int $storyId, ?int $ignoreId = null): string
     {
         $slug = Str::slug($title) ?: 'chuong';
+
+        if (ctype_digit($slug)) {
+            $slug = 'chuong-'.$slug;
+        }
+
         $original = $slug;
         $i = 1;
 

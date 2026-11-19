@@ -48,7 +48,10 @@ class StoryDeletionService
         });
 
         if ($deleted && $coverPath) {
-            Storage::disk('public')->delete($coverPath);
+            // Defer filesystem side effects until the outermost DB transaction commits.
+            DB::afterCommit(static function () use ($coverPath): void {
+                Storage::disk('public')->delete($coverPath);
+            });
         }
 
         return $deleted;

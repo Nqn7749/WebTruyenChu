@@ -11,11 +11,20 @@
         @endif
     </sitemap>
 
-    @for ($page = 1; $page <= $totalPages; $page++)
+    @for ($page = 1; $page <= $totalStoryPages; $page++)
         <sitemap>
             <loc>{{ route('sitemap.stories', ['page' => $page]) }}</loc>
             @if ($lastStoryUpdate)
                 <lastmod>{{ \Illuminate\Support\Carbon::parse($lastStoryUpdate)->toAtomString() }}</lastmod>
+            @endif
+        </sitemap>
+    @endfor
+
+    @for ($page = 1; $page <= $totalChapterPages; $page++)
+        <sitemap>
+            <loc>{{ route('sitemap.chapters', ['page' => $page]) }}</loc>
+            @if ($lastChapterUpdate)
+                <lastmod>{{ \Illuminate\Support\Carbon::parse($lastChapterUpdate)->toAtomString() }}</lastmod>
             @endif
         </sitemap>
     @endfor

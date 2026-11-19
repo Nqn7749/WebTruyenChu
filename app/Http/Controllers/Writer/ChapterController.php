@@ -36,11 +36,11 @@ class ChapterController extends Controller
         $this->ensureOwner($story);
         $data = $request->validated();
         $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
-        $data['slug'] = $this->uniqueSlug($title, $story->id);
         $data['status'] = $request->boolean('status');
 
-        $chapter = DB::transaction(function () use ($story, $data, $stats) {
+        $chapter = DB::transaction(function () use ($story, $data, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+            $data['slug'] = $this->uniqueSlug($title, $lockedStory->id);
             $chapter = $lockedStory->chapters()->create($data);
             $stats->refreshChapterStats($lockedStory);
 
@@ -75,16 +75,14 @@ class ChapterController extends Controller
     {
         $story = $this->ownedStoryFor($chapter);
         $data = $request->validated();
-        $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
-
-        if (Str::slug($title) !== $chapter->slug) {
-            $data['slug'] = $this->uniqueSlug($title, $story->id, $chapter->id);
-        }
         $data['status'] = $request->boolean('status');
 
         [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+
+            // Keep the original slug stable when a writer edits the chapter title.
+
             $wasPublished = (bool) $lockedChapter->status;
             $lockedChapter->update($data);
             $stats->refreshChapterStats($lockedStory);
@@ -148,6 +146,11 @@ class ChapterController extends Controller
     private function uniqueSlug(string $title, int $storyId, ?int $ignoreId = null): string
     {
         $base = Str::slug($title) ?: 'chuong';
+
+        if (ctype_digit($base)) {
+            $base = 'chuong-'.$base;
+        }
+
         $slug = $base;
         $suffix = 1;
 

@@ -62,7 +62,7 @@
     <div class="reader-toolbar">
 
         @if ($prevChapter)
-            <a href="{{ route('chapters.show', [$story, $prevChapter]) }}"
+            <a href="{{ route('chapters.show', [$story, $prevChapter->slug]) }}"
                title="Chương trước"
                aria-label="Chương trước">
                 <i class="bi bi-chevron-left"></i>
@@ -140,7 +140,7 @@
         <div class="divider"></div>
 
         @if ($nextChapter)
-            <a href="{{ route('chapters.show', [$story, $nextChapter]) }}"
+            <a href="{{ route('chapters.show', [$story, $nextChapter->slug]) }}"
                title="Chương sau"
                aria-label="Chương sau">
                 <i class="bi bi-chevron-right"></i>
@@ -153,7 +153,7 @@
     <div class="d-flex justify-content-between my-4" id="readerChapterNavigation">
 
         @if ($prevChapter)
-            <a href="{{ route('chapters.show', [$story, $prevChapter]) }}"
+            <a href="{{ route('chapters.show', [$story, $prevChapter->slug]) }}"
                class="btn btn-outline-jade">
                 ← Chương trước
             </a>
@@ -162,7 +162,7 @@
         @endif
 
         @if ($nextChapter)
-            <a href="{{ route('chapters.show', [$story, $nextChapter]) }}"
+            <a href="{{ route('chapters.show', [$story, $nextChapter->slug]) }}"
                class="btn btn-jade">
                 Chương sau →
             </a>

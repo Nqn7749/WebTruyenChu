@@ -22,10 +22,17 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
-Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index'); // MỚI
+Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index');
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
-Route::get('/truyen/{story:slug}/chuong/{chapter:chapter_number}', [ChapterController::class, 'show'])
+
+// Keep old chapter-number URLs working and redirect them to the canonical slug URL.
+// If duplicate chapter numbers exist, the first published chapter by ID is the stable legacy target.
+Route::get('/truyen/{story:slug}/chuong/{chapterNumber}', [ChapterController::class, 'legacy'])
+    ->whereNumber('chapterNumber')
+    ->name('chapters.legacy');
+
+Route::get('/truyen/{story:slug}/chuong/{chapter:slug}', [ChapterController::class, 'show'])
     ->name('chapters.show')
     ->scopeBindings();
 
@@ -90,31 +97,20 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:30,1')
         ->name('reading-history.update-progress');
 
-    Route::get(
-        '/notifications/unread',
-        [NotificationController::class, 'unread']
-    )->middleware('throttle:30,1')->name('notifications.unread');
-
-    Route::get(
-        '/notifications',
-        [NotificationController::class, 'index']
-    )->name('notifications.index');
-
-    Route::patch(
-        '/notifications/{id}/read',
-        [NotificationController::class, 'markAsRead']
-    )->name('notifications.mark-read');
-
-    Route::patch(
-        '/notifications/read-all',
-        [NotificationController::class, 'markAllAsRead']
-    )->name('notifications.mark-all-read');
+    Route::get('/notifications/unread', [NotificationController::class, 'unread'])
+        ->middleware('throttle:30,1')->name('notifications.unread');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');
 Route::get('/sitemap-stories-{page}.xml', [SitemapController::class, 'stories'])
     ->where('page', '[0-9]+')
     ->name('sitemap.stories');
+Route::get('/sitemap-chapters-{page}.xml', [SitemapController::class, 'chapters'])
+    ->where('page', '[0-9]+')
+    ->name('sitemap.chapters');
 Route::get('/sitemap-categories.xml', [SitemapController::class, 'categories'])->name('sitemap.categories');
 Route::get('/sitemap-static.xml', [SitemapController::class, 'staticPages'])->name('sitemap.static');
 

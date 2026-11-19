@@ -65,15 +65,15 @@
 
         @if ($firstChapter)
             <div class="d-flex flex-wrap gap-2 mb-3 story-detail-actions">
-                <a href="{{ route('chapters.show', [$story, $firstChapter]) }}" class="btn btn-primary btn-sm">Đọc từ đầu</a>
-                <a href="{{ route('chapters.show', [$story, $latestChapter]) }}" class="btn btn-outline-primary btn-sm">Chương mới nhất</a>
+                <a href="{{ route('chapters.show', [$story, $firstChapter->slug]) }}" class="btn btn-primary btn-sm">Đọc từ đầu</a>
+                <a href="{{ route('chapters.show', [$story, $latestChapter->slug]) }}" class="btn btn-outline-primary btn-sm">Chương mới nhất</a>
             </div>
         @endif
 
         <h5 id="chapterList">Danh sách chương ({{ number_format($chapters->total()) }})</h5>
         <div class="list-group mb-3 chapter-list" aria-label="Danh sách chương">
             @forelse ($chapters as $chapter)
-                <a href="{{ route('chapters.show', [$story, $chapter]) }}"
+                <a href="{{ route('chapters.show', [$story, $chapter->slug]) }}"
                    class="list-group-item list-group-item-action chapter-list-item d-flex justify-content-between">
                     <span>Chương {{ $chapter->chapter_number }}{{ $chapter->title ? ' - '.$chapter->title : '' }}</span>
                     <small class="text-muted">{{ number_format($chapter->views) }} lượt xem</small>
