@@ -85,6 +85,19 @@ test('writers can publish two chapters with the same chapter number', function (
         ])
         ->assertRedirect();
 
-    expect($story->chapters()->where('chapter_number', 8)->count())->toBe(2)
+    $firstChapter = $story->chapters()
+        ->where('title', 'Bản dịch thứ nhất')
+        ->firstOrFail();
+    $originalSlug = $firstChapter->slug;
+
+    $this->put(route('writer.chapters.update', $firstChapter), [
+        'chapter_number' => 8,
+        'title' => 'Bản dịch thứ nhất - tiêu đề mới',
+        'content' => 'Nội dung đã chỉnh sửa.',
+        'status' => 1,
+    ])->assertRedirect();
+
+    expect($firstChapter->fresh()->slug)->toBe($originalSlug)
+        ->and($story->chapters()->where('chapter_number', 8)->count())->toBe(2)
         ->and($story->chapters()->where('chapter_number', 8)->pluck('slug')->unique()->count())->toBe(2);
 });
