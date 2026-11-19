@@ -10,7 +10,7 @@
 <div class="list-group">
     @forelse ($histories as $history)
         @if ($history->story && $history->chapter)
-            <a href="{{ route('chapters.show', [$history->story, $history->chapter]) }}"
+            <a href="{{ route('chapters.show', [$history->story, $history->chapter->slug]) }}"
                class="list-group-item list-group-item-action d-flex align-items-center gap-3">
                 <img src="{{ $history->story->cover_image ? Storage::url($history->story->cover_image) : asset('images/no-cover.jpg') }}"
                      style="width: 50px; height: 66px; object-fit: cover; border-radius: .25rem;">
