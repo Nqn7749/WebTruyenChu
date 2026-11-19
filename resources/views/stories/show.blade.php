@@ -10,31 +10,33 @@
 @section('og_image', $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'))
 @section('og_image_alt', 'Bìa truyện '.$story->title)
 
+@php
+    $bookStructuredData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Book',
+        'name' => $story->title,
+        'author' => [
+            '@type' => 'Person',
+            'name' => $story->author_name ?: 'Đang cập nhật',
+        ],
+        'description' => Str::limit(strip_tags($story->description ?? ''), 500),
+        'image' => $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'),
+        'genre' => $story->categories->pluck('name')->values(),
+        'inLanguage' => 'vi',
+        'url' => route('stories.show', $story),
+        'datePublished' => $story->created_at?->toAtomString(),
+        'aggregateRating' => $story->rating_count > 0 ? [
+            '@type' => 'AggregateRating',
+            'ratingValue' => (float) $story->average_rating,
+            'ratingCount' => (int) $story->rating_count,
+            'bestRating' => 5,
+            'worstRating' => 1,
+        ] : null,
+    ];
+@endphp
+
 @push('structured_data')
-    <script type="application/ld+json">
-        @json([
-            '@context' => 'https://schema.org',
-            '@type' => 'Book',
-            'name' => $story->title,
-            'author' => [
-                '@type' => 'Person',
-                'name' => $story->author_name ?: 'Đang cập nhật',
-            ],
-            'description' => Str::limit(strip_tags($story->description ?? ''), 500),
-            'image' => $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'),
-            'genre' => $story->categories->pluck('name')->values(),
-            'inLanguage' => 'vi',
-            'url' => route('stories.show', $story),
-            'datePublished' => $story->created_at?->toAtomString(),
-            'aggregateRating' => $story->rating_count > 0 ? [
-                '@type' => 'AggregateRating',
-                'ratingValue' => (float) $story->average_rating,
-                'ratingCount' => (int) $story->rating_count,
-                'bestRating' => 5,
-                'worstRating' => 1,
-            ] : null,
-        ])
-    </script>
+    <script type="application/ld+json">{!! json_encode($bookStructuredData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}</script>
 @endpush
 
 @section('content')
