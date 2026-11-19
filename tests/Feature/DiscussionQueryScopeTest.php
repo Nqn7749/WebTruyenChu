@@ -35,7 +35,7 @@ test('story and chapter pages only load comments for their own discussion scope'
         ->assertOk()
         ->assertViewHas('comments', fn ($comments) => $comments->pluck('id')->all() === [$storyComment->id]);
 
-    $this->get(route('chapters.show', [$story, $chapter]))
+    $this->get(route('chapters.show', [$story, $chapter->slug]))
         ->assertOk()
         ->assertViewHas('comments', fn ($comments) => $comments->pluck('id')->all() === [$chapterComment->id]);
 });
