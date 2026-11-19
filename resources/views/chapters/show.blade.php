@@ -14,33 +14,35 @@
     : asset('images/no-cover.jpg'))
 @section('og_image_alt', 'Bìa truyện '.$story->title)
 
-@push('structured_data')
-    <script type="application/ld+json">
-        @json([
-            '@context' => 'https://schema.org',
-            '@type' => 'BreadcrumbList',
-            'itemListElement' => [
-                [
-                    '@type' => 'ListItem',
-                    'position' => 1,
-                    'name' => 'Trang chủ',
-                    'item' => route('home'),
-                ],
-                [
-                    '@type' => 'ListItem',
-                    'position' => 2,
-                    'name' => $story->title,
-                    'item' => route('stories.show', $story),
-                ],
-                [
-                    '@type' => 'ListItem',
-                    'position' => 3,
-                    'name' => 'Chương '.$chapter->chapter_number,
-                    'item' => route('chapters.show', ['story' => $story->slug, 'chapter' => $chapter->chapter_number]),
-                ],
+@php
+    $chapterBreadcrumbData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => [
+            [
+                '@type' => 'ListItem',
+                'position' => 1,
+                'name' => 'Trang chủ',
+                'item' => route('home'),
             ],
-        ])
-    </script>
+            [
+                '@type' => 'ListItem',
+                'position' => 2,
+                'name' => $story->title,
+                'item' => route('stories.show', $story),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 3,
+                'name' => 'Chương '.$chapter->chapter_number,
+                'item' => route('chapters.show', ['story' => $story->slug, 'chapter' => $chapter->chapter_number]),
+            ],
+        ],
+    ];
+@endphp
+
+@push('structured_data')
+    <script type="application/ld+json">{!! json_encode($chapterBreadcrumbData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}</script>
 @endpush
 
 @section('content')
