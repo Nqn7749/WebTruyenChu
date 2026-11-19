@@ -18,3 +18,51 @@ test('sensitive authentication endpoints have explicit rate limits', function ()
             ->and($route->gatherMiddleware())->toContain($expectedMiddleware);
     }
 });
+
+test('registration endpoint enforces its five request per minute limit', function () {
+    foreach (range(1, 5) as $attempt) {
+        $this->postJson(route('register.store'), [])->assertUnprocessable();
+    }
+
+    $this->postJson(route('register.store'), [])->assertTooManyRequests();
+});
+
+test('password reset link endpoint enforces its five request per minute limit', function () {
+    foreach (range(1, 5) as $attempt) {
+        $this->postJson(route('password.email'), [])->assertUnprocessable();
+    }
+
+    $this->postJson(route('password.email'), [])->assertTooManyRequests();
+});
+
+test('password reset submission endpoint enforces its ten request per minute limit', function () {
+    foreach (range(1, 10) as $attempt) {
+        $this->postJson(route('password.store'), [])->assertUnprocessable();
+    }
+
+    $this->postJson(route('password.store'), [])->assertTooManyRequests();
+});
+
+test('password confirmation endpoint enforces its six request per minute limit', function () {
+    $this->actingAs(User::factory()->create());
+
+    foreach (range(1, 6) as $attempt) {
+        $this->postJson(route('password.confirm.store'), [
+            'password' => 'incorrect-password',
+        ])->assertUnprocessable();
+    }
+
+    $this->postJson(route('password.confirm.store'), [
+        'password' => 'incorrect-password',
+    ])->assertTooManyRequests();
+});
+
+test('password update endpoint enforces its six request per minute limit', function () {
+    $this->actingAs(User::factory()->create());
+
+    foreach (range(1, 6) as $attempt) {
+        $this->putJson(route('password.update'), [])->assertUnprocessable();
+    }
+
+    $this->putJson(route('password.update'), [])->assertTooManyRequests();
+});
