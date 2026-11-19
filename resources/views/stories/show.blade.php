@@ -115,7 +115,7 @@
             @else
                 <p><a href="{{ route('login') }}">Đăng nhập</a> để bình luận.</p>
             @endauth
-            @include('components.comments', ['comments' => $comments])
+            @include('components.comments', compact('comments'))
             @if ($comments->hasPages())
                 <div class="mt-4">{{ $comments->fragment('commentsSection')->links() }}</div>
             @endif
