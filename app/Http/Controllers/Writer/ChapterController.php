@@ -36,11 +36,11 @@ class ChapterController extends Controller
         $this->ensureOwner($story);
         $data = $request->validated();
         $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
-        $data['slug'] = $this->uniqueSlug($title, $story->id);
         $data['status'] = $request->boolean('status');
 
-        $chapter = DB::transaction(function () use ($story, $data, $stats) {
+        $chapter = DB::transaction(function () use ($story, $data, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+            $data['slug'] = $this->uniqueSlug($title, $lockedStory->id);
             $chapter = $lockedStory->chapters()->create($data);
             $stats->refreshChapterStats($lockedStory);
 
@@ -77,14 +77,16 @@ class ChapterController extends Controller
         $data = $request->validated();
         $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
 
-        if (Str::slug($title) !== $chapter->slug) {
-            $data['slug'] = $this->uniqueSlug($title, $story->id, $chapter->id);
-        }
         $data['status'] = $request->boolean('status');
 
-        [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats) {
+        [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+
+            if (Str::slug($title) !== $lockedChapter->slug) {
+                $data['slug'] = $this->uniqueSlug($title, $lockedStory->id, $lockedChapter->id);
+            }
+
             $wasPublished = (bool) $lockedChapter->status;
             $lockedChapter->update($data);
             $stats->refreshChapterStats($lockedStory);
