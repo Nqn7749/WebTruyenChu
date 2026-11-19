@@ -75,17 +75,13 @@ class ChapterController extends Controller
     {
         $story = $this->ownedStoryFor($chapter);
         $data = $request->validated();
-        $title = $data['title'] ?? 'chuong-'.$data['chapter_number'];
-
         $data['status'] = $request->boolean('status');
 
         [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
 
-            if (Str::slug($title) !== $lockedChapter->slug) {
-                $data['slug'] = $this->uniqueSlug($title, $lockedStory->id, $lockedChapter->id);
-            }
+            // Keep the original slug stable when a writer edits the chapter title.
 
             $wasPublished = (bool) $lockedChapter->status;
             $lockedChapter->update($data);
