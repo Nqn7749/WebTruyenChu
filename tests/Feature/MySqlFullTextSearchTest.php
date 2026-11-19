@@ -13,6 +13,13 @@ test('mysql full-text scope searches indexed story columns and exposes its index
         'description' => 'A journey through distant kingdoms.',
     ]);
 
+    // InnoDB publishes FULLTEXT index changes at transaction commit. The
+    // Feature suite's RefreshDatabase transaction would otherwise hide the
+    // newly inserted row from MATCH ... AGAINST in this integration test.
+    $connection = DB::connection();
+    $connection->commit();
+    $connection->beginTransaction();
+
     $results = Story::search('Ember')->pluck('id');
 
     expect($results)->toContain($match->id);
