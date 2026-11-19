@@ -16,7 +16,7 @@ class SitemapController extends Controller
     {
         $xml = Cache::remember('sitemap:index', now()->addHour(), function () {
             $totalStories = Story::published()->count();
-            $totalStoryPages = max(1, (int) ceil($totalStories / self::STORIES_PER_PAGE));
+            $totalStoryPages = (int) ceil($totalStories / self::STORIES_PER_PAGE);
             $totalChapters = Chapter::query()
                 ->where('status', true)
                 ->whereHas('story', fn ($query) => $query->published())
