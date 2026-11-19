@@ -1,7 +1,7 @@
 <?php
 
-use App\\Models\\Story;
-use Illuminate\\Support\\Facades\\DB;
+use App\Models\Story;
+use Illuminate\Support\Facades\DB;
 
 test('mysql full-text scope searches indexed story columns and exposes its index to the query planner', function () {
     if (DB::connection()->getDriverName() !== 'mysql') {
