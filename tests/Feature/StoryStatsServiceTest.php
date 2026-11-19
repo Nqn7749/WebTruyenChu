@@ -28,7 +28,7 @@ test('chapter statistics count drafts and track the newest published chapter', f
     expect($story->fresh()->last_chapter_at)->toBeNull();
 });
 
-test('chapter views do not change its publication timestamp or story update timestamp', function () {
+test('chapter views do not change its publication timestamp or story chapter timestamp', function () {
     $story = Story::factory()->create();
     $publishedAt = now()->subDays(2);
     $chapter = Chapter::factory()->for($story)->create([
