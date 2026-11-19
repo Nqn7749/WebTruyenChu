@@ -1,7 +1,7 @@
 <?php
 
-use App\\Models\\Category;
-use App\\Models\\Story;
+use App\Models\Category;
+use App\Models\Story;
 
 test('search finds published stories by title author category and tag', function () {
     $category = Category::factory()->create(['name' => 'Kiếm hiệp']);
