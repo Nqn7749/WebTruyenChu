@@ -44,7 +44,7 @@ class NewChapterPublished extends Notification implements ShouldQueue
             // Lưu URL luôn
             'url' => route('chapters.show', [
                 $story,
-                $this->chapter,
+                $this->chapter->slug,
             ]),
         ];
     }
