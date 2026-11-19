@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Category;
-use App\Models\Story;
-use Illuminate\Http\Request;
+use App\\Models\\Category;
+use App\\Models\\Story;
+use Illuminate\\Http\\Request;
 
 class SearchController extends Controller
 {
@@ -33,14 +33,17 @@ class SearchController extends Controller
         $query = Story::published()->with('categories');
 
         if ($keyword !== '') {
-            $term = '%'.$keyword.'%';
+            // Treat SQL LIKE metacharacters as literal user input. "!" is used
+            // as the ESCAPE character to avoid driver-specific backslash rules.
+            $escapedKeyword = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $keyword);
+            $term = '%'.$escapedKeyword.'%';
 
             $query->where(function ($search) use ($term) {
-                $search->where('title', 'like', $term)
-                    ->orWhere('author_name', 'like', $term)
-                    ->orWhere('description', 'like', $term)
-                    ->orWhereHas('categories', fn ($categories) => $categories->where('name', 'like', $term))
-                    ->orWhereHas('tags', fn ($tags) => $tags->where('name', 'like', $term));
+                $search->whereRaw("title LIKE ? ESCAPE '!'", [$term])
+                    ->orWhereRaw("author_name LIKE ? ESCAPE '!'", [$term])
+                    ->orWhereRaw("description LIKE ? ESCAPE '!'", [$term])
+                    ->orWhereHas('categories', fn ($categories) => $categories->whereRaw("name LIKE ? ESCAPE '!'", [$term]))
+                    ->orWhereHas('tags', fn ($tags) => $tags->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
             });
         }
 
@@ -54,6 +57,11 @@ class SearchController extends Controller
 
         if ($period !== '' && in_array($period, self::ALLOWED_PERIODS, true)) {
             $query->where('last_chapter_at', '>=', now()->subDays($period === 'week' ? 7 : 30));
+        }
+
+        if ($sort === 'top_rated') {
+            // Avoid presenting a tiny number of ratings as a reliable ranking.
+            $query->where('rating_count', '>=', 5);
         }
 
         match ($sort) {
