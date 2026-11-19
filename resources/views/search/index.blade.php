@@ -40,6 +40,7 @@
             <label for="search-sort" class="form-label fw-semibold">Sắp xếp</label>
             <select id="search-sort" name="sort" class="form-select">
                 <option value="newest" {{ $sort === 'newest' ? 'selected' : '' }}>Truyện mới đăng</option>
+                <option value="relevance" {{ $sort === 'relevance' ? 'selected' : '' }}>Phù hợp nhất</option>
                 <option value="updated" {{ $sort === 'updated' ? 'selected' : '' }}>Mới cập nhật chương</option>
                 <option value="most_viewed" {{ $sort === 'most_viewed' ? 'selected' : '' }}>Nhiều lượt xem</option>
                 <option value="top_rated" {{ $sort === 'top_rated' ? 'selected' : '' }}>Đánh giá cao</option>
