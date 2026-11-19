@@ -150,6 +150,11 @@ class ChapterController extends Controller
     private function uniqueSlug(string $title, int $storyId, ?int $ignoreId = null): string
     {
         $base = Str::slug($title) ?: 'chuong';
+
+        if (ctype_digit($base)) {
+            $base = 'chuong-'.$base;
+        }
+
         $slug = $base;
         $suffix = 1;
 
