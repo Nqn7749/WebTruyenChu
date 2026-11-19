@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\RateLimiter;
 
 test('login screen can be rendered with the redesigned form', function () {
     $response = $this->get('/login');
@@ -46,6 +47,49 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+test('users can authenticate with their username', function () {
+    $user = User::factory()->create(['username' => 'reader-login']);
+
+    $response = $this->post('/login', [
+        'email' => 'reader-login',
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticatedAs($user);
+    $response->assertRedirect(route('home', absolute: false));
+});
+
+test('successful login clears previous failed attempts for the same identity and IP', function () {
+    $user = User::factory()->create(['username' => 'reader-login']);
+    $key = 'reader-login|127.0.0.1';
+
+    RateLimiter::clear($key);
+    RateLimiter::hit($key);
+    RateLimiter::hit($key);
+
+    try {
+        $this->post('/login', [
+            'email' => 'reader-login',
+            'password' => 'password',
+        ])->assertRedirect(route('home', absolute: false));
+
+        expect(RateLimiter::tooManyAttempts($key, 5))->toBeFalse();
+    } finally {
+        RateLimiter::clear($key);
+    }
+});
+
+test('disabled accounts cannot authenticate even with the correct password', function () {
+    $user = User::factory()->create(['status' => false]);
+
+    $response = $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertGuest();
+    $response->assertSessionHasErrors('email');
+});
 
 test('login throttling locks only the same normalized identity and IP after five failures', function () {
     $key = 'throttle-user|127.0.0.1';
