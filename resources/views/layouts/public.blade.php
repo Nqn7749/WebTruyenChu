@@ -17,6 +17,9 @@
 
     <meta name="description" content="{{ $seoDescription }}">
     <meta name="robots" content="@yield('meta_robots', 'index,follow')">
+    @hasSection('meta_keywords')
+        <meta name="keywords" content="@yield('meta_keywords')">
+    @endif
     <link rel="canonical" href="{{ $seoCanonical }}">
 
     {{-- Open Graph --}}
