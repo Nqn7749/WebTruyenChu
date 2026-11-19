@@ -11,25 +11,17 @@ class HomeController extends Controller
 
     public function index()
     {
-        $rawPage = request()->query('recent', 1);
-        $validatedPage = is_scalar($rawPage) ? filter_var($rawPage, FILTER_VALIDATE_INT) : false;
-        $page = max(1, $validatedPage === false ? 1 : $validatedPage);
+        $page = max(1, (int) request()->query('recent', 1));
 
-        $recentlyUpdatedQuery = fn () => Story::published()
-            ->with('categories')
-            ->recentlyUpdated()
-            ->orderByDesc('id')
-            ->paginate(20, ['*'], 'recent', $page);
-
-        // StoryObserver invalidates the first three homepage pages. Do not
-        // create an unbounded cache namespace from arbitrary ?recent= values.
-        $recentlyUpdated = $page <= 3
-            ? Cache::remember(
-                "home:recently_updated:page:{$page}",
-                now()->addMinutes(self::CACHE_TTL_MINUTES),
-                $recentlyUpdatedQuery
-            )
-            : $recentlyUpdatedQuery();
+        $recentlyUpdated = Cache::remember(
+            "home:recently_updated:page:{$page}",
+            now()->addMinutes(self::CACHE_TTL_MINUTES),
+            fn () => Story::published()
+                ->with('categories')
+                ->recentlyUpdated()
+                ->orderByDesc('id')
+                ->paginate(20, ['*'], 'recent', $page)
+        );
 
         $hotStories = Cache::remember(
             'home:hot',

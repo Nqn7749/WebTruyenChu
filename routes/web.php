@@ -104,14 +104,6 @@ Route::middleware('auth')->group(function () {
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 });
 
-Route::get('/robots.txt', function () {
-    return response(
-        "User-agent: *\\nAllow: /\\nDisallow: /admin\\nDisallow: /lich-su-doc\\nDisallow: /yeu-thich\\nDisallow: /profile\\n\\nSitemap: ".url('/sitemap.xml')."\\n",
-        200,
-        ['Content-Type' => 'text/plain; charset=UTF-8']
-    );
-})->name('robots');
-
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');
 Route::get('/sitemap-stories-{page}.xml', [SitemapController::class, 'stories'])
     ->where('page', '[0-9]+')
