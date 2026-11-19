@@ -80,7 +80,8 @@ class UserController extends Controller
                 ]);
             }
 
-            $user->update($data);
+            // role_id/status không nằm trong $fillable của User nên gán riêng ở đây.
+            $user->forceFill($data)->save();
         });
 
         return redirect()->route('admin.users.index')

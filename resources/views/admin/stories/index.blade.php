@@ -6,9 +6,9 @@
 </div>
 
 <div class="alert alert-warning" role="alert">
-    <strong>Lưu ý:</strong> Admin không duyệt truyện. Khi xóa, bạn phải ghi rõ lý do.
-    Truyện sẽ bị ẩn khỏi website và tác giả có thể xem lý do trong Tủ truyện của tôi.
-    Hãy kiểm tra kỹ trước khi xác nhận.
+    <strong>Lưu ý:</strong> Truyện mới do thành viên đăng mặc định CHƯA công khai, cần admin duyệt
+    ở cột Thao tác. Khi xóa, bạn phải ghi rõ lý do. Truyện sẽ bị ẩn khỏi website và tác giả
+    có thể xem lý do trong Tủ truyện của tôi. Hãy kiểm tra kỹ trước khi xác nhận.
 </div>
 
 @if (session('success'))
@@ -38,10 +38,24 @@
                 <td>{{ $story->title }}</td>
                 <td>{{ $story->author_name ?? '—' }}</td>
                 <td>{{ $story->user?->name ?? '—' }}</td>
-                <td><span class="badge bg-secondary">{{ $story->status }}</span></td>
+                <td>
+                    <span class="badge bg-secondary">{{ $story->status }}</span>
+                    @if ($story->status_publish)
+                        <span class="badge bg-success">Đã công khai</span>
+                    @else
+                        <span class="badge bg-warning text-dark">Chờ duyệt</span>
+                    @endif
+                </td>
                 <td>{{ $story->chapters_count }}</td>
                 <td class="text-end">
                     <a href="{{ route('admin.stories.chapters.index', $story) }}" class="btn btn-sm btn-info">Chương</a>
+                    <form action="{{ route('admin.stories.toggle-publish', $story) }}" method="POST" class="d-inline">
+                        @csrf
+                        @method('PATCH')
+                        <button class="btn btn-sm {{ $story->status_publish ? 'btn-outline-warning' : 'btn-success' }}">
+                            {{ $story->status_publish ? 'Gỡ công khai' : 'Duyệt' }}
+                        </button>
+                    </form>
                     <form action="{{ route('admin.stories.destroy', $story) }}" method="POST" class="mt-2 text-start"
                           onsubmit="return confirm('CẢNH BÁO: Truyện sẽ bị xóa khỏi website. Bạn đã kiểm tra nội dung và nhập đúng lý do chưa?')">
                         @csrf

@@ -28,14 +28,16 @@ test('new users can register without email verification', function () {
     $response->assertRedirect(route('home', absolute: false));
 });
 
-test('users without verified email can access authenticated pages', function () {
+test('users without verified email can access authenticated pages but not the writer area', function () {
     $user = User::factory()->unverified()->create();
 
     $this->actingAs($user)
         ->get('/dashboard')
         ->assertOk();
 
+    // Khu vực sáng tác yêu cầu xác minh email: chưa xác minh thì bị chuyển
+    // tới trang nhắc xác minh.
     $this->actingAs($user)
         ->get(route('writer.stories.index'))
-        ->assertOk();
+        ->assertRedirect(route('verification.notice'));
 });

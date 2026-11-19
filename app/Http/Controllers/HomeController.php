@@ -13,8 +13,12 @@ class HomeController extends Controller
     {
         $page = max(1, (int) request()->query('recent', 1));
 
+        // Phiên bản cache do StoryObserver tăng mỗi khi truyện thay đổi:
+        // trang nào cũng được làm mới, không còn giới hạn ở 3 trang đầu.
+        $recentVersion = (int) Cache::get('home:recently_updated:version', 1);
+
         $recentlyUpdated = Cache::remember(
-            "home:recently_updated:page:{$page}",
+            "home:recently_updated:v{$recentVersion}:page:{$page}",
             now()->addMinutes(self::CACHE_TTL_MINUTES),
             fn () => Story::published()
                 ->with('categories')

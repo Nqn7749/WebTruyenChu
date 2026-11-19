@@ -13,7 +13,9 @@ test('story and chapter pages only load comments for their own discussion scope'
         'status' => true,
     ]);
 
-    $storyComment = Comment::create([
+    // Comment::create() tôn trọng $fillable (user_id/is_hidden không nằm
+    // trong đó) nên dùng factory — factory chạy unguarded.
+    $storyComment = Comment::factory()->create([
         'user_id' => $user->id,
         'story_id' => $story->id,
         'chapter_id' => null,
@@ -22,7 +24,7 @@ test('story and chapter pages only load comments for their own discussion scope'
         'is_hidden' => false,
     ]);
 
-    $chapterComment = Comment::create([
+    $chapterComment = Comment::factory()->create([
         'user_id' => $user->id,
         'story_id' => $story->id,
         'chapter_id' => $chapter->id,

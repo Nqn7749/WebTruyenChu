@@ -8,6 +8,8 @@ use App\Http\Requests\Admin\UpdateStoryRequest;
 use App\Models\Category;
 use App\Models\Story;
 use App\Models\Tag;
+use App\Services\StoryDeletionService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -42,8 +44,6 @@ class StoryController extends Controller
         unset($data['categories'], $data['tags']);
 
         $data['slug'] = $this->uniqueSlug($data['title']);
-        $data['status_publish'] = true;
-        $data['is_hot'] = $data['is_featured'] = $data['is_recommended'] = false;
 
         $cover = $request->file('cover_image')?->store('covers', 'public');
         if ($request->hasFile('cover_image') && ! $cover) {
@@ -54,11 +54,39 @@ class StoryController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($data, $categoryIds, $tagIds) {
-                $story = auth()->user()->stories()->create($data);
-                $story->categories()->sync($categoryIds);
-                $story->tags()->sync($tagIds);
-            });
+            // Truyện mới mặc định CHƯA công khai, chờ admin duyệt. Các cờ
+            // hệ thống (status_publish, is_hot, ...) không nằm trong
+            // $fillable nên gán riêng bằng forceFill() sau khi tạo.
+            // Thử lại tối đa 3 lần nếu hai người đăng cùng tiêu đề một lúc
+            // khiến slug bị trùng (lỗi unique 23000) — xem uniqueSlug().
+            $attempts = 0;
+
+            do {
+                $attempts++;
+
+                try {
+                    DB::transaction(function () use ($data, $categoryIds, $tagIds) {
+                        $story = auth()->user()->stories()->create($data);
+                        $story->forceFill([
+                            'status_publish' => false,
+                            'is_hot' => false,
+                            'is_featured' => false,
+                            'is_recommended' => false,
+                        ])->save();
+                        $story->categories()->sync($categoryIds);
+                        $story->tags()->sync($tagIds);
+                    });
+
+                    break;
+                } catch (QueryException $exception) {
+                    if ($attempts >= 3 || $exception->getCode() !== '23000') {
+                        throw $exception;
+                    }
+
+                    // Slug vừa bị người khác chiếm trước, tạo slug mới rồi thử lại.
+                    $data['slug'] = $this->uniqueSlug($data['title']).'-'.Str::lower(Str::random(6));
+                }
+            } while ($attempts < 3);
         } catch (Throwable $exception) {
             if ($cover) {
                 Storage::disk('public')->delete($cover);
@@ -67,7 +95,7 @@ class StoryController extends Controller
         }
 
         return redirect()->route('writer.stories.index')
-            ->with('success', 'Đã đăng truyện. Truyện được công khai ngay; bạn hãy thêm chương đầu tiên.');
+            ->with('success', 'Đã gửi truyện. Truyện đang chờ quản trị viên duyệt; bạn hãy thêm chương đầu tiên trong lúc chờ.');
     }
 
     public function edit(Story $story)
@@ -96,8 +124,9 @@ class StoryController extends Controller
             $data['slug'] = $this->uniqueSlug($data['title'], $story->id);
         }
 
-        // Story submissions no longer require admin approval.
-        $data['status_publish'] = true;
+        // Không đụng tới status_publish khi sửa: truyện đang chờ duyệt thì
+        // vẫn chờ duyệt, truyện đã công khai thì vẫn công khai. Chỉ admin
+        // mới được duyệt/gỡ công khai (Admin\StoryController::togglePublish).
 
         $oldCover = $story->cover_image;
         $newCover = $request->file('cover_image')?->store('covers', 'public');
@@ -130,16 +159,16 @@ class StoryController extends Controller
             ->with('success', 'Đã cập nhật truyện thành công.');
     }
 
-    public function destroy(Story $story)
+    public function destroy(Story $story, StoryDeletionService $deletion)
     {
         $this->ensureOwner($story);
-        $cover = $story->cover_image;
 
-        DB::transaction(fn () => $story->delete());
-
-        if ($cover) {
-            Storage::disk('public')->delete($cover);
-        }
+        // Dùng chung StoryDeletionService với admin để thống nhất metadata
+        // (deletion_reason, deleted_by). Đây chỉ là xóa mềm — ảnh bìa được
+        // GIỮ LẠI để khôi phục truyện vẫn còn bìa; chỉ khi xóa vĩnh viễn
+        // (forceDelete) mới xóa file ảnh, xem StoryDeletionService.
+        $deleted = $deletion->delete($story, 'Tác giả tự xóa truyện.', auth()->id());
+        abort_unless($deleted, 404);
 
         return redirect()->route('writer.stories.index')->with('success', 'Đã xóa truyện.');
     }

@@ -24,7 +24,6 @@ class CommentController extends Controller
 
         $data = $request->validated();
 
-        $data['user_id'] = Auth::id();
         $data['story_id'] = $story->id;
 
         /*
@@ -86,6 +85,9 @@ class CommentController extends Controller
         $comment = DB::transaction(function () use ($data, $story) {
 
             $comment = Comment::create($data);
+
+            // user_id không nằm trong $fillable của Comment nên gán riêng ở đây.
+            $comment->forceFill(['user_id' => Auth::id()])->save();
 
             // Tăng số comment của story.
             $story->increment('comment_count');

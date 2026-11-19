@@ -11,13 +11,17 @@ class Comment extends Model
     /** @use HasFactory<\Database\Factories\CommentFactory> */
     use HasFactory, SoftDeletes;
 
+    /**
+     * Chỉ các trường người dùng được phép nhập (đã qua validation).
+     * user_id (người viết, lấy từ tài khoản đang đăng nhập) và is_hidden
+     * (do tác giả truyện/admin quyết định) KHÔNG nằm ở đây — chỉ gán qua
+     * forceFill() ở đúng chỗ có thẩm quyền.
+     */
     protected $fillable = [
-        'user_id',
         'story_id',
         'chapter_id',
         'parent_id',
         'content',
-        'is_hidden',
     ];
 
     protected function casts(): array

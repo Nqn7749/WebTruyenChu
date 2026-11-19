@@ -60,7 +60,7 @@ test('chapter slug binding is scoped to its parent story', function () {
         ->assertNotFound();
 });
 
-test('writers can publish two chapters with the same chapter number', function () {
+test('writers cannot publish two chapters with the same chapter number', function () {
     $author = User::factory()->create(['status' => true]);
     $story = Story::factory()->create([
         'user_id' => $author->id,
@@ -83,7 +83,7 @@ test('writers can publish two chapters with the same chapter number', function (
             'content' => 'Nội dung thứ hai.',
             'status' => 1,
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors('chapter_number');
 
     $firstChapter = $story->chapters()
         ->where('title', 'Bản dịch thứ nhất')
@@ -98,6 +98,5 @@ test('writers can publish two chapters with the same chapter number', function (
     ])->assertRedirect();
 
     expect($firstChapter->fresh()->slug)->toBe($originalSlug)
-        ->and($story->chapters()->where('chapter_number', 8)->count())->toBe(2)
-        ->and($story->chapters()->where('chapter_number', 8)->pluck('slug')->unique()->count())->toBe(2);
+        ->and($story->chapters()->where('chapter_number', 8)->count())->toBe(1);
 });

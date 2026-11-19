@@ -12,7 +12,8 @@ class StoreCommentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ tài khoản đã đăng nhập mới được bình luận.
+        return $this->user() !== null;
     }
 
     /**

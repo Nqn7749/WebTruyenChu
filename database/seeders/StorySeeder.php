@@ -29,14 +29,13 @@ class StorySeeder extends Seeder
             ->recycle($users) // dùng lại user có sẵn thay vì tạo user mới cho mỗi story
             ->create()
             ->each(function (Story $story) use ($categories, $tags) {
-                // is_hot / is_featured / is_recommended / status_publish nằm trong $fillable
-                // nên update() bình thường là an toàn, không cần forceFill.
-                $story->update([
+                // Các cờ này không nằm trong $fillable nên gán bằng forceFill().
+                $story->forceFill([
                     'status_publish'  => fake()->boolean(90),
                     'is_hot'          => fake()->boolean(20),
                     'is_featured'     => fake()->boolean(15),
                     'is_recommended'  => fake()->boolean(15),
-                ]);
+                ])->save();
 
                 $story->categories()->sync(
                     $categories->random(random_int(1, 3))->pluck('id')
