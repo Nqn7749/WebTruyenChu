@@ -1,9 +1,41 @@
 @extends('layouts.public')
 
-@section('title', $story->meta_title ?? $story->title)
-@section('meta_description', Str::limit(strip_tags($story->meta_description ?? $story->description ?? ''), 160))
+@section('title', filled($story->meta_title) ? $story->meta_title : $story->title.' - Web Đọc Truyện Chữ')
+@section('meta_description', Str::limit(trim(preg_replace('/\\s+/u', ' ', strip_tags($story->meta_description ?: $story->description ?: 'Đọc truyện chữ online miễn phí.'))), 160))
+@section('meta_keywords', $story->meta_keywords)
+@section('canonical_url', route('stories.show', $story))
 @section('og_type', 'book')
+@section('og_title', filled($story->meta_title) ? $story->meta_title : $story->title)
+@section('og_description', Str::limit(strip_tags($story->meta_description ?: $story->description ?: ''), 160))
 @section('og_image', $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'))
+@section('og_image_alt', 'Bìa truyện '.$story->title)
+
+@push('structured_data')
+    <script type="application/ld+json">
+        @json([
+            '@context' => 'https://schema.org',
+            '@type' => 'Book',
+            'name' => $story->title,
+            'author' => [
+                '@type' => 'Person',
+                'name' => $story->author_name ?: 'Đang cập nhật',
+            ],
+            'description' => Str::limit(strip_tags($story->description ?? ''), 500),
+            'image' => $story->cover_image ? url(Storage::url($story->cover_image)) : asset('images/no-cover.jpg'),
+            'genre' => $story->categories->pluck('name')->values(),
+            'inLanguage' => 'vi',
+            'url' => route('stories.show', $story),
+            'datePublished' => $story->created_at?->toAtomString(),
+            'aggregateRating' => $story->rating_count > 0 ? [
+                '@type' => 'AggregateRating',
+                'ratingValue' => (float) $story->average_rating,
+                'ratingCount' => (int) $story->rating_count,
+                'bestRating' => 5,
+                'worstRating' => 1,
+            ] : null,
+        ])
+    </script>
+@endpush
 
 @section('content')
 <div class="row g-4 story-detail-layout">
