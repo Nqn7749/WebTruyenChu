@@ -30,7 +30,7 @@ class SitemapController extends Controller
                 'lastChapterUpdate' => Chapter::query()
                     ->where('status', true)
                     ->whereHas('story', fn ($query) => $query->published())
-                    ->max('updated_at'),
+                    ->max('published_at'),
                 'lastCategoryUpdate' => Category::max('updated_at'),
             ])->render();
         });
@@ -69,7 +69,7 @@ class SitemapController extends Controller
                 ->orderBy('id')
                 ->skip(($page - 1) * self::STORIES_PER_PAGE)
                 ->take(self::STORIES_PER_PAGE)
-                ->get(['id', 'story_id', 'slug', 'updated_at']);
+                ->get(['id', 'story_id', 'slug', 'published_at']);
 
             abort_if($chapters->isEmpty(), 404);
 

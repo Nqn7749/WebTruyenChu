@@ -37,7 +37,7 @@ class StoryStatsService
     }
 
     /**
-     * Recalculate chapter count and latest published chapter timestamp.
+     * Recalculate chapter count and latest publication timestamp.
      * Draft chapters are included in chapter_count to preserve its existing meaning.
      */
     public function refreshChapterStats(Story $story): void
@@ -46,7 +46,7 @@ class StoryStatsService
             'chapter_count' => $story->chapters()->count(),
             'last_chapter_at' => $story->chapters()
                 ->where('status', true)
-                ->max('updated_at'),
+                ->max('published_at'),
         ])->save();
     }
 
