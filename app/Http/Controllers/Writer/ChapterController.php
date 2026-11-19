@@ -77,7 +77,7 @@ class ChapterController extends Controller
         $data = $request->validated();
         $data['status'] = $request->boolean('status');
 
-        [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats, $title) {
+        [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
 
