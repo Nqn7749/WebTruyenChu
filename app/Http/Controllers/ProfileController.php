@@ -65,7 +65,7 @@ class ProfileController extends Controller
 
         DB::transaction(function () use ($user, $stats, $storyIds, $chapterIds, $adminProtection) {
             $adminProtection->assertCanDelete($user);
-            $user->delete();
+            DB::table($user->getTable())->where($user->getKeyName(), $user->getKey())->delete();
             $stats->refreshStories($storyIds);
             $stats->refreshChapterComments($chapterIds);
         });
