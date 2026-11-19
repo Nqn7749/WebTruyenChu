@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Chapter extends Model
 {
-    /** @use HasFactory<\\Database\\Factories\\ChapterFactory> */
+    /** @use HasFactory<\Database\Factories\ChapterFactory> */
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
