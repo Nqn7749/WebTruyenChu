@@ -33,7 +33,7 @@ class Chapter extends Model
     protected static function booted(): void
     {
         static::creating(function (Chapter $chapter): void {
-            if ($chapter->status && ! $chapter->published_at) {
+            if (($chapter->status ?? true) && ! $chapter->published_at) {
                 $chapter->published_at = now();
             }
         });
