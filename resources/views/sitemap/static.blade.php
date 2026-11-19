@@ -5,9 +5,5 @@
         <priority>1.0</priority>
     </url>
 
-    <url>
-        <loc>{{ route('search') }}</loc>
-        <changefreq>daily</changefreq>
-        <priority>0.5</priority>
-    </url>
+
 </urlset>
