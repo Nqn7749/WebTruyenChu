@@ -151,7 +151,7 @@ test('logout invalidates the previous session and regenerates the csrf token', f
         ->assertRedirect('/');
 
     $this->assertGuest();
-    $this->assertSessionMissing('pre_logout_marker');
+    expect(session()->has('pre_logout_marker'))->toBeFalse();
     expect(session()->token())->not->toBe('old-csrf-token');
 });
 
