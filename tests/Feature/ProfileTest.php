@@ -106,7 +106,7 @@ test('the final active administrator cannot delete their own account', function 
 });
 
 test('an administrator may delete their account when another active administrator remains', function () {
-    $adminRole = \\App\\Models\\Role::create([
+    $adminRole = Role::create([
         'name' => 'Admin',
         'slug' => 'admin',
     ]);
