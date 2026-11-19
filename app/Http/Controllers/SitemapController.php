@@ -14,7 +14,7 @@ class SitemapController extends Controller
 
     public function index(): Response
     {
-        $xml = Cache::remember('sitemap:index', now()->addHour(), function () {
+        $xml = Cache::remember('sitemap:v2:index', now()->addHour(), function () {
             $totalStories = Story::published()->count();
             $totalStoryPages = (int) ceil($totalStories / self::STORIES_PER_PAGE);
             $totalChapters = Chapter::query()
@@ -42,7 +42,7 @@ class SitemapController extends Controller
     {
         abort_if($page < 1, 404);
 
-        $xml = Cache::remember("sitemap:stories:{$page}", now()->addHour(), function () use ($page) {
+        $xml = Cache::remember("sitemap:v2:stories:{$page}", now()->addHour(), function () use ($page) {
             $stories = Story::published()
                 ->orderBy('id')
                 ->skip(($page - 1) * self::STORIES_PER_PAGE)
@@ -61,7 +61,7 @@ class SitemapController extends Controller
     {
         abort_if($page < 1, 404);
 
-        $xml = Cache::remember("sitemap:chapters:{$page}", now()->addHour(), function () use ($page) {
+        $xml = Cache::remember("sitemap:v2:chapters:{$page}", now()->addHour(), function () use ($page) {
             $chapters = Chapter::query()
                 ->where('status', true)
                 ->whereHas('story', fn ($query) => $query->published())
@@ -81,7 +81,7 @@ class SitemapController extends Controller
 
     public function categories(): Response
     {
-        $xml = Cache::remember('sitemap:categories', now()->addHour(), function () {
+        $xml = Cache::remember('sitemap:v2:categories', now()->addHour(), function () {
             $categories = Category::orderBy('id')->get(['slug', 'updated_at']);
 
             return view('sitemap.categories', compact('categories'))->render();
@@ -92,7 +92,7 @@ class SitemapController extends Controller
 
     public function staticPages(): Response
     {
-        $xml = Cache::remember('sitemap:static', now()->addHour(), function () {
+        $xml = Cache::remember('sitemap:v2:static', now()->addHour(), function () {
             return view('sitemap.static')->render();
         });
 
