@@ -14,7 +14,7 @@ test('creating a published story invalidates the sitemap index and story pages',
     Cache::put($oldIndexKey, 'stale-index');
     Cache::put($oldStoriesKey, 'stale-stories');
 
-    Story::factory()->create(['status_publish' => true]);
+    $story = Story::factory()->create(['status_publish' => true]);
 
     expect($cache->key('index'))->not->toBe($oldIndexKey)
         ->and($cache->key('stories:1'))->not->toBe($oldStoriesKey);
@@ -25,31 +25,36 @@ test('creating a published story invalidates the sitemap index and story pages',
 
     $this->get(route('sitemap.stories', ['page' => 1]))
         ->assertOk()
-        ->assertSee('truyen');
+        ->assertSee(route('stories.show', $story));
 });
 
 test('publishing and deleting a chapter invalidates chapter sitemap pages', function () {
     $story = Story::factory()->create(['status_publish' => true]);
-    $chapter = Chapter::factory()->for($story)->create([
-        'slug' => 'ban-nhap',
+    Chapter::factory()->for($story)->create([
+        'slug' => 'published-anchor',
+        'status' => true,
+    ]);
+    $draft = Chapter::factory()->for($story)->create([
+        'slug' => 'draft-to-publish',
         'status' => false,
     ]);
 
     $this->get(route('sitemap.chapters', ['page' => 1]))
         ->assertOk()
-        ->assertDontSee('ban-nhap');
+        ->assertSee('published-anchor')
+        ->assertDontSee('draft-to-publish');
 
-    $chapter->update(['status' => true]);
-
-    $this->get(route('sitemap.chapters', ['page' => 1]))
-        ->assertOk()
-        ->assertSee('ban-nhap');
-
-    $chapter->delete();
+    $draft->update(['status' => true]);
 
     $this->get(route('sitemap.chapters', ['page' => 1]))
         ->assertOk()
-        ->assertDontSee('ban-nhap');
+        ->assertSee('draft-to-publish');
+
+    $draft->delete();
+
+    $this->get(route('sitemap.chapters', ['page' => 1]))
+        ->assertOk()
+        ->assertDontSee('draft-to-publish');
 });
 
 test('updating a category invalidates the category sitemap', function () {
