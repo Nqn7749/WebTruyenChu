@@ -55,12 +55,13 @@ class SearchController extends Controller
                     "CASE
                         WHEN title = ? THEN 0
                         WHEN title LIKE ? ESCAPE '!' THEN 1
-                        WHEN author_name = ? THEN 2
-                        WHEN author_name LIKE ? ESCAPE '!' THEN 3
-                        WHEN description LIKE ? ESCAPE '!' THEN 4
-                        ELSE 5
+                        WHEN title LIKE ? ESCAPE '!' THEN 2
+                        WHEN author_name = ? THEN 3
+                        WHEN author_name LIKE ? ESCAPE '!' THEN 4
+                        WHEN description LIKE ? ESCAPE '!' THEN 5
+                        ELSE 6
                     END ASC",
-                    [$keyword, $prefix, $keyword, $prefix, $term]
+                    [$keyword, $prefix, $term, $keyword, $prefix, $term]
                 );
             }
         }
