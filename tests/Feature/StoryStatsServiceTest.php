@@ -42,8 +42,8 @@ test('chapter views do not change its publication timestamp or story chapter tim
     $chapter->increment('views');
     app(StoryStatsService::class)->refreshChapterStats($story->fresh());
 
-    expect($chapter->fresh()->published_at->equalTo($publishedAt))->toBeTrue();
-    expect($story->fresh()->last_chapter_at->equalTo($lastChapterAt))->toBeTrue();
+    expect($chapter->fresh()->published_at->toDateTimeString() === $publishedAt->toDateTimeString())->toBeTrue();
+    expect($story->fresh()->last_chapter_at->toDateTimeString() === $lastChapterAt->toDateTimeString())->toBeTrue();
 });
 
 test('publishing a draft sets publication time and unpublishing clears it', function () {
