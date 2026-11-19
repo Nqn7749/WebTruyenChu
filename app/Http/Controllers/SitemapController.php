@@ -13,9 +13,7 @@ class SitemapController extends Controller
 {
     public const STORIES_PER_PAGE = 5000;
 
-    public function __construct(private readonly SitemapCacheService $sitemapCache)
-    {
-    }
+    public function __construct(private readonly SitemapCacheService $sitemapCache) {}
 
     public function index(): Response
     {

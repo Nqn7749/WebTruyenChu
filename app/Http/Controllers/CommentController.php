@@ -7,9 +7,9 @@ use App\Models\Chapter;
 use App\Models\Comment;
 use App\Models\Story;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\RedirectResponse;
 
 class CommentController extends Controller
 {
@@ -32,7 +32,7 @@ class CommentController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($data['chapter_id'])) {
+        if (! empty($data['chapter_id'])) {
             $chapter = Chapter::query()
                 ->whereKey($data['chapter_id'])
                 ->where('story_id', $story->id)
@@ -46,7 +46,7 @@ class CommentController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($data['parent_id'])) {
+        if (! empty($data['parent_id'])) {
             $parent = Comment::findOrFail($data['parent_id']);
 
             abort_unless(
@@ -120,10 +120,9 @@ class CommentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Đã gửi bình luận.',
-            'html'    => view('components.comment', ['comment' => $comment])->render(),
+            'html' => view('components.comment', ['comment' => $comment])->render(),
         ]);
     }
-
 
     /**
      * Delete a comment.
@@ -152,7 +151,7 @@ class CommentController extends Controller
             $story = $comment->story;
             $chapter = $comment->chapter;
 
-            if (!$comment->is_hidden) {
+            if (! $comment->is_hidden) {
 
                 if ($story) {
                     $story->decrement('comment_count');

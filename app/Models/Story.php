@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Database\Factories\StoryFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Story extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoryFactory> */
+    /** @use HasFactory<StoryFactory> */
     use HasFactory, SoftDeletes;
 
     /**
@@ -36,7 +37,6 @@ class Story extends Model
      * (views, chapter_count, comment_count, favorite_count,
      *  rating_count, average_rating, last_chapter_at, last_view_at)
      */
-
     protected function casts(): array
     {
         return [

@@ -85,7 +85,6 @@ test('correct password must be provided to delete account', function () {
     $this->assertNotNull($user->fresh());
 });
 
-
 test('the final active administrator cannot delete their own account', function () {
     $adminRole = Role::create([
         'name' => 'Admin',

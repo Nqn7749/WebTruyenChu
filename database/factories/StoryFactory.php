@@ -4,8 +4,8 @@ namespace Database\Factories;
 
 use App\Models\Story;
 use App\Models\User;
-use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Story>
@@ -30,7 +30,7 @@ class StoryFactory extends Factory
             'status' => fake()->randomElement([
                 'ongoing',
                 'completed',
-                'paused'
+                'paused',
             ]),
             'views' => fake()->numberBetween(0, 50000),
         ];

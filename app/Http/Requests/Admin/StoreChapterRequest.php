@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Story;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreChapterRequest extends FormRequest
 {
@@ -27,7 +29,7 @@ class StoreChapterRequest extends FormRequest
         ];
 
         if ($this->storyId() !== null) {
-            $rules['chapter_number'][] = \Illuminate\Validation\Rule::unique('chapters', 'chapter_number')
+            $rules['chapter_number'][] = Rule::unique('chapters', 'chapter_number')
                 ->where('story_id', $this->storyId());
         }
 
@@ -38,7 +40,7 @@ class StoreChapterRequest extends FormRequest
     {
         $story = $this->route('story');
 
-        if ($story instanceof \App\Models\Story) {
+        if ($story instanceof Story) {
             return $story->id;
         }
 

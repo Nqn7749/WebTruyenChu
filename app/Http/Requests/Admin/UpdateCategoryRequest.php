@@ -37,7 +37,7 @@ class UpdateCategoryRequest extends FormRequest
                     }
                 },
             ],
-            'name'        => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
         ];
     }

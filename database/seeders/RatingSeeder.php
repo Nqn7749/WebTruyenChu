@@ -35,7 +35,7 @@ class RatingSeeder extends Seeder
                 ->first();
 
             $story->forceFill([
-                'rating_count'   => (int) $stats->total,
+                'rating_count' => (int) $stats->total,
                 'average_rating' => round((float) $stats->avg_score, 2),
             ])->save();
         });

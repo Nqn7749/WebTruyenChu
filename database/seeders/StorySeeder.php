@@ -15,9 +15,9 @@ class StorySeeder extends Seeder
      */
     public function run(): void
     {
-        $users      = User::all();
+        $users = User::all();
         $categories = Category::all();
-        $tags       = Tag::all();
+        $tags = Tag::all();
 
         if ($users->isEmpty() || $categories->isEmpty()) {
             $this->command->warn('Cần seed Users và CategorySeeder trước khi seed Story.');
@@ -31,10 +31,10 @@ class StorySeeder extends Seeder
             ->each(function (Story $story) use ($categories, $tags) {
                 // Các cờ này không nằm trong $fillable nên gán bằng forceFill().
                 $story->forceFill([
-                    'status_publish'  => fake()->boolean(90),
-                    'is_hot'          => fake()->boolean(20),
-                    'is_featured'     => fake()->boolean(15),
-                    'is_recommended'  => fake()->boolean(15),
+                    'status_publish' => fake()->boolean(90),
+                    'is_hot' => fake()->boolean(20),
+                    'is_featured' => fake()->boolean(15),
+                    'is_recommended' => fake()->boolean(15),
                 ])->save();
 
                 $story->categories()->sync(

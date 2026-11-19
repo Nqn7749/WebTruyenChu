@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Auth\Events\Lockout;
@@ -60,7 +61,7 @@ class LoginRequest extends FormRequest
                 'email' => 'Tài khoản của bạn đã bị khóa.',
             ]);
         }
-        
+
         RateLimiter::clear($this->throttleKey());
     }
 

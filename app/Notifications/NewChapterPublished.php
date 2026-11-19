@@ -13,8 +13,7 @@ class NewChapterPublished extends Notification implements ShouldQueue
 
     public function __construct(
         public Chapter $chapter
-    ) {
-    }
+    ) {}
 
     public function via(object $notifiable): array
     {
@@ -35,10 +34,10 @@ class NewChapterPublished extends Notification implements ShouldQueue
             'chapter_title' => $this->chapter->title,
 
             'message' => $story->title
-                . ' vừa có chương mới: Chương '
-                . $this->chapter->chapter_number
-                . ($this->chapter->title
-                    ? ' - ' . $this->chapter->title
+                .' vừa có chương mới: Chương '
+                .$this->chapter->chapter_number
+                .($this->chapter->title
+                    ? ' - '.$this->chapter->title
                     : ''),
 
             // Lưu URL luôn

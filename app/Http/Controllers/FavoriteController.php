@@ -65,7 +65,6 @@ class FavoriteController extends Controller
         return back()->with('favorite_flash', $flash);
     }
 
-
     /**
      * Danh sách truyện yêu thích.
      */
@@ -80,7 +79,6 @@ class FavoriteController extends Controller
 
         return view('favorites.index', compact('stories'));
     }
-
 
     /**
      * Bật / tắt thông báo chương mới.
@@ -103,7 +101,7 @@ class FavoriteController extends Controller
         return response()->json([
             'success' => true,
             'notify_new_chapter' => (bool) $favorite->notify_new_chapter,
-            
+
         ]);
     }
 }

@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
+use Database\Factories\ReadingHistoryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ReadingHistory extends Model
 {
-    /** @use HasFactory<\Database\Factories\ReadingHistoryFactory> */
+    /** @use HasFactory<ReadingHistoryFactory> */
     use HasFactory;
-    
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -41,5 +42,4 @@ class ReadingHistory extends Model
     {
         return $this->belongsTo(Chapter::class);
     }
-
 }
