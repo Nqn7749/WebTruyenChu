@@ -6,22 +6,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Web Đọc Truyện Chữ')</title>
+    <title>@yield('title', config('app.name', 'Web Đọc Truyện Chữ'))</title>
 
-    {{-- SEO cơ bản --}}
-    <meta name="description" content="@yield('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.')">
-    <link rel="canonical" href="{{ url()->current() }}">
+    @php
+        $seoDescription = trim($__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, khám phá truyện mới và theo dõi chương cập nhật mỗi ngày.'));
+        $seoTitle = trim($__env->yieldContent('title', config('app.name', 'Web Đọc Truyện Chữ')));
+        $seoCanonical = trim($__env->yieldContent('canonical_url', url()->current()));
+        $seoImage = trim($__env->yieldContent('og_image', asset('images/no-cover.jpg')));
+    @endphp
 
-    {{-- Open Graph (Facebook, Zalo) --}}
+    <meta name="description" content="{{ $seoDescription }}">
+    <meta name="robots" content="@yield('meta_robots', 'index,follow')">
+    <link rel="canonical" href="{{ $seoCanonical }}">
+
+    {{-- Open Graph --}}
     <meta property="og:type" content="@yield('og_type', 'website')">
-    <meta property="og:site_name" content="Web Đọc Truyện Chữ">
-    <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:title" content="@yield('og_title', $__env->yieldContent('title', 'Web Đọc Truyện Chữ'))">
-    <meta property="og:description" content="@yield('og_description', $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh.'))">
-    <meta property="og:image" content="@yield('og_image', asset('images/no-cover.jpg'))">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:site_name" content="{{ config('app.name', 'Web Đọc Truyện Chữ') }}">
+    <meta property="og:url" content="{{ $seoCanonical }}">
+    <meta property="og:title" content="@yield('og_title', $seoTitle)">
+    <meta property="og:description" content="@yield('og_description', $seoDescription)">
+    <meta property="og:image" content="{{ $seoImage }}">
+    <meta property="og:image:alt" content="@yield('og_image_alt', $seoTitle)">
 
     {{-- Twitter Card --}}
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="@yield('twitter_title', $seoTitle)">
+    <meta name="twitter:description" content="@yield('twitter_description', $seoDescription)">
+    <meta name="twitter:image" content="@yield('twitter_image', $seoImage)">
+    @stack('structured_data')
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
