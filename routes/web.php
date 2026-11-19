@@ -111,10 +111,33 @@ Route::middleware('auth')->group(function () {
     )->name('notifications.mark-all-read');
 });
 
+Route::get('/robots.txt', function () {
+    $sitemapUrl = rtrim(config('app.url'), '/').'/sitemap.xml';
+    $content = implode("\n", [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /admin',
+        'Disallow: /dashboard',
+        'Disallow: /profile',
+        'Disallow: /lich-su-doc',
+        'Disallow: /yeu-thich',
+        'Disallow: /notifications',
+        'Disallow: /sang-tac',
+        '',
+        'Sitemap: '.$sitemapUrl,
+        '',
+    ]);
+
+    return response($content, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+})->name('robots');
+
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');
 Route::get('/sitemap-stories-{page}.xml', [SitemapController::class, 'stories'])
     ->where('page', '[0-9]+')
     ->name('sitemap.stories');
+Route::get('/sitemap-chapters-{page}.xml', [SitemapController::class, 'chapters'])
+    ->where('page', '[0-9]+')
+    ->name('sitemap.chapters');
 Route::get('/sitemap-categories.xml', [SitemapController::class, 'categories'])->name('sitemap.categories');
 Route::get('/sitemap-static.xml', [SitemapController::class, 'staticPages'])->name('sitemap.static');
 
