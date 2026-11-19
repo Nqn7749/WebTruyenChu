@@ -4,11 +4,44 @@
     ? "Chương {$chapter->chapter_number} - {$chapter->title} - {$story->title}"
     : "Chương {$chapter->chapter_number} - {$story->title}")
 
-@section('meta_description', Str::limit(strip_tags($chapter->content), 160))
+@section('meta_description', Str::limit(trim(preg_replace('/\\s+/u', ' ', strip_tags($chapter->content))), 160))
+@section('canonical_url', route('chapters.show', [$story, $chapter]))
 @section('og_type', 'article')
+@section('og_title', 'Chương '.$chapter->chapter_number.' - '.$story->title)
+@section('og_description', Str::limit(strip_tags($chapter->content), 160))
 @section('og_image', $story->cover_image
     ? url(Storage::url($story->cover_image))
     : asset('images/no-cover.jpg'))
+@section('og_image_alt', 'Bìa truyện '.$story->title)
+
+@push('structured_data')
+    <script type="application/ld+json">
+        @json([
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                [
+                    '@type' => 'ListItem',
+                    'position' => 1,
+                    'name' => 'Trang chủ',
+                    'item' => route('home'),
+                ],
+                [
+                    '@type' => 'ListItem',
+                    'position' => 2,
+                    'name' => $story->title,
+                    'item' => route('stories.show', $story),
+                ],
+                [
+                    '@type' => 'ListItem',
+                    'position' => 3,
+                    'name' => 'Chương '.$chapter->chapter_number,
+                    'item' => route('chapters.show', [$story, $chapter]),
+                ],
+            ],
+        ])
+    </script>
+@endpush
 
 @section('content')
 
