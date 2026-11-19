@@ -9,8 +9,8 @@ test('chapter statistics count drafts and track the newest published chapter', f
     $published = Chapter::factory()->for($story)->create([
         'chapter_number' => 1,
         'status' => true,
-        'published_at' => now()->subDay(),
     ]);
+    $published->forceFill(['published_at' => now()->subDay()])->saveQuietly();
     Chapter::factory()->for($story)->create([
         'chapter_number' => 2,
         'status' => false,
@@ -33,8 +33,8 @@ test('chapter views do not change its publication timestamp or story chapter tim
     $publishedAt = now()->subDays(2);
     $chapter = Chapter::factory()->for($story)->create([
         'status' => true,
-        'published_at' => $publishedAt,
     ]);
+    $chapter->forceFill(['published_at' => $publishedAt])->saveQuietly();
 
     app(StoryStatsService::class)->refreshChapterStats($story);
     $lastChapterAt = $story->fresh()->last_chapter_at;
