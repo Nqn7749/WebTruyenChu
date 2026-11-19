@@ -7,6 +7,7 @@ use App\Models\ReadingHistory;
 use App\Models\Story;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ChapterController extends Controller
 {
@@ -62,18 +63,33 @@ class ChapterController extends Controller
             ->first(['id', 'chapter_number', 'slug']);
 
         if (Auth::check()) {
-            $history = ReadingHistory::firstOrNew([
-                'user_id' => Auth::id(),
-                'story_id' => $story->id,
-            ]);
+            $userId = (int) Auth::id();
+            $storyId = (int) $story->id;
+            $chapterId = (int) $chapter->id;
 
-            if ($history->chapter_id !== $chapter->id) {
-                $history->scroll_percent = 0;
-            }
+            // Read the current progress, then atomically upsert on the unique
+            // (user_id, story_id) key. Concurrent first visits cannot create
+            // duplicate rows or raise a unique-constraint exception.
+            $historyQuery = DB::table((new ReadingHistory)->getTable())
+                ->where('user_id', $userId)
+                ->where('story_id', $storyId);
 
-            $history->chapter_id = $chapter->id;
-            $history->read_at = now();
-            $history->save();
+            $existing = $historyQuery->first(['chapter_id', 'scroll_percent']);
+            $scrollPercent = $existing && (int) $existing->chapter_id === $chapterId
+                ? (int) $existing->scroll_percent
+                : 0;
+
+            DB::table((new ReadingHistory)->getTable())->upsert(
+                [[
+                    'user_id' => $userId,
+                    'story_id' => $storyId,
+                    'chapter_id' => $chapterId,
+                    'read_at' => now(),
+                    'scroll_percent' => $scrollPercent,
+                ]],
+                ['user_id', 'story_id'],
+                ['chapter_id', 'read_at', 'scroll_percent']
+            );
         }
 
         $comments = $story->comments()

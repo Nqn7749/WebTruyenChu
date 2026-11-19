@@ -54,3 +54,41 @@ test('reading progress accepts repeated identical percentages for the active cha
         ->assertOk()
         ->assertJson(['status' => 'ok']);
 });
+
+
+test('opening a chapter atomically creates or updates the reading history', function () {
+    $user = User::factory()->create();
+    $story = Story::factory()->create(['status_publish' => true]);
+    $firstChapter = Chapter::factory()->for($story)->create(['chapter_number' => 1]);
+    $secondChapter = Chapter::factory()->for($story)->create(['chapter_number' => 2]);
+
+    $this->actingAs($user)
+        ->get(route('chapters.show', [$story, $firstChapter->slug]))
+        ->assertOk();
+
+    $history = ReadingHistory::query()
+        ->where('user_id', $user->id)
+        ->where('story_id', $story->id)
+        ->firstOrFail();
+
+    expect($history->chapter_id)->toBe($firstChapter->id)
+        ->and($history->scroll_percent)->toBe(0);
+
+    $history->update(['scroll_percent' => 62]);
+
+    $this->get(route('chapters.show', [$story, $firstChapter->slug]))
+        ->assertOk();
+
+    expect($history->fresh()->scroll_percent)->toBe(62);
+
+    $this->get(route('chapters.show', [$story, $secondChapter->slug]))
+        ->assertOk();
+
+    expect($history->fresh()->chapter_id)->toBe($secondChapter->id)
+        ->and($history->fresh()->scroll_percent)->toBe(0);
+
+    expect(ReadingHistory::query()
+        ->where('user_id', $user->id)
+        ->where('story_id', $story->id)
+        ->count())->toBe(1);
+});
