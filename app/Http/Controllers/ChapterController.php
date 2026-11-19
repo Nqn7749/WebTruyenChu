@@ -67,17 +67,25 @@ class ChapterController extends Controller
             $storyId = (int) $story->id;
             $chapterId = (int) $chapter->id;
 
-            // Atomic upsert uses the unique (user_id, story_id) key, avoiding
-            // a firstOrNew/save race when simultaneous chapter requests arrive.
+            // Read the current progress, then atomically upsert on the unique
+            // (user_id, story_id) key. Concurrent first visits cannot create
+            // duplicate rows or raise a unique-constraint exception.
+            $historyQuery = DB::table((new ReadingHistory)->getTable())
+                ->where('user_id', $userId)
+                ->where('story_id', $storyId);
+
+            $existing = $historyQuery->first(['chapter_id', 'scroll_percent']);
+            $scrollPercent = $existing && (int) $existing->chapter_id === $chapterId
+                ? (int) $existing->scroll_percent
+                : 0;
+
             DB::table((new ReadingHistory)->getTable())->upsert(
                 [[
                     'user_id' => $userId,
                     'story_id' => $storyId,
                     'chapter_id' => $chapterId,
                     'read_at' => now(),
-                    'scroll_percent' => DB::raw(
-                        "CASE WHEN chapter_id = {$chapterId} THEN scroll_percent ELSE 0 END"
-                    ),
+                    'scroll_percent' => $scrollPercent,
                 ]],
                 ['user_id', 'story_id'],
                 ['chapter_id', 'read_at', 'scroll_percent']
