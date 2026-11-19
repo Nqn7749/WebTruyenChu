@@ -10,6 +10,22 @@ use Illuminate\Support\Facades\Cache;
 
 class ChapterController extends Controller
 {
+    /**
+     * Permanently redirect legacy chapter-number URLs to a canonical slug URL.
+     */
+    public function legacy(Story $story, int $chapterNumber)
+    {
+        abort_unless($story->status_publish, 404);
+
+        $chapter = $story->chapters()
+            ->where('chapter_number', $chapterNumber)
+            ->where('status', true)
+            ->orderBy('id')
+            ->firstOrFail();
+
+        return redirect()->route('chapters.show', [$story, $chapter->slug], 301);
+    }
+
     public function show(Story $story, Chapter $chapter)
     {
         abort_unless($story->status_publish && $chapter->status, 404);
@@ -17,19 +33,33 @@ class ChapterController extends Controller
 
         $this->trackView($story, $chapter);
 
-        $prevChapter = Chapter::where('story_id', $story->id)
-            ->where('chapter_number', '<', $chapter->chapter_number)
+        $prevChapter = Chapter::query()
+            ->where('story_id', $story->id)
             ->where('status', true)
+            ->where(function ($query) use ($chapter) {
+                $query->where('chapter_number', '<', $chapter->chapter_number)
+                    ->orWhere(function ($query) use ($chapter) {
+                        $query->where('chapter_number', $chapter->chapter_number)
+                            ->where('id', '<', $chapter->id);
+                    });
+            })
             ->orderByDesc('chapter_number')
             ->orderByDesc('id')
-            ->first(['id', 'chapter_number']);
+            ->first(['id', 'chapter_number', 'slug']);
 
-        $nextChapter = Chapter::where('story_id', $story->id)
-            ->where('chapter_number', '>', $chapter->chapter_number)
+        $nextChapter = Chapter::query()
+            ->where('story_id', $story->id)
             ->where('status', true)
+            ->where(function ($query) use ($chapter) {
+                $query->where('chapter_number', '>', $chapter->chapter_number)
+                    ->orWhere(function ($query) use ($chapter) {
+                        $query->where('chapter_number', $chapter->chapter_number)
+                            ->where('id', '>', $chapter->id);
+                    });
+            })
             ->orderBy('chapter_number')
             ->orderBy('id')
-            ->first(['id', 'chapter_number']);
+            ->first(['id', 'chapter_number', 'slug']);
 
         if (Auth::check()) {
             $history = ReadingHistory::firstOrNew([
