@@ -133,15 +133,17 @@ test('relevance sorting prioritizes exact title then title prefix author and des
         'status_publish' => true,
     ]);
 
-    $this->get(route('search', ['q' => 'Ember', 'sort' => 'relevance']))
-        ->assertOk()
-        ->assertSeeInOrder([
-            'Ember</',
+    $response = $this->get(route('search', ['q' => 'Ember', 'sort' => 'relevance']));
+
+    $response->assertOk()->assertViewHas('stories', function ($stories) {
+        return $stories->pluck('title')->all() === [
+            'Ember',
             'Ember Rising',
-            'Ember</',
             'A story mentioning Ember later',
-            'The word Ember appears in this description.',
-        ]);
+            'An unrelated title',
+            'Another unrelated title',
+        ];
+    });
 });
 
 test('relevance sort is accepted without a keyword and falls back to newest ordering', function () {
