@@ -83,3 +83,46 @@ test('correct password must be provided to delete account', function () {
 
     $this->assertNotNull($user->fresh());
 });
+
+
+test('the final active administrator cannot delete their own account', function () {
+    $adminRole = \\App\\Models\\Role::create([
+        'name' => 'Admin',
+        'slug' => 'admin',
+    ]);
+    $admin = User::factory()->create([
+        'role_id' => $adminRole->id,
+        'status' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->from('/profile')
+        ->delete('/profile', ['password' => 'password'])
+        ->assertSessionHasErrorsIn('userDeletion', 'password')
+        ->assertRedirect('/profile');
+
+    expect($admin->fresh())->not->toBeNull();
+    $this->assertAuthenticatedAs($admin);
+});
+
+test('an administrator may delete their account when another active administrator remains', function () {
+    $adminRole = \\App\\Models\\Role::create([
+        'name' => 'Admin',
+        'slug' => 'admin',
+    ]);
+    $admin = User::factory()->create([
+        'role_id' => $adminRole->id,
+        'status' => true,
+    ]);
+    $remainingAdmin = User::factory()->create([
+        'role_id' => $adminRole->id,
+        'status' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->delete('/profile', ['password' => 'password'])
+        ->assertRedirect('/');
+
+    expect($admin->fresh())->toBeNull()
+        ->and($remainingAdmin->fresh())->not->toBeNull();
+});
