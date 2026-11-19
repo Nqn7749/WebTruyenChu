@@ -62,7 +62,7 @@ class SeoMetadataTest extends TestCase
 
         $this->get(route('sitemap.chapters', ['page' => 1]))
             ->assertOk()
-            ->assertSee(route('chapters.show', [$story, $chapter]), false);
+            ->assertSee(route('chapters.show', ['story' => $story->slug, 'chapter' => $chapter->chapter_number]), false);
     }
 
     public function test_robots_txt_uses_the_configured_application_url(): void
