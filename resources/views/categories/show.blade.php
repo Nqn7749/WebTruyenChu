@@ -1,10 +1,10 @@
 @extends('layouts.public')
 
-@section('title', $category->name)
-
+@section('title', $category->name.' - Truyện '.$category->name)
 @section('meta_description', $category->description
     ? Str::limit(strip_tags($category->description), 160)
-    : "Danh sách truyện thể loại {$category->name} — cập nhật liên tục tại Web Đọc Truyện Chữ.")
+    : "Khám phá truyện {$category->name}, đọc truyện chữ online miễn phí và theo dõi các chương mới nhất.")
+@section('canonical_url', request()->url().(request()->integer('page') > 1 ? '?page='.request()->integer('page') : ''))
 
 @section('content')
 
