@@ -1,6 +1,7 @@
 @extends('layouts.public')
 
-@section('title', 'Trang chủ - Web Đọc Truyện Chữ')
+@section('title', 'Đọc truyện chữ online miễn phí - Web Đọc Truyện Chữ')
+@section('meta_description', 'Khám phá truyện chữ online miễn phí thuộc nhiều thể loại. Đọc truyện nổi bật, theo dõi chương mới và lưu truyện yêu thích mỗi ngày.')
 
 @section('content')
 
