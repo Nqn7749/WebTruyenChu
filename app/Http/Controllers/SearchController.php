@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\\Http\\Controllers;
 
-use App\Models\Category;
-use App\Models\Story;
-use Illuminate\Http\Request;
+use App\\Models\\Category;
+use App\\Models\\Story;
+use Illuminate\\Http\\Request;
 
 class SearchController extends Controller
 {
     private const ALLOWED_STATUSES = ['ongoing', 'completed', 'paused'];
 
-    private const ALLOWED_SORTS = ['newest', 'updated', 'most_viewed', 'top_rated'];
+    private const ALLOWED_SORTS = ['newest', 'updated', 'most_viewed', 'top_rated', 'relevance'];
 
     private const ALLOWED_PERIODS = ['week', 'month'];
 
@@ -20,7 +20,7 @@ class SearchController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:ongoing,completed,paused'],
-            'sort' => ['nullable', 'in:newest,updated,most_viewed,top_rated'],
+            'sort' => ['nullable', 'in:newest,updated,most_viewed,top_rated,relevance'],
             'period' => ['nullable', 'in:week,month'],
         ]);
 
@@ -45,6 +45,24 @@ class SearchController extends Controller
                     ->orWhereHas('categories', fn ($categories) => $categories->whereRaw("name LIKE ? ESCAPE '!'", [$term]))
                     ->orWhereHas('tags', fn ($tags) => $tags->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
             });
+
+            if ($sort === 'relevance') {
+                $prefix = $escapedKeyword.'%';
+
+                // Keep substring matching semantics, but rank stronger matches first.
+                // Category/tag matches remain eligible and follow the story text matches.
+                $query->orderByRaw(
+                    "CASE
+                        WHEN title = ? THEN 0
+                        WHEN title LIKE ? ESCAPE '!' THEN 1
+                        WHEN author_name = ? THEN 2
+                        WHEN author_name LIKE ? ESCAPE '!' THEN 3
+                        WHEN description LIKE ? ESCAPE '!' THEN 4
+                        ELSE 5
+                    END ASC",
+                    [$keyword, $prefix, $keyword, $prefix, $term]
+                );
+            }
         }
 
         if ($categorySlug !== '') {
