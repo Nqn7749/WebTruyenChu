@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 test('sensitive authentication endpoints have explicit rate limits', function () {
