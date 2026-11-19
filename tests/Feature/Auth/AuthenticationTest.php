@@ -125,6 +125,36 @@ test('login throttling locks only the same normalized identity and IP after five
     }
 });
 
+test('successful login regenerates the session identifier', function () {
+    $user = User::factory()->create();
+    $this->withSession(['pre_login_marker' => 'present']);
+
+    $originalSessionId = session()->getId();
+
+    $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertRedirect(route('home', absolute: false));
+
+    expect(session()->getId())->not->toBe($originalSessionId);
+    $this->assertAuthenticatedAs($user);
+});
+
+test('logout invalidates the previous session and regenerates the csrf token', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user)->withSession([
+        'pre_logout_marker' => 'present',
+        '_token' => 'old-csrf-token',
+    ]);
+
+    $this->post('/logout')
+        ->assertRedirect('/');
+
+    $this->assertGuest();
+    expect(session()->has('pre_logout_marker'))->toBeFalse();
+    expect(session()->token())->not->toBe('old-csrf-token');
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 
