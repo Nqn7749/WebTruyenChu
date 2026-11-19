@@ -19,4 +19,13 @@
             @endif
         </sitemap>
     @endfor
+
+    @for ($page = 1; $page <= $totalChapterPages; $page++)
+        <sitemap>
+            <loc>{{ route('sitemap.chapters', ['page' => $page]) }}</loc>
+            @if ($lastChapterUpdate)
+                <lastmod>{{ \Illuminate\Support\Carbon::parse($lastChapterUpdate)->toAtomString() }}</lastmod>
+            @endif
+        </sitemap>
+    @endfor
 </sitemapindex>
