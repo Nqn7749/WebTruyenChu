@@ -38,6 +38,33 @@ secrets to this repository.
 - Continue to review authorization and upload validation whenever new write endpoints
   are introduced.
 
+## Database integration testing
+
+The default `phpunit.xml` intentionally uses in-memory SQLite for fast, isolated
+feature and unit tests. MySQL-only integration tests have a separate configuration:
+`phpunit.mysql.xml`.
+
+Before running it locally, create a dedicated test database (never point this test
+configuration at development or production data):
+
+```sql
+CREATE DATABASE webtruyen_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Configure the MySQL host, port, username, and password in `.env.testing` (or in
+the shell environment). The MySQL PHPUnit configuration defaults to the database
+name `webtruyen_testing`; an explicitly exported `DB_DATABASE` takes precedence.
+
+Run the MySQL FULLTEXT integration test with:
+
+```bash
+vendor/bin/pest --configuration=phpunit.mysql.xml --filter=MySqlFullTextSearchTest
+```
+
+This test uses Laravel's `RefreshDatabase` behavior and runs migrations against the
+configured database. Use only the dedicated, disposable test database. The normal
+`php artisan test` command continues to use in-memory SQLite.
+
 ## Deployment verification
 
 1. Confirm the production environment variables without printing secret values.
