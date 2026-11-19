@@ -55,6 +55,13 @@ class CommentController extends Controller
                 404
             );
 
+            // The discussion UI supports one reply level only.
+            abort_unless(
+                $parent->parent_id === null,
+                422,
+                'Không thể trả lời một bình luận trả lời khác.'
+            );
+
             if ($parent->chapter_id) {
                 abort_unless(
                     Chapter::query()
