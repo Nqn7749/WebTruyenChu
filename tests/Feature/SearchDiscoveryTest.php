@@ -163,6 +163,47 @@ test('relevance sort is accepted without a keyword and falls back to newest orde
         ->assertSeeInOrder(['Newer published story', 'Older published story']);
 });
 
+test('relevance sorting keeps author prefix and description ahead of category and tag matches', function () {
+    $category = Category::factory()->create(['name' => 'Ember fantasy']);
+    $authorMatch = Story::factory()->create([
+        'title' => 'An unrelated title',
+        'author_name' => 'Ember Writer',
+        'description' => 'No matching description.',
+        'status_publish' => true,
+    ]);
+    $descriptionMatch = Story::factory()->create([
+        'title' => 'Another unrelated title',
+        'author_name' => 'Different author',
+        'description' => 'An Ember adventure.',
+        'status_publish' => true,
+    ]);
+    $categoryMatch = Story::factory()->create([
+        'title' => 'A category-only result',
+        'author_name' => 'Different author',
+        'description' => 'No matching description.',
+        'status_publish' => true,
+    ]);
+    $categoryMatch->categories()->attach($category);
+
+    $tagMatch = Story::factory()->create([
+        'title' => 'A tag-only result',
+        'author_name' => 'Different author',
+        'description' => 'No matching description.',
+        'status_publish' => true,
+    ]);
+    $tagMatch->tags()->create(['name' => 'Ember tag', 'slug' => 'ember-tag']);
+
+    $response = $this->get(route('search', ['q' => 'Ember', 'sort' => 'relevance']));
+
+    $response->assertOk()->assertViewHas('stories', function ($stories) use ($authorMatch, $descriptionMatch, $categoryMatch, $tagMatch) {
+        $ids = $stories->pluck('id')->all();
+
+        return array_search($authorMatch->id, $ids, true) < array_search($descriptionMatch->id, $ids, true)
+            && array_search($descriptionMatch->id, $ids, true) < array_search($categoryMatch->id, $ids, true)
+            && in_array($tagMatch->id, $ids, true);
+    });
+});
+
 test('story detail recommends other published stories from matching categories', function () {
     $category = Category::factory()->create();
     $story = Story::factory()->create(['status_publish' => true]);
