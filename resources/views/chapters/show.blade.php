@@ -5,7 +5,7 @@
     : "Chương {$chapter->chapter_number} - {$story->title}")
 
 @section('meta_description', Str::limit(trim(preg_replace('/\\s+/u', ' ', strip_tags($chapter->content))), 160))
-@section('canonical_url', route('chapters.show', [$story, $chapter]))
+@section('canonical_url', route('chapters.show', ['story' => $story->slug, 'chapter' => $chapter->chapter_number]))
 @section('og_type', 'article')
 @section('og_title', 'Chương '.$chapter->chapter_number.' - '.$story->title)
 @section('og_description', Str::limit(strip_tags($chapter->content), 160))
