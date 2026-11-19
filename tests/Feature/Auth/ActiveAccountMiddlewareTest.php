@@ -1,6 +1,6 @@
 <?php
 
-use App\\Models\\User;
+use App\Models\User;
 
 test('active users can continue accessing authenticated pages', function () {
     $user = User::factory()->create(['status' => true]);
