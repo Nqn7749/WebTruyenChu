@@ -46,6 +46,41 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+
+test('login throttling locks only the same normalized identity and IP after five failures', function () {
+    $key = 'throttle-user|127.0.0.1';
+    $otherIdentityKey = 'another-user|127.0.0.1';
+
+    RateLimiter::clear($key);
+    RateLimiter::clear($otherIdentityKey);
+
+    try {
+        foreach (range(1, 5) as $attempt) {
+            $this->post('/login', [
+                'email' => $attempt === 1 ? 'THROTTLE-USER' : 'throttle-user',
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('email');
+        }
+
+        expect(RateLimiter::tooManyAttempts($key, 5))->toBeTrue();
+
+        $this->post('/login', [
+            'email' => 'throttle-user',
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors('email');
+
+        $this->post('/login', [
+            'email' => 'another-user',
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors('email');
+
+        expect(RateLimiter::tooManyAttempts($otherIdentityKey, 5))->toBeFalse();
+    } finally {
+        RateLimiter::clear($key);
+        RateLimiter::clear($otherIdentityKey);
+    }
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 
