@@ -86,7 +86,7 @@ test('correct password must be provided to delete account', function () {
 
 
 test('the final active administrator cannot delete their own account', function () {
-    $adminRole = \\App\\Models\\Role::create([
+    $adminRole = Role::create([
         'name' => 'Admin',
         'slug' => 'admin',
     ]);
