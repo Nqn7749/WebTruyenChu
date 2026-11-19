@@ -12,7 +12,7 @@ test('chapter reader exposes accessibility and focus controls', function () {
         'status' => true,
     ]);
 
-    $this->get(route('chapters.show', [$story, $chapter]))
+    $this->get(route('chapters.show', [$story, $chapter->slug]))
         ->assertOk()
         ->assertSee('id="fontDecrease"', false)
         ->assertSee('id="fontIncrease"', false)
