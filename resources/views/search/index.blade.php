@@ -3,6 +3,8 @@
 @section('title', 'Tìm kiếm và khám phá truyện')
 
 @section('meta_description', 'Tìm truyện theo tên, tác giả, thể loại, trạng thái và thời gian cập nhật.')
+@section('meta_robots', 'noindex,follow')
+@section('canonical_url', route('search'))
 
 @section('content')
 <div class="section-heading">
