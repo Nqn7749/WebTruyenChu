@@ -30,7 +30,7 @@ class AdminAccountProtectionService
         if ($activeAdmins->count() <= 1) {
             throw ValidationException::withMessages([
                 'password' => 'Không thể xóa tài khoản quản trị viên hoạt động cuối cùng.',
-            ]);
+            ])->errorBag('userDeletion');
         }
     }
 }
