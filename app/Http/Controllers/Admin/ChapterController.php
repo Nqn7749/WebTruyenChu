@@ -19,6 +19,7 @@ class ChapterController extends Controller
     {
         $chapters = $story->chapters()
             ->orderBy('chapter_number')
+            ->orderBy('id')
             ->paginate(20);
 
         return view('admin.chapters.index', compact('story', 'chapters'));
