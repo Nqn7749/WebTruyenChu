@@ -36,7 +36,7 @@
                     '@type' => 'ListItem',
                     'position' => 3,
                     'name' => 'Chương '.$chapter->chapter_number,
-                    'item' => route('chapters.show', [$story, $chapter]),
+                    'item' => route('chapters.show', ['story' => $story->slug, 'chapter' => $chapter->chapter_number]),
                 ],
             ],
         ])
