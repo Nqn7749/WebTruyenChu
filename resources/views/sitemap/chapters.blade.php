@@ -3,7 +3,7 @@
     @foreach ($chapters as $chapter)
         <url>
             <loc>{{ route('chapters.show', [$chapter->story, $chapter->slug]) }}</loc>
-            <lastmod>{{ $chapter->updated_at->toAtomString() }}</lastmod>
+            <lastmod>{{ $chapter->published_at->toAtomString() }}</lastmod>
             <changefreq>weekly</changefreq>
             <priority>0.6</priority>
         </url>
