@@ -120,10 +120,7 @@ class StoryController extends Controller
         $tagIds = $data['tags'] ?? [];
         unset($data['categories'], $data['tags'], $data['status_publish']);
 
-        if ($data['title'] !== $story->title) {
-            $data['slug'] = $this->uniqueSlug($data['title'], $story->id);
-        }
-
+        // Preserve the public slug when a title changes so existing links and search indexes remain valid.
         // Không đụng tới status_publish khi sửa: truyện đang chờ duyệt thì
         // vẫn chờ duyệt, truyện đã công khai thì vẫn công khai. Chỉ admin
         // mới được duyệt/gỡ công khai (Admin\StoryController::togglePublish).

@@ -12,6 +12,7 @@ use App\Notifications\NewChapterPublished;
 use App\Services\StoryStatsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ChapterController extends Controller
 {
@@ -40,6 +41,7 @@ class ChapterController extends Controller
 
         $chapter = DB::transaction(function () use ($story, $data, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+            $this->assertChapterNumberAvailable($lockedStory, (int) $data['chapter_number']);
             $data['slug'] = $this->uniqueSlug($title, $lockedStory->id);
             $chapter = $lockedStory->chapters()->create($data);
             $stats->refreshChapterStats($lockedStory);
@@ -80,6 +82,7 @@ class ChapterController extends Controller
         [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $story, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+            $this->assertChapterNumberAvailable($lockedStory, (int) $data['chapter_number'], $lockedChapter->id);
 
             // Keep the original slug stable when a writer edits the chapter title.
 
@@ -126,6 +129,20 @@ class ChapterController extends Controller
                     $user->notify(new NewChapterPublished($chapter));
                 }
             });
+    }
+
+    private function assertChapterNumberAvailable(Story $story, int $number, ?int $ignoreChapterId = null): void
+    {
+        $exists = $story->chapters()
+            ->where('chapter_number', $number)
+            ->when($ignoreChapterId, fn ($query) => $query->where('chapters.id', '!=', $ignoreChapterId))
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'chapter_number' => 'Số chương này đã được sử dụng trong truyện.',
+            ]);
+        }
     }
 
     private function ownedStoryFor(Chapter $chapter): Story

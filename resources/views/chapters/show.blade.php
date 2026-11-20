@@ -432,11 +432,8 @@
 
         const percent = updateProgressBar();
 
-        // Lưu vị trí đọc local
-        localStorage.setItem(
-            storageKeys.position,
-            String(window.scrollY)
-        );
+        // Debounce local storage writes during rapid scrolling.
+        saveLocalReadingPosition();
 
         // Chỉ xử lý khi phần trăm thực sự thay đổi
         if (percent !== lastPercent) {

@@ -30,7 +30,8 @@ class StoreChapterRequest extends FormRequest
 
         if ($this->storyId() !== null) {
             $rules['chapter_number'][] = Rule::unique('chapters', 'chapter_number')
-                ->where('story_id', $this->storyId());
+                ->where('story_id', $this->storyId())
+                ->whereNull('deleted_at');
         }
 
         return $rules;

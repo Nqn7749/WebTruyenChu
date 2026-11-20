@@ -100,3 +100,30 @@ test('writers cannot publish two chapters with the same chapter number', functio
     expect($firstChapter->fresh()->slug)->toBe($originalSlug)
         ->and($story->chapters()->where('chapter_number', 8)->count())->toBe(1);
 });
+
+test('writers can reuse a chapter number after the previous chapter is soft deleted', function () {
+    $author = User::factory()->create(['status' => true]);
+    $story = Story::factory()->create([
+        'user_id' => $author->id,
+        'status_publish' => true,
+    ]);
+
+    $chapter = Chapter::factory()->for($story)->create([
+        'chapter_number' => 12,
+        'status' => true,
+    ]);
+
+    $chapter->delete();
+
+    $this->actingAs($author)
+        ->post(route('writer.stories.chapters.store', $story), [
+            'chapter_number' => 12,
+            'title' => 'Chương mười hai mới',
+            'content' => 'Nội dung mới.',
+            'status' => true,
+        ])
+        ->assertRedirect(route('writer.stories.chapters.index', $story))
+        ->assertSessionHasNoErrors();
+
+    expect($story->chapters()->where('chapter_number', 12)->count())->toBe(1);
+});
