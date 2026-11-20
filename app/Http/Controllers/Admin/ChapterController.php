@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendNewChapterNotifications;
 use App\Http\Requests\Admin\StoreChapterRequest;
 use App\Http\Requests\Admin\UpdateChapterRequest;
+use App\Jobs\SendNewChapterNotifications;
 use App\Models\Chapter;
 use App\Models\Story;
 use App\Services\StoryStatsService;
