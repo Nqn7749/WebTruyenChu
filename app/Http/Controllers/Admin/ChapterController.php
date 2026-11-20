@@ -18,6 +18,7 @@ class ChapterController extends Controller
     public function index(Story $story)
     {
         $chapters = $story->chapters()
+            ->select(['id', 'story_id', 'chapter_number', 'title', 'slug', 'views', 'status'])
             ->orderBy('chapter_number')
             ->orderBy('id')
             ->paginate(20);
