@@ -3,8 +3,8 @@
 namespace App\Observers;
 
 use App\Models\Story;
+use App\Services\HomeCacheService;
 use App\Services\SitemapCacheService;
-use Illuminate\Support\Facades\Cache;
 
 class StoryObserver
 {
@@ -30,28 +30,18 @@ class StoryObserver
         }
 
         app(SitemapCacheService::class)->invalidate();
-        $this->clearHomeCache();
+        app(HomeCacheService::class)->invalidate();
     }
 
     public function deleted(Story $story): void
     {
         app(SitemapCacheService::class)->invalidate();
-        $this->clearHomeCache();
+        app(HomeCacheService::class)->invalidate();
     }
 
     public function restored(Story $story): void
     {
         app(SitemapCacheService::class)->invalidate();
-        $this->clearHomeCache();
-    }
-
-    private function clearHomeCache(): void
-    {
-        foreach (['hot', 'recommended', 'newest', 'completed'] as $key) {
-            Cache::forget("home:{$key}");
-        }
-
-        Cache::add('home:recently_updated:version', 1, now()->addYears(10));
-        Cache::increment('home:recently_updated:version');
+        app(HomeCacheService::class)->invalidate();
     }
 }

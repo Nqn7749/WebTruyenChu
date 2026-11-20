@@ -42,14 +42,18 @@ class StoryStatsService
      */
     public function refreshChapterStats(Story $story): void
     {
-        // saveQuietly() như refreshStories(): chỉ đổi counter thì không cần
-        // kích hoạt StoryObserver xóa cache trang chủ/sitemap.
         $story->forceFill([
             'chapter_count' => $story->chapters()->count(),
             'last_chapter_at' => $story->chapters()
                 ->where('status', true)
                 ->max('published_at'),
         ])->saveQuietly();
+
+        // saveQuietly intentionally bypasses StoryObserver. Explicitly invalidate
+        // homepage data after the aggregate timestamp has actually been persisted.
+        if ($story->wasChanged('last_chapter_at')) {
+            app(HomeCacheService::class)->invalidate();
+        }
     }
 
     /**
