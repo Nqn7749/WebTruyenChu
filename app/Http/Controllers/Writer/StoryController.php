@@ -68,7 +68,7 @@ class StoryController extends Controller
                     DB::transaction(function () use ($data, $categoryIds, $tagIds) {
                         $story = auth()->user()->stories()->create($data);
                         $story->forceFill([
-                            'status_publish' => false,
+                            'status_publish' => true,
                             'is_hot' => false,
                             'is_featured' => false,
                             'is_recommended' => false,
@@ -95,7 +95,7 @@ class StoryController extends Controller
         }
 
         return redirect()->route('writer.stories.index')
-            ->with('success', 'Đã gửi truyện. Truyện đang chờ quản trị viên duyệt; bạn hãy thêm chương đầu tiên trong lúc chờ.');
+            ->with('success', 'Đã đăng truyện. Hãy thêm chương đầu tiên trong vòng 30 ngày.');
     }
 
     public function edit(Story $story)

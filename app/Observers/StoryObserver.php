@@ -47,14 +47,11 @@ class StoryObserver
 
     private function clearHomeCache(): void
     {
-        Cache::forget('home:hot');
-        Cache::forget('home:recommended');
-        Cache::forget('home:newest');
-        Cache::forget('home:completed');
+        foreach (['hot', 'recommended', 'newest', 'completed'] as $key) {
+            Cache::forget("home:{$key}");
+        }
 
-        // Tăng phiên bản cache của danh sách "mới cập nhật" thay vì liệt kê
-        // từng trang: HomeController đưa version vào key nên mọi trang đều
-        // được làm mới, kể cả trang 4 trở đi. Key cũ tự hết hạn sau 10 phút.
+        Cache::add('home:recently_updated:version', 1, now()->addYears(10));
         Cache::increment('home:recently_updated:version');
     }
 }
