@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendNewChapterNotifications;
 use App\Models\Story;
 use App\Services\AdminActivityLogger;
 use App\Services\StoryDeletionService;
@@ -31,6 +32,19 @@ class StoryController extends Controller
         $published = ! $story->status_publish;
 
         $story->forceFill(['status_publish' => $published])->save();
+
+        if ($published) {
+            // Các chương đã công khai trong lúc truyện bị gỡ chưa từng gửi
+            // thông báo: gửi bù cho từng chương đã công khai. Job tự kiểm
+            // tra lại trạng thái lúc chạy và bỏ qua người đã nhận rồi (H5).
+            $story->chapters()
+                ->where('status', true)
+                ->chunkById(100, function ($chapters) {
+                    foreach ($chapters as $chapter) {
+                        SendNewChapterNotifications::dispatch($chapter->id);
+                    }
+                });
+        }
 
         $logger->record(
             $request,

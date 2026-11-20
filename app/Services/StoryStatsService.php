@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Chapter;
 use App\Models\Story;
+use App\Services\HomeCacheService;
 use Illuminate\Support\Collection;
 
 class StoryStatsService
@@ -33,6 +34,12 @@ class StoryStatsService
                         'comment_count' => $story->comments()->where('is_hidden', false)->count(),
                     ])->saveQuietly();
                 });
+        }
+
+        // saveQuietly bypasses StoryObserver nên phải invalidate tay, nếu
+        // không số liệu rating/favorite/comment trên trang chủ lag tối đa 10 phút.
+        if ($ids->isNotEmpty()) {
+            app(HomeCacheService::class)->invalidate();
         }
     }
 

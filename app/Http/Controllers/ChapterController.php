@@ -127,21 +127,12 @@ class ChapterController extends Controller
 
         $throttleKey = 'chapter_view:'.request()->ip().':'.$chapter->id;
 
-        if (Cache::has($throttleKey)) {
-            $viewedInSession[] = $chapter->id;
-            session(['viewed_chapters' => $viewedInSession]);
-
-            return;
+        // Cache::add() là check-and-set nguyên tử: hai view đồng thời chỉ
+        // một lần đếm được, thay cho cặp has() rồi put() dễ đếm trùng.
+        if (Cache::add($throttleKey, true, now()->addMinutes(30))) {
+            $chapter->increment('views');
+            $story->incrementViews();
         }
-
-        $chapter->increment('views');
-        $story->incrementViews();
-
-        Cache::put(
-            $throttleKey,
-            true,
-            now()->addMinutes(30)
-        );
 
         $viewedInSession[] = $chapter->id;
         session(['viewed_chapters' => $viewedInSession]);

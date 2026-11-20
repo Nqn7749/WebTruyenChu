@@ -111,3 +111,17 @@ test('a writer cannot publish or edit another authors chapter', function () {
 
     expect($chapter->fresh()->status)->toBeFalse();
 });
+
+test('a chapter content longer than the limit is rejected', function () {
+    $author = User::factory()->create(['status' => true]);
+    $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
+
+    $this->actingAs($author)->post(route('writer.stories.chapters.store', $story), [
+        'chapter_number' => 1,
+        'title' => 'Chương quá dài',
+        'content' => str_repeat('a', 500001),
+        'status' => true,
+    ])->assertSessionHasErrors('content');
+
+    expect(Chapter::query()->where('story_id', $story->id)->exists())->toBeFalse();
+});

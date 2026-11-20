@@ -1,0 +1,603 @@
+diff --git a/.env.example b/.env.example
+index b9a06b2..f96bf5d 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,7 +1,9 @@
+ APP_NAME=Laravel
+ APP_ENV=local
+ APP_KEY=
+-APP_DEBUG=true
++# Chỉ bật true khi debug trên máy local; production luôn để false
++# (true sẽ lộ stack trace, câu SQL và đường dẫn file khi lỗi).
++APP_DEBUG=false
+ APP_URL=http://localhost
+ 
+ APP_LOCALE=vi
+@@ -18,7 +20,7 @@ BCRYPT_ROUNDS=12
+ LOG_CHANNEL=stack
+ LOG_STACK=single
+ LOG_DEPRECATIONS_CHANNEL=null
+-LOG_LEVEL=debug
++LOG_LEVEL=warning
+ 
+ DB_CONNECTION=mysql
+ DB_HOST=127.0.0.1
+@@ -32,6 +34,10 @@ SESSION_LIFETIME=120
+ SESSION_ENCRYPT=false
+ SESSION_PATH=/
+ SESSION_DOMAIN=null
++# Chỉ bật khi chạy production qua HTTPS (xem docs/production-readiness.md).
++# Khi chạy http trên máy local thì để trống/false, nếu không cookie sẽ
++# không được trình duyệt gửi đi và không đăng nhập được.
++# SESSION_SECURE_COOKIE=true
+ 
+ BROADCAST_CONNECTION=log
+ FILESYSTEM_DISK=local
+diff --git a/app/Http/Controllers/Admin/StoryController.php b/app/Http/Controllers/Admin/StoryController.php
+index f9ba39e..ad57a83 100644
+--- a/app/Http/Controllers/Admin/StoryController.php
++++ b/app/Http/Controllers/Admin/StoryController.php
+@@ -3,6 +3,7 @@
+ namespace App\Http\Controllers\Admin;
+ 
+ use App\Http\Controllers\Controller;
++use App\Jobs\SendNewChapterNotifications;
+ use App\Models\Story;
+ use App\Services\AdminActivityLogger;
+ use App\Services\StoryDeletionService;
+@@ -32,6 +33,19 @@ public function togglePublish(Request $request, Story $story, AdminActivityLogge
+ 
+         $story->forceFill(['status_publish' => $published])->save();
+ 
++        if ($published) {
++            // Các chương đã công khai trong lúc truyện bị gỡ chưa từng gửi
++            // thông báo: gửi bù cho từng chương đã công khai. Job tự kiểm
++            // tra lại trạng thái lúc chạy và bỏ qua người đã nhận rồi (H5).
++            $story->chapters()
++                ->where('status', true)
++                ->chunkById(100, function ($chapters) {
++                    foreach ($chapters as $chapter) {
++                        SendNewChapterNotifications::dispatch($chapter->id);
++                    }
++                });
++        }
++
+         $logger->record(
+             $request,
+             $published ? 'story.published' : 'story.unpublished',
+diff --git a/app/Http/Controllers/ChapterController.php b/app/Http/Controllers/ChapterController.php
+index 9ff42ff..8c48e9c 100644
+--- a/app/Http/Controllers/ChapterController.php
++++ b/app/Http/Controllers/ChapterController.php
+@@ -127,22 +127,13 @@ private function trackView(Story $story, Chapter $chapter): void
+ 
+         $throttleKey = 'chapter_view:'.request()->ip().':'.$chapter->id;
+ 
+-        if (Cache::has($throttleKey)) {
+-            $viewedInSession[] = $chapter->id;
+-            session(['viewed_chapters' => $viewedInSession]);
+-
+-            return;
++        // Cache::add() là check-and-set nguyên tử: hai view đồng thời chỉ
++        // một lần đếm được, thay cho cặp has() rồi put() dễ đếm trùng.
++        if (Cache::add($throttleKey, true, now()->addMinutes(30))) {
++            $chapter->increment('views');
++            $story->incrementViews();
+         }
+ 
+-        $chapter->increment('views');
+-        $story->incrementViews();
+-
+-        Cache::put(
+-            $throttleKey,
+-            true,
+-            now()->addMinutes(30)
+-        );
+-
+         $viewedInSession[] = $chapter->id;
+         session(['viewed_chapters' => $viewedInSession]);
+     }
+diff --git a/app/Http/Controllers/FavoriteController.php b/app/Http/Controllers/FavoriteController.php
+index 0983f80..54cd8a8 100644
+--- a/app/Http/Controllers/FavoriteController.php
++++ b/app/Http/Controllers/FavoriteController.php
+@@ -14,6 +14,8 @@ class FavoriteController extends Controller
+     public function toggle(Story $story)
+     {
+         abort_unless($story->status_publish, 404);
++        // Tác giả không tự yêu thích truyện của mình (tránh thổi số liệu).
++        abort_if($story->user_id === Auth::id(), 403);
+ 
+         $userId = Auth::id();
+         $flash = [];
+@@ -88,6 +90,8 @@ public function index()
+     public function toggleNotify(Story $story)
+     {
+         abort_unless($story->status_publish, 404);
++        // Tác giả không tự yêu thích truyện của mình (xem toggle()).
++        abort_if($story->user_id === Auth::id(), 403);
+ 
+         $favorite = Auth::user()
+             ->favorites()
+diff --git a/app/Http/Controllers/HomeController.php b/app/Http/Controllers/HomeController.php
+index 8637e30..ac5d978 100644
+--- a/app/Http/Controllers/HomeController.php
++++ b/app/Http/Controllers/HomeController.php
+@@ -11,7 +11,9 @@ class HomeController extends Controller
+ 
+     public function index()
+     {
+-        $page = max(1, (int) request()->query('recent', 1));
++        // Giới hạn số trang để ?recent=100000 không tạo cache-key mới và
++        // OFFSET lớn tùy ý (trang chủ chỉ có tối đa vài chục trang thực tế).
++        $page = min(100, max(1, (int) request()->query('recent', 1)));
+ 
+         // Phiên bản cache do StoryObserver tăng mỗi khi truyện thay đổi:
+         // trang nào cũng được làm mới, không còn giới hạn ở 3 trang đầu.
+diff --git a/app/Http/Controllers/RatingController.php b/app/Http/Controllers/RatingController.php
+index c3a3867..83a3ac5 100644
+--- a/app/Http/Controllers/RatingController.php
++++ b/app/Http/Controllers/RatingController.php
+@@ -12,6 +12,8 @@ class RatingController extends Controller
+     public function store(StoreRatingRequest $request, Story $story)
+     {
+         abort_unless($story->status_publish, 404);
++        // Tác giả không tự đánh giá truyện của mình (tránh thổi điểm).
++        abort_if($story->user_id === Auth::id(), 403);
+ 
+         DB::transaction(function () use ($request, $story) {
+             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+diff --git a/app/Http/Requests/Admin/StoreCategoryRequest.php b/app/Http/Requests/Admin/StoreCategoryRequest.php
+index fd026f0..02b4ddc 100644
+--- a/app/Http/Requests/Admin/StoreCategoryRequest.php
++++ b/app/Http/Requests/Admin/StoreCategoryRequest.php
+@@ -27,7 +27,10 @@ public function rules(): array
+             // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
+             // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
+             'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
+-            'description' => ['nullable', 'string'],
++            // Cột description là TEXT (tối đa 65.535 byte): 20.000 ký tự là
++            // mức an toàn cho tiếng Việt (3 byte/ký tự), quá dài trả lỗi
++            // validation thay vì lỗi 500 của DB.
++            'description' => ['nullable', 'string', 'max:20000'],
+         ];
+     }
+ }
+diff --git a/app/Http/Requests/Admin/StoreChapterRequest.php b/app/Http/Requests/Admin/StoreChapterRequest.php
+index df60c12..f2da0db 100644
+--- a/app/Http/Requests/Admin/StoreChapterRequest.php
++++ b/app/Http/Requests/Admin/StoreChapterRequest.php
+@@ -22,9 +22,11 @@ public function rules(): array
+         $rules = [
+             // Số chương không được trùng trong cùng một truyện (DB đã bỏ
+             // unique này ở migration 2026-11-16, nên chặn ở validation).
+-            'chapter_number' => ['required', 'integer', 'min:1'],
++            'chapter_number' => ['required', 'integer', 'min:1', 'max:100000'],
+             'title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+-            'content' => ['required', 'string'],
++            // Cột content là longText nhưng vẫn cần max để tránh post quá lớn
++            // (500.000 ký tự là đủ cho chương dài nhất thực tế).
++            'content' => ['required', 'string', 'max:500000'],
+             'status' => ['nullable', 'boolean'],
+         ];
+ 
+diff --git a/app/Http/Requests/Admin/UpdateCategoryRequest.php b/app/Http/Requests/Admin/UpdateCategoryRequest.php
+index 8a1ecf0..4a00f38 100644
+--- a/app/Http/Requests/Admin/UpdateCategoryRequest.php
++++ b/app/Http/Requests/Admin/UpdateCategoryRequest.php
+@@ -40,7 +40,10 @@ function ($attribute, $value, $fail) use ($category) {
+             // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
+             // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
+             'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
+-            'description' => ['nullable', 'string'],
++            // Cột description là TEXT (tối đa 65.535 byte): 20.000 ký tự là
++            // mức an toàn cho tiếng Việt (3 byte/ký tự), quá dài trả lỗi
++            // validation thay vì lỗi 500 của DB.
++            'description' => ['nullable', 'string', 'max:20000'],
+         ];
+     }
+ 
+diff --git a/app/Http/Requests/Admin/UpdateChapterRequest.php b/app/Http/Requests/Admin/UpdateChapterRequest.php
+index 29ef6ef..1d5a99f 100644
+--- a/app/Http/Requests/Admin/UpdateChapterRequest.php
++++ b/app/Http/Requests/Admin/UpdateChapterRequest.php
+@@ -23,7 +23,7 @@ public function rules(): array
+         $chapterId = $chapter instanceof Chapter ? $chapter->id : (is_numeric($chapter) ? (int) $chapter : null);
+         $storyId = $chapter instanceof Chapter ? $chapter->story_id : null;
+ 
+-        $numberRules = ['required', 'integer', 'min:1'];
++        $numberRules = ['required', 'integer', 'min:1', 'max:100000'];
+ 
+         if ($storyId !== null) {
+             $numberRules[] = Rule::unique('chapters', 'chapter_number')
+@@ -35,7 +35,9 @@ public function rules(): array
+         return [
+             'chapter_number' => $numberRules,
+             'title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+-            'content' => ['required', 'string'],
++            // Cột content là longText nhưng vẫn cần max để tránh post quá lớn
++            // (500.000 ký tự là đủ cho chương dài nhất thực tế).
++            'content' => ['required', 'string', 'max:500000'],
+             'status' => ['nullable', 'boolean'],
+         ];
+     }
+diff --git a/app/Jobs/SendNewChapterNotifications.php b/app/Jobs/SendNewChapterNotifications.php
+index 246c705..9ae96d6 100644
+--- a/app/Jobs/SendNewChapterNotifications.php
++++ b/app/Jobs/SendNewChapterNotifications.php
+@@ -10,12 +10,21 @@
+ use Illuminate\Foundation\Bus\Dispatchable;
+ use Illuminate\Queue\InteractsWithQueue;
+ use Illuminate\Queue\SerializesModels;
++use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Notification;
+ 
+ class SendNewChapterNotifications implements ShouldQueue
+ {
+     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+ 
++    /**
++     * Số lần thử lại khi gửi lỗi giữa chừng (xem retry_after 90s ở
++     * config/queue.php). Kèm dedup ở handle() để retry không gửi trùng.
++     */
++    public int $tries = 3;
++
++    public array $backoff = [60, 300];
++
+     public function __construct(
+         public int $chapterId
+     ) {}
+@@ -36,7 +45,19 @@ public function handle(): void
+                     ->where('notify_new_chapter', true);
+             })
+             ->chunkById(200, function ($users) use ($chapter) {
+-                Notification::sendNow($users, new NewChapterPublished($chapter));
++                // Idempotency: bỏ qua người đã có thông báo cho chương này
++                // (job retry sau khi fail giữa batch sẽ không gửi trùng).
++                $alreadyNotified = DB::table('notifications')
++                    ->where('notifiable_type', User::class)
++                    ->whereIn('notifiable_id', $users->pluck('id'))
++                    ->whereJsonContains('data->chapter_id', $chapter->id)
++                    ->pluck('notifiable_id');
++
++                $pending = $users->reject(fn ($user) => $alreadyNotified->contains($user->id));
++
++                if ($pending->isNotEmpty()) {
++                    Notification::sendNow($pending, new NewChapterPublished($chapter));
++                }
+             });
+     }
+ }
+diff --git a/app/Notifications/NewChapterPublished.php b/app/Notifications/NewChapterPublished.php
+index 2b99aea..595b064 100644
+--- a/app/Notifications/NewChapterPublished.php
++++ b/app/Notifications/NewChapterPublished.php
+@@ -4,10 +4,11 @@
+ 
+ use App\Models\Chapter;
+ use Illuminate\Bus\Queueable;
+-use Illuminate\Contracts\Queue\ShouldQueue;
+ use Illuminate\Notifications\Notification;
+ 
+-class NewChapterPublished extends Notification implements ShouldQueue
++// Không implements ShouldQueue: thông báo luôn được gửi đồng bộ (sendNow)
++// bên trong job SendNewChapterNotifications (job đó đã chạy trên queue).
++class NewChapterPublished extends Notification
+ {
+     use Queueable;
+ 
+@@ -25,15 +26,15 @@ public function toDatabase(object $notifiable): array
+         $story = $this->chapter->story;
+ 
+         return [
+-            'story_id' => $story->id,
+-            'story_title' => $story->title,
+-            'story_slug' => $story->slug,
++            'story_id' => $this->chapter->story_id,
++            'story_title' => $story?->title ?? '',
++            'story_slug' => $story?->slug ?? '',
+ 
+             'chapter_id' => $this->chapter->id,
+             'chapter_number' => $this->chapter->chapter_number,
+             'chapter_title' => $this->chapter->title,
+ 
+-            'message' => $story->title
++            'message' => ($story?->title ?? 'Truyện')
+                 .' vừa có chương mới: Chương '
+                 .$this->chapter->chapter_number
+                 .($this->chapter->title
+@@ -41,10 +42,12 @@ public function toDatabase(object $notifiable): array
+                     : ''),
+ 
+             // Lưu URL luôn
+-            'url' => route('chapters.show', [
+-                $story,
+-                $this->chapter->slug,
+-            ]),
++            'url' => $story
++                ? route('chapters.show', [
++                    $story,
++                    $this->chapter->slug,
++                ])
++                : url('/'),
+         ];
+     }
+ }
+diff --git a/app/Observers/CategoryObserver.php b/app/Observers/CategoryObserver.php
+index b9fd947..c38efe1 100644
+--- a/app/Observers/CategoryObserver.php
++++ b/app/Observers/CategoryObserver.php
+@@ -3,6 +3,7 @@
+ namespace App\Observers;
+ 
+ use App\Models\Category;
++use App\Services\HomeCacheService;
+ use App\Services\SitemapCacheService;
+ use Illuminate\Support\Facades\Cache;
+ 
+@@ -21,6 +22,8 @@ public function deleted(Category $category): void
+     private function invalidate(): void
+     {
+         Cache::forget('nav_categories');
++        // Card trang chủ render tên thể loại nên đổi tên cũng phải làm mới home.
++        app(HomeCacheService::class)->invalidate();
+         app(SitemapCacheService::class)->invalidate();
+     }
+ }
+diff --git a/app/Services/StoryStatsService.php b/app/Services/StoryStatsService.php
+index 705ccb1..ff4628b 100644
+--- a/app/Services/StoryStatsService.php
++++ b/app/Services/StoryStatsService.php
+@@ -4,6 +4,7 @@
+ 
+ use App\Models\Chapter;
+ use App\Models\Story;
++use App\Services\HomeCacheService;
+ use Illuminate\Support\Collection;
+ 
+ class StoryStatsService
+@@ -34,6 +35,12 @@ public function refreshStories(Collection|array $storyIds): void
+                     ])->saveQuietly();
+                 });
+         }
++
++        // saveQuietly bypasses StoryObserver nên phải invalidate tay, nếu
++        // không số liệu rating/favorite/comment trên trang chủ lag tối đa 10 phút.
++        if ($ids->isNotEmpty()) {
++            app(HomeCacheService::class)->invalidate();
++        }
+     }
+ 
+     /**
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index c869711..1d585b2 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -20,6 +20,11 @@
+         },
+     )
+     ->withMiddleware(function (Middleware $middleware): void {
++        // App chạy sau load balancer (xem docs/production-readiness.md):
++        // tin X-Forwarded-For để request()->ip() ra IP thật của visitor
++        // (đếm view và throttle login đều dựa vào IP).
++        $middleware->trustProxies(at: '*');
++
+         //
+         $middleware->alias([
+             'role' => CheckRole::class,
+diff --git a/resources/views/layouts/public.blade.php b/resources/views/layouts/public.blade.php
+index 445777d..7876799 100644
+--- a/resources/views/layouts/public.blade.php
++++ b/resources/views/layouts/public.blade.php
+@@ -15,7 +15,11 @@
+          và chèn script (stored XSS). Dùng {{ $__env->yieldContent(...) }} để
+          escape đầy đủ, kể cả dấu ngoặc kép. --}}
+     <meta name="description" content="{{ $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
+-    <link rel="canonical" href="{{ url()->current() }}">
++    {{-- Canonical giữ lại query string phân trang/lọc (page, q, ...) để các
++         trang phân trang và kết quả tìm kiếm không bị gộp thành một URL duy
++         nhất. Chỉ giữ các tham số đã biết, bỏ utm_ và tham số lạ. --}}
++    @php($canonicalQuery = collect(request()->query())->only(['page', 'q', 'category', 'status', 'sort', 'period', 'recent'])->filter(fn ($value) => $value !== '' && $value !== null)->all())
++    <link rel="canonical" href="{{ url()->current() }}{{ $canonicalQuery ? '?'.http_build_query($canonicalQuery) : '' }}">
+ 
+     {{-- Open Graph (Facebook, Zalo) --}}
+     <meta property="og:type" content="{{ $__env->yieldContent('og_type', 'website') }}">
+@@ -93,7 +97,7 @@
+             <form action="{{ route('search') }}" method="GET" class="navbar-search d-flex me-lg-3" role="search">
+                 <label for="navbar-search-query" class="visually-hidden">Tìm truyện</label>
+                 <input id="navbar-search-query" type="search" name="q" class="form-control form-control-sm"
+-                       placeholder="Tìm truyện..." value="{{ request('q') }}" maxlength="100">
++                       placeholder="Tìm truyện..." value="{{ is_string(request('q')) ? request('q') : '' }}" maxlength="100">
+                 <button type="submit" class="btn btn-sm btn-search" aria-label="Tìm kiếm">
+                     <i class="bi bi-search" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Tìm kiếm</span>
+                 </button>
+diff --git a/resources/views/sitemap/static.blade.php b/resources/views/sitemap/static.blade.php
+index fa50f3c..cbe8eba 100644
+--- a/resources/views/sitemap/static.blade.php
++++ b/resources/views/sitemap/static.blade.php
+@@ -4,10 +4,4 @@
+         <changefreq>hourly</changefreq>
+         <priority>1.0</priority>
+     </url>
+-
+-    <url>
+-        <loc>{{ route('search') }}</loc>
+-        <changefreq>daily</changefreq>
+-        <priority>0.5</priority>
+-    </url>
+-</urlset>
+\ No newline at end of file
++</urlset>
+diff --git a/routes/auth.php b/routes/auth.php
+index 8810255..e2484f1 100644
+--- a/routes/auth.php
++++ b/routes/auth.php
+@@ -22,7 +22,10 @@
+     Route::get('login', [AuthenticatedSessionController::class, 'create'])
+         ->name('login');
+ 
+-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
++    Route::post('login', [AuthenticatedSessionController::class, 'store'])
++        // Throttle theo IP (bổ sung cho giới hạn theo email|IP ở LoginRequest):
++        // chặn spray mật khẩu trên nhiều tài khoản từ cùng một IP.
++        ->middleware('throttle:60,1');
+ 
+     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
+         ->name('password.request');
+diff --git a/routes/web.php b/routes/web.php
+index f39005b..789ce24 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -59,7 +59,9 @@
+ })->middleware('auth')->name('dashboard');
+ 
+ // Khu vực sáng tác yêu cầu xác minh email: chỉ tài khoản đã xác minh email
+-// mới được đăng truyện/chương/bình luận ẩn-hiện, để hạn chế tài khoản rác.
++// mới được đăng truyện/chương và quản lý bình luận (ẩn/hiện), để hạn chế
++// tài khoản rác. Các tương tác công khai (bình luận, đánh giá, yêu thích,
++// báo cáo) cố tình không yêu cầu xác minh email.
+ Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
+     Route::get('/', WriterDashboardController::class)->name('dashboard');
+     Route::get('/binh-luan', [WriterCommentController::class, 'index'])->name('comments.index');
+diff --git a/tests/Feature/ChapterNotificationDispatchTest.php b/tests/Feature/ChapterNotificationDispatchTest.php
+index 8bc454d..5becbfb 100644
+--- a/tests/Feature/ChapterNotificationDispatchTest.php
++++ b/tests/Feature/ChapterNotificationDispatchTest.php
+@@ -3,11 +3,13 @@
+ use App\Jobs\SendNewChapterNotifications;
+ use App\Models\Chapter;
+ use App\Models\Favorite;
++use App\Models\Role;
+ use App\Models\Story;
+ use App\Models\User;
+ use App\Notifications\NewChapterPublished;
+ use Illuminate\Support\Facades\Notification;
+ use Illuminate\Support\Facades\Queue;
++use Illuminate\Support\Str;
+ 
+ test('publishing a chapter on a public story dispatches one notification batch job', function () {
+     Queue::fake();
+@@ -74,3 +76,57 @@
+ 
+     Notification::assertNotSentTo($follower, NewChapterPublished::class);
+ });
++
++test('republishing a story notifies followers about already published chapters', function () {
++    Queue::fake();
++
++    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
++    $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
++    $author = User::factory()->create(['status' => true]);
++    $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => false]);
++    $publishedChapter = Chapter::factory()->for($story)->create(['status' => true]);
++    $draftChapter = Chapter::factory()->for($story)->create(['status' => false]);
++
++    $this->actingAs($admin)
++        ->patch(route('admin.stories.toggle-publish', $story))
++        ->assertRedirect();
++
++    expect($story->fresh()->status_publish)->toBeTrue();
++    Queue::assertPushed(SendNewChapterNotifications::class, fn ($job) => $job->chapterId === $publishedChapter->id);
++    Queue::assertNotPushed(SendNewChapterNotifications::class, fn ($job) => $job->chapterId === $draftChapter->id);
++});
++
++test('notification job does not resend to users who already received it', function () {
++    $story = Story::factory()->create(['status_publish' => true]);
++    $chapter = Chapter::factory()->for($story)->create(['status' => true]);
++    $follower = User::factory()->create();
++
++    Favorite::create([
++        'user_id' => $follower->id,
++        'story_id' => $story->id,
++        'notify_new_chapter' => true,
++    ]);
++
++    // Giả lập job đã gửi một lần rồi fail giữa batch: trong DB đã có sẵn
++    // thông báo cho chương này, lần chạy lại phải bỏ qua người này.
++    $follower->notifications()->create([
++        'id' => (string) Str::uuid(),
++        'type' => NewChapterPublished::class,
++        'data' => [
++            'story_id' => $story->id,
++            'story_title' => $story->title,
++            'story_slug' => $story->slug,
++            'chapter_id' => $chapter->id,
++            'chapter_number' => $chapter->chapter_number,
++            'chapter_title' => $chapter->title,
++            'message' => 'test',
++            'url' => '/',
++        ],
++    ]);
++
++    Notification::fake();
++
++    (new SendNewChapterNotifications($chapter->id))->handle();
++
++    Notification::assertNotSentTo($follower, NewChapterPublished::class);
++});
+diff --git a/tests/Feature/PublishedStoryInteractionTest.php b/tests/Feature/PublishedStoryInteractionTest.php
+index 5739fef..60aaa0b 100644
+--- a/tests/Feature/PublishedStoryInteractionTest.php
++++ b/tests/Feature/PublishedStoryInteractionTest.php
+@@ -37,3 +37,25 @@
+         ])
+         ->assertNotFound();
+ });
++
++test('an author cannot rate their own story', function () {
++    $author = User::factory()->create(['status' => true]);
++    $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
++
++    $this->actingAs($author)
++        ->post(route('ratings.store', $story), ['score' => 5])
++        ->assertForbidden();
++
++    expect($story->fresh()->rating_count)->toBe(0);
++});
++
++test('an author cannot favorite their own story', function () {
++    $author = User::factory()->create(['status' => true]);
++    $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
++
++    $this->actingAs($author)
++        ->post(route('favorites.toggle', $story))
++        ->assertForbidden();
++
++    expect($story->fresh()->favorite_count)->toBe(0);
++});
+diff --git a/tests/Feature/SearchDiscoveryTest.php b/tests/Feature/SearchDiscoveryTest.php
+index 36e1a33..71a6c0e 100644
+--- a/tests/Feature/SearchDiscoveryTest.php
++++ b/tests/Feature/SearchDiscoveryTest.php
+@@ -219,3 +219,9 @@
+         ->assertSee('Truyện cùng thể loại')
+         ->assertDontSee('Truyện chưa xuất bản');
+ });
++
++test('an array search parameter does not crash the navigation bar', function () {
++    // ?q[]=x khiến request('q') thành mảng: trước đây e() trên mảng throw
++    // TypeError làm 500 mọi trang public có navbar.
++    $this->get('/?q[]=x')->assertOk();
++});
+diff --git a/tests/Feature/Writer/WriterChapterPublishingTest.php b/tests/Feature/Writer/WriterChapterPublishingTest.php
+index 00fb16e..5891464 100644
+--- a/tests/Feature/Writer/WriterChapterPublishingTest.php
++++ b/tests/Feature/Writer/WriterChapterPublishingTest.php
+@@ -111,3 +111,17 @@
+ 
+     expect($chapter->fresh()->status)->toBeFalse();
+ });
++
++test('a chapter content longer than the limit is rejected', function () {
++    $author = User::factory()->create(['status' => true]);
++    $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
++
++    $this->actingAs($author)->post(route('writer.stories.chapters.store', $story), [
++        'chapter_number' => 1,
++        'title' => 'Chương quá dài',
++        'content' => str_repeat('a', 500001),
++        'status' => true,
++    ])->assertSessionHasErrors('content');
++
++    expect(Chapter::query()->where('story_id', $story->id)->exists())->toBeFalse();
++});

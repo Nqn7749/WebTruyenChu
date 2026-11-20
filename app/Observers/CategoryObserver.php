@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Category;
+use App\Services\HomeCacheService;
 use App\Services\SitemapCacheService;
 use Illuminate\Support\Facades\Cache;
 
@@ -21,6 +22,8 @@ class CategoryObserver
     private function invalidate(): void
     {
         Cache::forget('nav_categories');
+        // Card trang chủ render tên thể loại nên đổi tên cũng phải làm mới home.
+        app(HomeCacheService::class)->invalidate();
         app(SitemapCacheService::class)->invalidate();
     }
 }
