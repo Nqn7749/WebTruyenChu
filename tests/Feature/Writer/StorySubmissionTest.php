@@ -199,3 +199,24 @@ test('admin story management does not expose create or edit routes', function ()
     $this->actingAs($admin)->get('/admin/stories/create')->assertMethodNotAllowed();
     $this->actingAs($admin)->get('/admin/stories/1/edit')->assertNotFound();
 });
+
+test('editing a story title preserves its public slug', function () {
+    $user = User::factory()->create(['status' => true]);
+    $category = Category::factory()->create();
+    $story = Story::factory()->create([
+        'user_id' => $user->id,
+        'title' => 'Tên truyện cũ',
+        'slug' => 'ten-truyen-cu',
+    ]);
+
+    $this->actingAs($user)->put(route('writer.stories.update', $story), [
+        'title' => 'Tên truyện mới',
+        'author_name' => $story->author_name,
+        'description' => 'Mô tả cập nhật.',
+        'status' => 'ongoing',
+        'categories' => [$category->id],
+    ])->assertRedirect(route('writer.stories.index'));
+
+    expect($story->fresh()->title)->toBe('Tên truyện mới')
+        ->and($story->fresh()->slug)->toBe('ten-truyen-cu');
+});
