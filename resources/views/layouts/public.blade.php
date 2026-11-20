@@ -15,7 +15,11 @@
          và chèn script (stored XSS). Dùng {{ $__env->yieldContent(...) }} để
          escape đầy đủ, kể cả dấu ngoặc kép. --}}
     <meta name="description" content="{{ $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
-    <link rel="canonical" href="{{ url()->current() }}">
+    {{-- Canonical giữ lại query string phân trang/lọc (page, q, ...) để các
+         trang phân trang và kết quả tìm kiếm không bị gộp thành một URL duy
+         nhất. Chỉ giữ các tham số đã biết, bỏ utm_ và tham số lạ. --}}
+    @php($canonicalQuery = collect(request()->query())->only(['page', 'q', 'category', 'status', 'sort', 'period', 'recent'])->filter(fn ($value) => $value !== '' && $value !== null)->all())
+    <link rel="canonical" href="{{ url()->current() }}{{ $canonicalQuery ? '?'.http_build_query($canonicalQuery) : '' }}">
 
     {{-- Open Graph (Facebook, Zalo) --}}
     <meta property="og:type" content="{{ $__env->yieldContent('og_type', 'website') }}">
@@ -93,7 +97,7 @@
             <form action="{{ route('search') }}" method="GET" class="navbar-search d-flex me-lg-3" role="search">
                 <label for="navbar-search-query" class="visually-hidden">Tìm truyện</label>
                 <input id="navbar-search-query" type="search" name="q" class="form-control form-control-sm"
-                       placeholder="Tìm truyện..." value="{{ request('q') }}" maxlength="100">
+                       placeholder="Tìm truyện..." value="{{ is_string(request('q')) ? request('q') : '' }}" maxlength="100">
                 <button type="submit" class="btn btn-sm btn-search" aria-label="Tìm kiếm">
                     <i class="bi bi-search" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Tìm kiếm</span>
                 </button>

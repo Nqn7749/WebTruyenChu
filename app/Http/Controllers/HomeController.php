@@ -11,7 +11,9 @@ class HomeController extends Controller
 
     public function index()
     {
-        $page = max(1, (int) request()->query('recent', 1));
+        // Giới hạn số trang để ?recent=100000 không tạo cache-key mới và
+        // OFFSET lớn tùy ý (trang chủ chỉ có tối đa vài chục trang thực tế).
+        $page = min(100, max(1, (int) request()->query('recent', 1)));
 
         // Phiên bản cache do StoryObserver tăng mỗi khi truyện thay đổi:
         // trang nào cũng được làm mới, không còn giới hạn ở 3 trang đầu.

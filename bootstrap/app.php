@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // App chạy sau load balancer (xem docs/production-readiness.md):
+        // tin X-Forwarded-For để request()->ip() ra IP thật của visitor
+        // (đếm view và throttle login đều dựa vào IP).
+        $middleware->trustProxies(at: '*');
+
         //
         $middleware->alias([
             'role' => CheckRole::class,

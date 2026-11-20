@@ -40,7 +40,10 @@ class UpdateCategoryRequest extends FormRequest
             // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
             // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
             'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
-            'description' => ['nullable', 'string'],
+            // Cột description là TEXT (tối đa 65.535 byte): 20.000 ký tự là
+            // mức an toàn cho tiếng Việt (3 byte/ký tự), quá dài trả lỗi
+            // validation thay vì lỗi 500 của DB.
+            'description' => ['nullable', 'string', 'max:20000'],
         ];
     }
 

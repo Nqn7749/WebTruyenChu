@@ -219,3 +219,9 @@ test('story detail recommends other published stories from matching categories',
         ->assertSee('Truyện cùng thể loại')
         ->assertDontSee('Truyện chưa xuất bản');
 });
+
+test('an array search parameter does not crash the navigation bar', function () {
+    // ?q[]=x khiến request('q') thành mảng: trước đây e() trên mảng throw
+    // TypeError làm 500 mọi trang public có navbar.
+    $this->get('/?q[]=x')->assertOk();
+});

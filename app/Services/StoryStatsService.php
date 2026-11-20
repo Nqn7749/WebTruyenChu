@@ -34,6 +34,12 @@ class StoryStatsService
                     ])->saveQuietly();
                 });
         }
+
+        // saveQuietly bypasses StoryObserver nên phải invalidate tay, nếu
+        // không số liệu rating/favorite/comment trên trang chủ lag tối đa 10 phút.
+        if ($ids->isNotEmpty()) {
+            app(HomeCacheService::class)->invalidate();
+        }
     }
 
     /**

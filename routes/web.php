@@ -59,7 +59,9 @@ Route::get('/dashboard', function () {
 })->middleware('auth')->name('dashboard');
 
 // Khu vực sáng tác yêu cầu xác minh email: chỉ tài khoản đã xác minh email
-// mới được đăng truyện/chương/bình luận ẩn-hiện, để hạn chế tài khoản rác.
+// mới được đăng truyện/chương và quản lý bình luận (ẩn/hiện), để hạn chế
+// tài khoản rác. Các tương tác công khai (bình luận, đánh giá, yêu thích,
+// báo cáo) cố tình không yêu cầu xác minh email.
 Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
     Route::get('/', WriterDashboardController::class)->name('dashboard');
     Route::get('/binh-luan', [WriterCommentController::class, 'index'])->name('comments.index');

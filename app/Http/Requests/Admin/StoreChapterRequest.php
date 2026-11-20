@@ -22,9 +22,11 @@ class StoreChapterRequest extends FormRequest
         $rules = [
             // Số chương không được trùng trong cùng một truyện (DB đã bỏ
             // unique này ở migration 2026-11-16, nên chặn ở validation).
-            'chapter_number' => ['required', 'integer', 'min:1'],
+            'chapter_number' => ['required', 'integer', 'min:1', 'max:100000'],
             'title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
-            'content' => ['required', 'string'],
+            // Cột content là longText nhưng vẫn cần max để tránh post quá lớn
+            // (500.000 ký tự là đủ cho chương dài nhất thực tế).
+            'content' => ['required', 'string', 'max:500000'],
             'status' => ['nullable', 'boolean'],
         ];
 

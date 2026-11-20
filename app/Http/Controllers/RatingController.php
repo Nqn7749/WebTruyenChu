@@ -12,6 +12,8 @@ class RatingController extends Controller
     public function store(StoreRatingRequest $request, Story $story)
     {
         abort_unless($story->status_publish, 404);
+        // Tác giả không tự đánh giá truyện của mình (tránh thổi điểm).
+        abort_if($story->user_id === Auth::id(), 403);
 
         DB::transaction(function () use ($request, $story) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
