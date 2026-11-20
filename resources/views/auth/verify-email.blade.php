@@ -1,33 +1,45 @@
+@extends('layouts.public')
 
-<x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
-    </div>
+@section('title', 'Xác minh email | Web Đọc Truyện Chữ')
 
-    @if (session('status') == 'verification-link-sent')
-        <div class="mb-4 font-medium text-sm text-green-600">
-            {{ __('A new verification link has been sent to the email address you provided during registration.') }}
-        </div>
-    @endif
+@section('content')
+<div class="row justify-content-center py-4">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-envelope-check display-4 text-success" aria-hidden="true"></i>
+                    <h1 class="h3 mt-3">Xác minh địa chỉ email</h1>
+                </div>
 
-    <div class="mt-4 flex items-center justify-between">
-        <form method="POST" action="{{ route('verification.send') }}">
-            @csrf
+                <p class="text-muted">
+                    Cảm ơn bạn đã đăng ký. Hãy mở email và nhấn vào liên kết xác minh
+                    chúng tôi đã gửi để sử dụng đầy đủ các tính năng dành cho tác giả.
+                </p>
 
-            <div>
-                <x-primary-button>
-                    {{ __('Resend Verification Email') }}
-                </x-primary-button>
+                @if (session('status') === 'verification-link-sent')
+                    <div class="alert alert-success" role="status">
+                        Một liên kết xác minh mới đã được gửi tới địa chỉ email của bạn.
+                    </div>
+                @endif
+
+                @if ($errors->has('email'))
+                    <div class="alert alert-danger" role="alert">{{ $errors->first('email') }}</div>
+                @endif
+
+                <div class="d-flex flex-column flex-sm-row gap-2 mt-4">
+                    <form method="POST" action="{{ route('verification.send') }}" class="flex-grow-1">
+                        @csrf
+                        <button type="submit" class="btn btn-jade w-100">Gửi lại email xác minh</button>
+                    </form>
+
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-secondary w-100">Đăng xuất</button>
+                    </form>
+                </div>
             </div>
-        </form>
-
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-
-            <button type="submit" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                {{ __('Log Out') }}
-            </button>
-        </form>
+        </div>
     </div>
-</x-guest-layout>
-
+</div>
+@endsection
