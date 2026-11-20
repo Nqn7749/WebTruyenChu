@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\NewChapterPublished;
 use App\Services\StoryStatsService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 
 class ChapterController extends Controller
@@ -39,6 +40,7 @@ class ChapterController extends Controller
 
         $chapter = DB::transaction(function () use ($story, $data, $stats, $title) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+            $this->assertChapterNumberAvailable($lockedStory, (int) $data['chapter_number']);
             $data['slug'] = $this->generateUniqueSlug($title, $lockedStory->id);
             $chapter = $lockedStory->chapters()->create($data);
             $stats->refreshChapterStats($lockedStory);
@@ -72,6 +74,7 @@ class ChapterController extends Controller
         [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $stats) {
             $story = Story::query()->lockForUpdate()->findOrFail($chapter->story_id);
             $chapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+            $this->assertChapterNumberAvailable($story, (int) $data['chapter_number'], $chapter->id);
             $wasPublished = (bool) $chapter->status;
             // Keep the original slug stable when an administrator edits the title.
             $chapter->update($data);
@@ -103,6 +106,20 @@ class ChapterController extends Controller
         return redirect()
             ->route('admin.stories.chapters.index', $story)
             ->with('success', 'Xóa chương thành công.');
+    }
+
+    private function assertChapterNumberAvailable(Story $story, int $number, ?int $ignoreChapterId = null): void
+    {
+        $exists = $story->chapters()
+            ->where('chapter_number', $number)
+            ->when($ignoreChapterId, fn ($query) => $query->whereKeyNot($ignoreChapterId))
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'chapter_number' => 'Số chương này đã được sử dụng trong truyện.',
+            ]);
+        }
     }
 
     private function notifyFollowers(Story $story, Chapter $chapter): void
