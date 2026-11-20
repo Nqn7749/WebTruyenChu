@@ -6,7 +6,7 @@ use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
 
-test('a verified member submits a story pending admin approval', function () {
+test('a verified member submits a story and it is published immediately', function () {
     $user = User::factory()->create(['status' => true]);
     $category = Category::factory()->create();
 
@@ -22,14 +22,15 @@ test('a verified member submits a story pending admin approval', function () {
 
     $story = Story::query()->where('title', 'Truyện do thành viên đăng')->firstOrFail();
 
-    // Kể cả khi gửi status_publish=true hay is_hot=true, truyện mới vẫn
-    // chờ duyệt và không được gắn cờ nổi bật: các trường đó do hệ thống/admin quyết định.
+    // Tác giả tự đăng: truyện mới được công khai ngay. Kể cả khi gửi
+    // status_publish=true hay is_hot=true, cờ nổi bật vẫn không được gắn từ
+    // input: các trường đó do hệ thống/admin quyết định.
     expect($story->user_id)->toBe($user->id)
         ->and($story->status_publish)->toBeTrue()
         ->and($story->is_hot)->toBeFalse();
 });
 
-test('an admin can approve a pending story and unpublish it again', function () {
+test('an admin can unpublish a story and publish it again', function () {
     $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
     $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
     $author = User::factory()->create(['status' => true]);
@@ -59,7 +60,7 @@ test('a member can only manage their own stories', function () {
     expect($story->fresh())->not->toBeNull();
 });
 
-test('editing a story does not send it back to an approval queue', function () {
+test('editing a story does not change its publish status', function () {
     $user = User::factory()->create(['status' => true]);
     $category = Category::factory()->create();
     $story = Story::factory()->create(['user_id' => $user->id, 'status_publish' => true]);

@@ -6,8 +6,8 @@
 </div>
 
 <div class="alert alert-warning" role="alert">
-    <strong>Lưu ý:</strong> Truyện mới do thành viên đăng mặc định CHƯA công khai, cần admin duyệt
-    ở cột Thao tác. Khi xóa, bạn phải ghi rõ lý do. Truyện sẽ bị ẩn khỏi website và tác giả
+    <strong>Lưu ý:</strong> Truyện mới do thành viên đăng được công khai ngay (tác giả tự đăng).
+    Admin có thể gỡ công khai ở cột Thao tác. Khi xóa, bạn phải ghi rõ lý do. Truyện sẽ bị ẩn khỏi website và tác giả
     có thể xem lý do trong Tủ truyện của tôi. Hãy kiểm tra kỹ trước khi xác nhận.
 </div>
 
@@ -43,7 +43,7 @@
                     @if ($story->status_publish)
                         <span class="badge bg-success">Đã công khai</span>
                     @else
-                        <span class="badge bg-warning text-dark">Chờ duyệt</span>
+                        <span class="badge bg-warning text-dark">Chưa công khai</span>
                     @endif
                 </td>
                 <td>{{ $story->chapters_count }}</td>
@@ -53,7 +53,7 @@
                         @csrf
                         @method('PATCH')
                         <button class="btn btn-sm {{ $story->status_publish ? 'btn-outline-warning' : 'btn-success' }}">
-                            {{ $story->status_publish ? 'Gỡ công khai' : 'Duyệt' }}
+                            {{ $story->status_publish ? 'Gỡ công khai' : 'Công khai' }}
                         </button>
                     </form>
                     <form action="{{ route('admin.stories.destroy', $story) }}" method="POST" class="mt-2 text-start"

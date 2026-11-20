@@ -54,9 +54,10 @@ class StoryController extends Controller
         }
 
         try {
-            // Truyện mới mặc định CHƯA công khai, chờ admin duyệt. Các cờ
-            // hệ thống (status_publish, is_hot, ...) không nằm trong
-            // $fillable nên gán riêng bằng forceFill() sau khi tạo.
+            // Tác giả tự đăng: truyện mới được công khai ngay, không cần admin
+            // duyệt. Các cờ hệ thống (status_publish, is_hot, ...) không nằm
+            // trong $fillable nên gán riêng bằng forceFill() sau khi tạo.
+            // Admin vẫn có thể gỡ công khai sau (Admin\StoryController::togglePublish).
             // Thử lại tối đa 3 lần nếu hai người đăng cùng tiêu đề một lúc
             // khiến slug bị trùng (lỗi unique 23000) — xem uniqueSlug().
             $attempts = 0;
@@ -121,9 +122,9 @@ class StoryController extends Controller
         unset($data['categories'], $data['tags'], $data['status_publish']);
 
         // Preserve the public slug when a title changes so existing links and search indexes remain valid.
-        // Không đụng tới status_publish khi sửa: truyện đang chờ duyệt thì
-        // vẫn chờ duyệt, truyện đã công khai thì vẫn công khai. Chỉ admin
-        // mới được duyệt/gỡ công khai (Admin\StoryController::togglePublish).
+        // Không đụng tới status_publish khi sửa: truyện công khai thì vẫn
+        // công khai, truyện đã bị gỡ thì vẫn bị gỡ. Chỉ admin mới được
+        // công khai/gỡ công khai (Admin\StoryController::togglePublish).
 
         $oldCover = $story->cover_image;
         $newCover = $request->file('cover_image')?->store('covers', 'public');
