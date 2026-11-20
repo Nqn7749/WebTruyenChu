@@ -32,9 +32,7 @@ class ChapterObserver
         if ($relevantChanges !== []) {
             app(SitemapCacheService::class)->invalidate();
 
-            if ($chapter->status || (bool) $chapter->getOriginal('status')) {
-                app(HomeCacheService::class)->invalidate();
-            }
+            app(HomeCacheService::class)->invalidate();
         }
     }
 
