@@ -23,9 +23,10 @@ class StoryController extends Controller
         $publishedChapters = fn () => $story->chapters()->where('status', true);
 
         $chapters = $publishedChapters()
+            ->select(['id', 'story_id', 'chapter_number', 'title', 'slug', 'views'])
             ->orderBy('chapter_number')
             ->orderBy('id')
-            ->paginate(100, ['*'], 'chapter_page')
+            ->paginate(100, pageName: 'chapter_page')
             ->withQueryString();
 
         $firstChapter = $publishedChapters()
