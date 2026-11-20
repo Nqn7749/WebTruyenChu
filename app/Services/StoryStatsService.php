@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Chapter;
 use App\Models\Story;
-use App\Services\HomeCacheService;
 use Illuminate\Support\Collection;
 
 class StoryStatsService
