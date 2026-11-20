@@ -37,7 +37,9 @@ class UpdateCategoryRequest extends FormRequest
                     }
                 },
             ],
-            'name' => ['required', 'string', 'max:100'],
+            // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
+            // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
+            'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
             'description' => ['nullable', 'string'],
         ];
     }

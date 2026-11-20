@@ -5,6 +5,8 @@ use App\Models\Chapter;
 use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 test('a verified member submits a story and it is published immediately', function () {
     $user = User::factory()->create(['status' => true]);
@@ -220,4 +222,59 @@ test('editing a story title preserves its public slug', function () {
 
     expect($story->fresh()->title)->toBe('Tên truyện mới')
         ->and($story->fresh()->slug)->toBe('ten-truyen-cu');
+});
+
+test('a story cover upload rejects svg files', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['status' => true]);
+    $category = Category::factory()->create();
+
+    // File SVG thật (nội dung SVG + mime image/svg+xml): rule 'image' vẫn
+    // cho qua, chỉ rule 'mimes' mới chặn — đúng lỗi H2 cần sửa.
+    $path = tempnam(sys_get_temp_dir(), 'cover').'.svg';
+    file_put_contents($path, '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+    $svg = new UploadedFile($path, 'cover.svg', 'image/svg+xml', null, true);
+
+    $this->actingAs($user)->post(route('writer.stories.store'), [
+        'title' => 'Truyện có ảnh bìa SVG',
+        'author_name' => 'Bút danh',
+        'description' => 'Giới thiệu truyện',
+        'status' => 'ongoing',
+        'categories' => [$category->id],
+        'cover_image' => $svg,
+    ])->assertSessionHasErrors('cover_image');
+
+    expect(Story::query()->where('title', 'Truyện có ảnh bìa SVG')->exists())->toBeFalse();
+
+    if (file_exists($path)) {
+        unlink($path);
+    }
+});
+
+test('a story cover upload accepts png files', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['status' => true]);
+    $category = Category::factory()->create();
+
+    // Ảnh PNG 1x1 thật (không cần GD): đảm bảo rule 'mimes' không chặn
+    // nhầm ảnh hợp lệ.
+    $path = tempnam(sys_get_temp_dir(), 'cover').'.png';
+    file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAwMCAO+ip1sAAAAASUVORK5CYII='));
+    $png = new UploadedFile($path, 'cover.png', 'image/png', null, true);
+
+    $this->actingAs($user)->post(route('writer.stories.store'), [
+        'title' => 'Truyện có ảnh bìa PNG',
+        'author_name' => 'Bút danh',
+        'description' => 'Giới thiệu truyện',
+        'status' => 'ongoing',
+        'categories' => [$category->id],
+        'cover_image' => $png,
+    ])->assertRedirect(route('writer.stories.index'));
+
+    $story = Story::query()->where('title', 'Truyện có ảnh bìa PNG')->firstOrFail();
+
+    expect($story->cover_image)->not->toBeNull();
+    Storage::disk('public')->assertExists($story->cover_image);
 });
