@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Web Đọc Truyện Chữ')</title>
+    <title>{{ $__env->yieldContent('title', 'Web Đọc Truyện Chữ') }}</title>
 
     {{-- SEO cơ bản --}}
     {{-- Lưu ý bảo mật: @yield xuất nội dung section KHÔNG escape, nên tuyệt đối

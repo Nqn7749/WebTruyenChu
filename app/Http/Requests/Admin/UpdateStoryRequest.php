@@ -43,7 +43,10 @@ class UpdateStoryRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255', 'not_regex:/[<>]/'],
             'author_name' => ['nullable', 'string', 'max:255'],
-            'cover_image' => ['nullable', 'image', 'max:2048'],
+            // Chỉ nhận ảnh raster (jpeg/png/webp): rule 'image' vẫn cho file
+            // SVG qua, mà SVG có thể chứa script và file lưu ở disk public
+            // (stored XSS khi mở trực tiếp).
+            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
             'description' => ['nullable', 'string', 'max:1000000'],
             'status' => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
             'status_publish' => ['nullable', 'boolean'],

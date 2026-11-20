@@ -29,7 +29,10 @@ class StoreStoryRequest extends FormRequest
             // (phòng thủ thêm cho lỗi XSS ở meta og:title).
             'title' => ['required', 'string', 'max:255', 'not_regex:/[<>]/'],
             'author_name' => ['nullable', 'string', 'max:255'],
-            'cover_image' => ['nullable', 'image', 'max:2048'],
+            // Chỉ nhận ảnh raster (jpeg/png/webp): rule 'image' vẫn cho file
+            // SVG qua, mà SVG có thể chứa script và file lưu ở disk public
+            // (stored XSS khi mở trực tiếp).
+            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
             // description là longText, meta_description là text (tối đa 65.535 ký tự):
             // đặt max để nhập quá dài trả lỗi validation thay vì lỗi 500 của DB.
             'description' => ['nullable', 'string', 'max:1000000'],

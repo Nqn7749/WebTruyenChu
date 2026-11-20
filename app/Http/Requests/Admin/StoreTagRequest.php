@@ -23,7 +23,9 @@ class StoreTagRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:100', 'unique:tags,name'],
+            // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
+            // (cùng quy tắc với tên thể loại, phòng thủ cho nơi hiển thị tên).
+            'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/', 'unique:tags,name'],
         ];
     }
 }
