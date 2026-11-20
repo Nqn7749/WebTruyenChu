@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Chapter;
+use App\Services\HomeCacheService;
 use App\Services\SitemapCacheService;
 
 class ChapterObserver
@@ -16,14 +17,13 @@ class ChapterObserver
 
     public function saved(Chapter $chapter): void
     {
-        $relevantChanges = array_intersect(
-            array_keys($chapter->getChanges()),
-            self::SITEMAP_FIELDS
-        );
+        $changes = array_keys($chapter->getChanges());
+        $relevantChanges = array_intersect($changes, self::SITEMAP_FIELDS);
 
         if ($chapter->wasRecentlyCreated) {
             if ($chapter->status) {
                 app(SitemapCacheService::class)->invalidate();
+                app(HomeCacheService::class)->invalidate();
             }
 
             return;
@@ -31,6 +31,10 @@ class ChapterObserver
 
         if ($relevantChanges !== []) {
             app(SitemapCacheService::class)->invalidate();
+
+            if ($chapter->status || (bool) $chapter->getOriginal('status')) {
+                app(HomeCacheService::class)->invalidate();
+            }
         }
     }
 
@@ -38,6 +42,7 @@ class ChapterObserver
     {
         if ($chapter->status) {
             app(SitemapCacheService::class)->invalidate();
+            app(HomeCacheService::class)->invalidate();
         }
     }
 
@@ -45,6 +50,7 @@ class ChapterObserver
     {
         if ($chapter->status) {
             app(SitemapCacheService::class)->invalidate();
+            app(HomeCacheService::class)->invalidate();
         }
     }
 
@@ -52,6 +58,7 @@ class ChapterObserver
     {
         if ($chapter->status) {
             app(SitemapCacheService::class)->invalidate();
+            app(HomeCacheService::class)->invalidate();
         }
     }
 }
