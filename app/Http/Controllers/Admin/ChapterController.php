@@ -11,8 +11,8 @@ use App\Models\User;
 use App\Notifications\NewChapterPublished;
 use App\Services\StoryStatsService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ChapterController extends Controller
 {
@@ -112,7 +112,7 @@ class ChapterController extends Controller
     {
         $exists = $story->chapters()
             ->where('chapter_number', $number)
-            ->when($ignoreChapterId, fn ($query) => $query->whereKeyNot($ignoreChapterId))
+            ->when($ignoreChapterId, fn ($query) => $query->where('chapters.id', '!=', $ignoreChapterId))
             ->exists();
 
         if ($exists) {
