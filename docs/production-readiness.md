@@ -14,9 +14,14 @@ secrets to this repository.
 - Use a least-privilege database account; do not deploy with a database root account.
 - Configure a durable session/cache/queue backend appropriate to the deployment.
   Run a queue worker under a process supervisor if queued jobs are enabled.
-- Configure a real mail transport and verify password-reset delivery. Email verification
-  is intentionally disabled in the current application state; decide whether to re-enable
-  it before relying on verified email as an identity control.
+- Configure a real mail transport (SMTP, SES, Postmark, or Resend), sender address,
+  sender domain authentication (SPF/DKIM/DMARC where supported), and queue worker if
+  mail notifications are queued. The development default `MAIL_MAILER=log` writes
+  messages to logs and does not deliver them to users.
+- Email verification is enabled: `User` implements `MustVerifyEmail`, the verification
+  routes are registered, and the writer area requires the `verified` middleware.
+  Before launch, send a real verification email and confirm the signed link completes
+  verification. Also test password-reset delivery end-to-end.
 - Configure public storage and verify uploaded covers are served from the intended
   public disk. Keep private files outside the public web root.
 - Run migrations as an explicit deployment step after taking a verified database backup.
@@ -43,6 +48,7 @@ secrets to this repository.
 1. Confirm the production environment variables without printing secret values.
 2. Run `php artisan config:cache` and `php artisan route:cache` as part of deployment.
 3. Run `php artisan migrate --force` only as a deliberate, backed-up production migration step.
-4. Run `php artisan about`, verify `/up`, test login/logout and password reset, and inspect logs.
+4. Run `php artisan about`, verify `/up`, test registration, email verification, login/logout,
+   password reset, and inspect logs.
 5. Verify HTTPS redirects, secure session-cookie attributes, error pages, storage access,
    queue processing, scheduled tasks, backups, and restore procedure.
