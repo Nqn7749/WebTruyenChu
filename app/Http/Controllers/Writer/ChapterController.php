@@ -18,7 +18,11 @@ class ChapterController extends Controller
     public function index(Story $story)
     {
         $this->ensureOwner($story);
-        $chapters = $story->chapters()->orderBy('chapter_number')->orderBy('id')->paginate(20);
+        $chapters = $story->chapters()
+            ->select(['id', 'story_id', 'chapter_number', 'title', 'slug', 'status'])
+            ->orderBy('chapter_number')
+            ->orderBy('id')
+            ->paginate(20);
 
         return view('writer.chapters.index', compact('story', 'chapters'));
     }

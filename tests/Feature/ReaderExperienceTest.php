@@ -22,3 +22,16 @@ test('chapter reader exposes accessibility and focus controls', function () {
         ->assertSee('data-theme="sepia"', false)
         ->assertSee('data-theme="dark"', false);
 });
+
+test('chapter reader defines safe local progress persistence and lifecycle saves', function () {
+    $story = Story::factory()->create(['status_publish' => true]);
+    $chapter = Chapter::factory()->for($story)->create(['status' => true]);
+
+    $this->get(route('chapters.show', [$story, $chapter->slug]))
+        ->assertOk()
+        ->assertSee('const saveLocalReadingPosition = debounce(', false)
+        ->assertSee("window.addEventListener('pagehide', persistReadingPosition)", false)
+        ->assertSee("document.addEventListener('visibilitychange'", false)
+        ->assertSee('function readLocalStorage(key)', false)
+        ->assertSee('function writeLocalStorage(key, value)', false);
+});
