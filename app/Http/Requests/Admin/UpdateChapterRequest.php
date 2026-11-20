@@ -28,6 +28,7 @@ class UpdateChapterRequest extends FormRequest
         if ($storyId !== null) {
             $numberRules[] = Rule::unique('chapters', 'chapter_number')
                 ->where('story_id', $storyId)
+                ->whereNull('deleted_at')
                 ->ignore($chapterId);
         }
 
