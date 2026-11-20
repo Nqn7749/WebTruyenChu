@@ -21,6 +21,24 @@ use App\Http\Controllers\Writer\StoryController as WriterStoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+Route::get('/robots.txt', function () {
+    $content = implode("\n", [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /admin',
+        'Disallow: /lich-su-doc',
+        'Disallow: /yeu-thich',
+        'Disallow: /profile',
+        'Disallow: /sang-tac',
+        'Disallow: /notifications',
+        '',
+        'Sitemap: '.url('/sitemap.xml'),
+        '',
+    ]);
+
+    return response($content, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+})->name('robots');
 Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
 Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index');
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
