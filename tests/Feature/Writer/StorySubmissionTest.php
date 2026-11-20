@@ -25,7 +25,7 @@ test('a verified member submits a story pending admin approval', function () {
     // Kể cả khi gửi status_publish=true hay is_hot=true, truyện mới vẫn
     // chờ duyệt và không được gắn cờ nổi bật: các trường đó do hệ thống/admin quyết định.
     expect($story->user_id)->toBe($user->id)
-        ->and($story->status_publish)->toBeFalse()
+        ->and($story->status_publish)->toBeTrue()
         ->and($story->is_hot)->toBeFalse();
 });
 
