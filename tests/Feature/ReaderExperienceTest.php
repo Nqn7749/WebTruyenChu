@@ -23,7 +23,6 @@ test('chapter reader exposes accessibility and focus controls', function () {
         ->assertSee('data-theme="dark"', false);
 });
 
-
 test('chapter reader defines safe local progress persistence and lifecycle saves', function () {
     $story = Story::factory()->create(['status_publish' => true]);
     $chapter = Chapter::factory()->for($story)->create(['status' => true]);
