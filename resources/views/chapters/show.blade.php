@@ -335,6 +335,32 @@
         return Math.min(Math.max(value, min), max);
     }
 
+    function readLocalStorage(key) {
+        try {
+            return window.localStorage.getItem(key);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function writeLocalStorage(key, value) {
+        try {
+            window.localStorage.setItem(key, value);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    const saveLocalReadingPosition = debounce(() => {
+        writeLocalStorage(storageKeys.position, String(window.scrollY));
+    }, 300);
+
+    function persistReadingPosition() {
+        writeLocalStorage(storageKeys.position, String(window.scrollY));
+    }
+
+
 
     /* =========================================================
        READING PROGRESS
@@ -460,10 +486,7 @@
 
     function restoreReadingPosition() {
 
-        const savedPosition =
-            localStorage.getItem(
-                storageKeys.position
-            );
+        const savedPosition = readLocalStorage(storageKeys.position);
 
         if (!savedPosition) {
             updateProgressBar();
@@ -507,9 +530,7 @@
 
     let fontSize =
         parseFloat(
-            localStorage.getItem(
-                storageKeys.fontSize
-            )
+            readLocalStorage(storageKeys.fontSize)
         ) || 1.15;
 
 
@@ -530,10 +551,7 @@
 
     function saveFontSize() {
 
-        localStorage.setItem(
-            storageKeys.fontSize,
-            fontSize.toString()
-        );
+        writeLocalStorage(storageKeys.fontSize, fontSize.toString());
     }
 
 
@@ -571,7 +589,7 @@
     ========================================================= */
 
     let lineHeight =
-        parseFloat(localStorage.getItem(storageKeys.lineHeight)) || 1.9;
+        parseFloat(readLocalStorage(storageKeys.lineHeight)) || 1.9;
 
     function applyLineHeight() {
         lineHeight = clamp(lineHeight, 1.5, 2.4);
@@ -579,7 +597,7 @@
     }
 
     function saveLineHeight() {
-        localStorage.setItem(storageKeys.lineHeight, lineHeight.toString());
+        writeLocalStorage(storageKeys.lineHeight, lineHeight.toString());
     }
 
     document.getElementById('lineHeightIncrease')
@@ -623,10 +641,7 @@
 
         wrap.dataset.readerTheme = theme;
 
-        localStorage.setItem(
-            storageKeys.theme,
-            theme
-        );
+        writeLocalStorage(storageKeys.theme, theme);
 
         themeButtons.forEach(button => {
 
@@ -647,10 +662,7 @@
     }
 
 
-    const savedTheme =
-        localStorage.getItem(
-            storageKeys.theme
-        ) || 'light';
+    const savedTheme = readLocalStorage(storageKeys.theme) || 'light';
 
 
     applyTheme(savedTheme);
@@ -680,7 +692,7 @@
         const isEnabled = Boolean(enabled);
 
         document.body.classList.toggle('reader-focus-mode', isEnabled);
-        localStorage.setItem(storageKeys.focusMode, isEnabled ? '1' : '0');
+        writeLocalStorage(storageKeys.focusMode, isEnabled ? '1' : '0');
 
         if (focusModeToggle) {
             focusModeToggle.classList.toggle('active', isEnabled);
@@ -699,7 +711,7 @@
         }
     }
 
-    applyFocusMode(localStorage.getItem(storageKeys.focusMode) === '1');
+    applyFocusMode(readLocalStorage(storageKeys.focusMode) === '1');
 
     focusModeToggle?.addEventListener('click', () => {
         applyFocusMode(!document.body.classList.contains('reader-focus-mode'));
@@ -710,14 +722,18 @@
        SAVE LAST POSITION BEFORE LEAVING
     ========================================================= */
 
+    window.addEventListener('pagehide', persistReadingPosition);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            persistReadingPosition();
+        }
+    });
+
     window.addEventListener(
         'beforeunload',
         () => {
-
-            localStorage.setItem(
-                storageKeys.position,
-                String(window.scrollY)
-            );
+            persistReadingPosition();
 
             @auth
 
