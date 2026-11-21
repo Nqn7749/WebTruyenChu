@@ -162,7 +162,7 @@ class RunCrawlerSource implements ShouldQueue
 
     private function nodes(\DOMXPath $document, string $expression): array
     {
-        if ($expression === '' || !str_starts_with(trim($expression), '/')) {
+        if ($expression === '' || ! str_starts_with(trim($expression), '/')) {
             throw new RuntimeException('XPath cấu hình không hợp lệ.');
         }
 
@@ -217,7 +217,7 @@ class RunCrawlerSource implements ShouldQueue
     {
         $base = parse_url($source->base_url);
         $target = parse_url($url);
-        if (! $base || !$target || ($target['scheme'] ?? '') !== 'https'
+        if (! $base || ! $target || ($target['scheme'] ?? '') !== 'https'
             || strtolower($target['host'] ?? '') !== strtolower($base['host'] ?? '')
             || isset($target['user']) || isset($target['pass'])
             || (isset($target['port']) && $target['port'] !== 443)) {
@@ -226,7 +226,7 @@ class RunCrawlerSource implements ShouldQueue
 
         $host = $target['host'];
         $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
-        if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) {
+        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
             throw new RuntimeException('Không phân giải được máy chủ nguồn.');
         }
         if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
