@@ -32,7 +32,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:10,1')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
@@ -52,18 +52,18 @@ Route::middleware('auth')->group(function () {
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:10,1')
         ->name('verification.send');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:10,1')
         ->name('password.confirm.store');
 
     Route::put('password', [PasswordController::class, 'update'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:10,1')
         ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])

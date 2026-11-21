@@ -35,7 +35,7 @@ class CreateAdminUser extends Command
                 'name' => ['required', 'string', 'max:100'],
                 'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-                'password' => ['required', 'string', Password::min(12)->mixedCase()->numbers()->symbols()],
+                'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
             ]
         );
 

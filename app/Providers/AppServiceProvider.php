@@ -30,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
         // có số, có cả hoa lẫn thường (A-L4). Không dùng uncompromised()
         // vì nó cần gọi API ngoài để kiểm tra mật khẩu bị lộ.
         Password::defaults(function () {
-            return Password::min(12)->letters()->numbers()->mixedCase();
+            return Password::min(8)->letters()->numbers()->mixedCase();
         });
 
         // Throttle toàn cục cho nhóm web (M2): 600 request/phút/IP.

@@ -19,7 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // ProfileController, không nên giữ toàn quyền /admin với email
             // chưa xác minh. Lưu ý: admin tạo qua app:create-admin đã có
             // email_verified_at nên không bị khóa ngoài.
-            Route::middleware(['web', 'auth', 'verified', 'role:admin'])
+            Route::middleware(['web', 'auth', 'verified', 'role:admin']) //            Route::middleware(['web', 'auth', 'verified', 'role:admin'])
+
                 ->prefix('admin')
                 ->name('admin.')
                 ->group(base_path('routes/admin.php'));
