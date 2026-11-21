@@ -33,6 +33,11 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Debug Pint formatting
+        run: |
+          vendor/bin/pint
+          git diff -- app/Http/Controllers/Admin/CrawlerSourceController.php app/Jobs/RunCrawlerSource.php
+
       - name: Check code style with Pint
         run: vendor/bin/pint --test
 
