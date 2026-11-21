@@ -87,7 +87,9 @@ class RunCrawlerSource implements ShouldQueue
                         'description' => $this->value($storyPage, $source->selectors['story_description'] ?? '') ?: null,
                         'status' => 'ongoing',
                         'status_publish' => false,
-                    ])->save();
+                    ]);
+
+                    $story->save();
 
                     CrawlerItem::create([
                         'crawler_source_id' => $source->id,
