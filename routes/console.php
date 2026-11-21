@@ -4,6 +4,9 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
+use App\Jobs\RunCrawlerSource;
+use App\Models\CrawlerRun;
+use App\Models\CrawlerSource;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
