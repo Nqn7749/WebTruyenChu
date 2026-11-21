@@ -17,7 +17,7 @@ test('users can authenticate using the login screen and return to home by defaul
 
     $response = $this->post('/login', [
         'email' => $user->email,
-        'password' => 'password',
+        'password' => 'Password1234',
     ]);
 
     $this->assertAuthenticated();
@@ -30,7 +30,7 @@ test('users are redirected to their intended page after login', function () {
     $response = $this->withSession(['url.intended' => route('profile.edit')])
         ->post('/login', [
             'email' => $user->email,
-            'password' => 'password',
+            'password' => 'Password1234',
         ]);
 
     $response->assertRedirect(route('profile.edit'));
@@ -52,7 +52,7 @@ test('users can authenticate with their username', function () {
 
     $response = $this->post('/login', [
         'email' => 'reader-login',
-        'password' => 'password',
+        'password' => 'Password1234',
     ]);
 
     $this->assertAuthenticatedAs($user);
@@ -70,7 +70,7 @@ test('successful login clears previous failed attempts for the same identity and
     try {
         $this->post('/login', [
             'email' => 'reader-login',
-            'password' => 'password',
+            'password' => 'Password1234',
         ])->assertRedirect(route('home', absolute: false));
 
         expect(RateLimiter::tooManyAttempts($key, 5))->toBeFalse();
@@ -84,7 +84,7 @@ test('disabled accounts cannot authenticate even with the correct password', fun
 
     $response = $this->post('/login', [
         'email' => $user->email,
-        'password' => 'password',
+        'password' => 'Password1234',
     ]);
 
     $this->assertGuest();
@@ -153,7 +153,7 @@ test('login throttling shares one budget between email and username for the same
 
         $this->post('/login', [
             'email' => 'shared-budget@example.com',
-            'password' => 'password',
+            'password' => 'Password1234',
         ])->assertSessionHasErrors('email');
     } finally {
         RateLimiter::clear($key);
@@ -182,7 +182,7 @@ test('successful login regenerates the session identifier', function () {
 
     $this->post('/login', [
         'email' => $user->email,
-        'password' => 'password',
+        'password' => 'Password1234',
     ])->assertRedirect(route('home', absolute: false));
 
     expect(session()->getId())->not->toBe($originalSessionId);

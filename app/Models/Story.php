@@ -163,14 +163,6 @@ class Story extends Model
             ->orderByDesc('last_chapter_at');
     }
 
-    /**
-     * Tìm kiếm full-text theo title/description.
-     */
-    public function scopeSearch(Builder $query, string $keyword): Builder
-    {
-        return $query->whereFullText(['title', 'description'], $keyword);
-    }
-
     // ================= Helper (counter) =================
 
     public function incrementViews(): void

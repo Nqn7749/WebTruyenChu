@@ -11,9 +11,14 @@ class ActivityLogController extends Controller
 {
     public function index(Request $request): View
     {
+        // Chỉ lọc theo action khi giá trị là chuỗi: ?action[]=x làm
+        // $request->string('action') ném lỗi "Array to string
+        // conversion" → 500 (V2). Array thì bỏ qua filter.
+        $action = $request->query('action');
+
         $logs = AdminActivityLog::query()
             ->with('admin')
-            ->when($request->filled('action'), fn ($query) => $query->where('action', $request->string('action')))
+            ->when(is_string($action) && $action !== '', fn ($query) => $query->where('action', $action))
             ->latest('id')
             ->paginate(30)
             ->withQueryString();

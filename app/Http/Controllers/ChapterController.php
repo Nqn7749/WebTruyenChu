@@ -156,15 +156,24 @@ class ChapterController extends Controller
             return response()->json(['status' => 'already_recorded']);
         }
 
-        DB::transaction(function () use ($chapter, $story) {
-            $chapter->timestamps = false;
-            $chapter->increment('reads_count');
-            $chapter->timestamps = true;
+        try {
+            DB::transaction(function () use ($chapter, $story) {
+                $chapter->timestamps = false;
+                $chapter->increment('reads_count');
+                $chapter->timestamps = true;
 
-            $story->timestamps = false;
-            $story->increment('reads_count');
-            $story->timestamps = true;
-        });
+                $story->timestamps = false;
+                $story->increment('reads_count');
+                $story->timestamps = true;
+            });
+        } catch (\Throwable $e) {
+            // Transaction lỗi thì trả lại khóa throttle: khóa đã giữ
+            // trước khi transaction chạy, nếu không lượt đọc thật này
+            // mất luôn cho tới khi khóa hết hạn (F15).
+            Cache::forget($key);
+
+            throw $e;
+        }
 
         return response()->json(['status' => 'ok']);
     }
@@ -224,20 +233,29 @@ class ChapterController extends Controller
         // Cache::add() là check-and-set nguyên tử: hai view đồng thời chỉ
         // một lần đếm được, thay cho cặp has() rồi put() dễ đếm trùng.
         if (Cache::add($throttleKey, true, now()->addMinutes(30))) {
-            // Hai lần tăng (chương + truyện) phải chung một transaction,
-            // nếu không câu thứ hai lỗi sẽ làm hai counter lệch nhau vĩnh
-            // viễn. Đồng thời đóng băng updated_at: tăng view không phải
-            // cập nhật nội dung nên không được làm sitemap tưởng truyện
-            // mới cập nhật (xem StoryStatsService, NL-4).
-            DB::transaction(function () use ($chapter, $story) {
-                $chapter->timestamps = false;
-                $chapter->increment('views');
-                $chapter->timestamps = true;
+            try {
+                // Hai lần tăng (chương + truyện) phải chung một transaction,
+                // nếu không câu thứ hai lỗi sẽ làm hai counter lệch nhau vĩnh
+                // viễn. Đồng thời đóng băng updated_at: tăng view không phải
+                // cập nhật nội dung nên không được làm sitemap tưởng truyện
+                // mới cập nhật (xem StoryStatsService, NL-4).
+                DB::transaction(function () use ($chapter, $story) {
+                    $chapter->timestamps = false;
+                    $chapter->increment('views');
+                    $chapter->timestamps = true;
 
-                $story->timestamps = false;
-                $story->incrementViews();
-                $story->timestamps = true;
-            });
+                    $story->timestamps = false;
+                    $story->incrementViews();
+                    $story->timestamps = true;
+                });
+            } catch (\Throwable $e) {
+                // Transaction lỗi thì trả lại khóa throttle: khóa đã giữ
+                // trước khi transaction chạy, nếu không lượt xem này
+                // mất luôn cho tới khi khóa hết hạn (F15).
+                Cache::forget($throttleKey);
+
+                throw $e;
+            }
         }
 
         $viewedInSession[] = $chapter->id;

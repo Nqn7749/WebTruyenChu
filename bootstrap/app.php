@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -42,7 +43,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            // Chặn hammer toàn cục: 600 request/phút/IP cho mọi route web
+            // (M2) — đủ rộng để người dùng thường không bao giờ chạm, chỉ
+            // chặn bot quét. Dùng limiter đặt tên 'web-global' (định nghĩa
+            // ở AppServiceProvider) để key của nó không trùng với throttle
+            // riêng của từng route (xem ghi chú ở đó).
+            'throttle:web-global',
             EnsureUserIsActive::class,
+            // Vô hiệu session khác khi đổi mật khẩu: logoutOtherDevices
+            // chỉ hash lại mật khẩu, chính middleware này mới so hash
+            // trong session với hash hiện tại và đăng xuất các session
+            // có hash cũ ở request tiếp theo (xem PasswordController).
+            AuthenticateSession::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

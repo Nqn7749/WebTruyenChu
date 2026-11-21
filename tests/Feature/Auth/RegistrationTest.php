@@ -16,8 +16,8 @@ test('new users can register without email verification', function () {
         'name' => 'Test User',
         'username' => 'test-user',
         'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'password' => 'Password1234',
+        'password_confirmation' => 'Password1234',
     ]);
 
     $user = User::where('email', 'test@example.com')->firstOrFail();
@@ -37,8 +37,8 @@ test('successful registration regenerates the session identifier', function () {
         'name' => 'Test User',
         'username' => 'test-user',
         'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'password' => 'Password1234',
+        'password_confirmation' => 'Password1234',
     ]);
 
     $user = User::where('email', 'test@example.com')->firstOrFail();

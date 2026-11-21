@@ -37,7 +37,7 @@ test('posting the same content twice in a row on the same story is rejected', fu
     expect(Comment::query()->where('story_id', $story->id)->count())->toBe(1);
 });
 
-test('commenting on different stories is not throttled by the per-story cooldown', function () {
+test('commenting on different stories within thirty seconds is rejected by the global cooldown', function () {
     $user = User::factory()->create();
     $storyA = Story::factory()->create(['status_publish' => true]);
     $storyB = Story::factory()->create(['status_publish' => true]);
@@ -46,7 +46,11 @@ test('commenting on different stories is not throttled by the per-story cooldown
         ->postJson(route('comments.store', $storyA), ['content' => 'Bình luận truyện A.'])
         ->assertOk();
 
+    // Cooldown 30 giây tính theo user, không phân biệt truyện (round 6,
+    // C2): đổi truyện khác không còn bypass được nữa.
     $this->actingAs($user)
         ->postJson(route('comments.store', $storyB), ['content' => 'Bình luận truyện B.'])
-        ->assertOk();
+        ->assertStatus(429);
+
+    expect(Comment::query()->count())->toBe(1);
 });

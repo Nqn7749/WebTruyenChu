@@ -29,10 +29,10 @@ class StoreCategoryRequest extends FormRequest
             // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
             // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
             'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
-            // Cột description là TEXT (tối đa 65.535 byte): 20.000 ký tự là
-            // mức an toàn cho tiếng Việt (3 byte/ký tự), quá dài trả lỗi
-            // validation thay vì lỗi 500 của DB.
-            'description' => ['nullable', 'string', 'max:20000'],
+            // Cột description là TEXT (tối đa 65.535 byte): 16.000 ký tự là
+            // mức an toàn kể cả khi toàn emoji (4 byte/ký tự, ~64.000
+            // byte), quá dài trả lỗi validation thay vì lỗi 500 của DB.
+            'description' => ['nullable', 'string', 'max:16000'],
         ];
     }
 }

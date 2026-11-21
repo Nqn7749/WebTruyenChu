@@ -17,8 +17,23 @@
     <meta name="description" content="{{ $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
     {{-- Canonical giữ lại query string phân trang/lọc (page, q, ...) để các
          trang phân trang và kết quả tìm kiếm không bị gộp thành một URL duy
-         nhất. Chỉ giữ các tham số đã biết, bỏ utm_ và tham số lạ. --}}
-    @php($canonicalQuery = collect(request()->query())->only(['page', 'q', 'category', 'status', 'sort', 'period', 'recent', 'chapter_page', 'comment_page', 'categories', 'chapters'])->filter(fn ($value) => $value !== '' && $value !== null)->all())
+         nhất. Allowlist theo từng route (V5): trang tìm kiếm/danh sách giữ
+         bộ lọc, trang truyện/chương chỉ giữ phân trang của nó, trang khác
+         chỉ giữ page. Giá trị dạng array (?q[]=x) bị loại để canonical
+         không chứa q[0]=x. --}}
+    @php
+        $canonicalParams = match (true) {
+            request()->routeIs('search', 'stories.index') => ['q', 'category', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
+            request()->routeIs('home') => ['recent', 'page'],
+            request()->routeIs('stories.show') => ['chapter_page', 'comment_page', 'page'],
+            request()->routeIs('chapters.show') => ['comment_page', 'page'],
+            default => ['page'],
+        };
+        // Normalize số trang theo đúng luật của Paginator (?page=abc → 1,
+        // ?page=1001 → 1000) để canonical của ?page=abc và ?page=1 là
+        // một, không tạo URL chuẩn trùng nhau (C7).
+        $canonicalQuery = collect(request()->query())->only($canonicalParams)->map(fn ($value, $key) => str_ends_with((string) $key, '_page') || $key === 'page' ? (is_numeric($value) ? min(1000, max(1, (int) $value)) : 1) : $value)->filter(fn ($value) => ! is_array($value) && $value !== '' && $value !== null)->all();
+    @endphp
     @php($canonicalUrl = url()->current().($canonicalQuery ? '?'.http_build_query($canonicalQuery) : ''))
     <link rel="canonical" href="{{ $canonicalUrl }}">
 
@@ -416,7 +431,12 @@ document.addEventListener('DOMContentLoaded', () => {
         div.textContent =
             value ?? '';
 
-        return div.innerHTML;
+        // textContent → innerHTML đã escape <, > và &, nhưng dấu ngoặc
+        // kép không được escape — thêm tay để an toàn khi chuỗi được
+        // chèn vào ngữ cảnh attribute (V7).
+        return div.innerHTML
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
     }
 
 

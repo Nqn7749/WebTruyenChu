@@ -178,12 +178,18 @@ class ChapterController extends Controller
             $base = 'chuong-'.$base;
         }
 
+        // Cột slug là varchar(255): cắt base còn tối đa 250 ký tự rồi
+        // mới thêm hậu tố trùng, để slug cuối cùng không bao giờ vượt
+        // 255 ký tự rồi lỗi 22001 (V3).
+        $base = mb_substr($base, 0, 250);
+
         $slug = $base;
         $suffix = 1;
 
         while (Chapter::withTrashed()->where('story_id', $storyId)->where('slug', $slug)
             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))->exists()) {
-            $slug = $base.'-'.$suffix++;
+            $suffixText = '-'.$suffix++;
+            $slug = mb_substr($base, 0, 255 - mb_strlen($suffixText)).$suffixText;
         }
 
         return $slug;

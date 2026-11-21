@@ -37,12 +37,12 @@ class CommentController extends Controller
             // CommentController@toggleHidden, C-L2).
             $amountBefore = StoryStatsService::countedCommentAmount($lockedComment);
 
-            DB::table('comments')
-                ->where('id', $lockedComment->id)
-                ->update(['is_hidden' => $isHidden]);
-
-            // Đồng bộ model trong bộ nhớ để tính số đếm sau khi đổi.
+            // Dùng save() như bản Admin để updated_at và model event
+            // nhất quán (F14); bản cũ dùng query builder nên không chạm
+            // updated_at và không chạy event.
             $lockedComment->is_hidden = $isHidden;
+            $lockedComment->save();
+
             $amountAfter = StoryStatsService::countedCommentAmount($lockedComment);
             $delta = $amountAfter - $amountBefore;
 
