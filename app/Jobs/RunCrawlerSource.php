@@ -25,9 +25,7 @@ class RunCrawlerSource implements ShouldQueue
 
     public int $timeout = 180;
 
-    public function __construct(public int $runId)
-    {
-    }
+    public function __construct(public int $runId) {}
 
     public function handle(): void
     {
@@ -36,6 +34,7 @@ class RunCrawlerSource implements ShouldQueue
 
         if (! $source->enabled || ! $source->permission_confirmed) {
             $run->update(['status' => 'cancelled', 'message' => 'Nguồn chưa bật hoặc chưa xác nhận quyền sử dụng.', 'finished_at' => now()]);
+
             return;
         }
 
@@ -210,6 +209,7 @@ class RunCrawlerSource implements ShouldQueue
         }
 
         $this->assertAllowedUrl($source, $url);
+
         return $url;
     }
 

@@ -106,6 +106,7 @@ class CrawlerSourceController extends Controller
 
         $data['permission_confirmed'] = true;
         $data['enabled'] = (bool) ($data['enabled'] ?? false);
+
         return $data;
     }
 }
