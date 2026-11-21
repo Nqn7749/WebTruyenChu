@@ -43,7 +43,8 @@ class StoryStatsService
 
             // Dùng cùng định nghĩa hiển thị với giao diện
             // (Comment::scopeVisible): reply của cha đã ẩn/xóa và
-            // comment của chương đã xóa mềm không được đếm (C-M1).
+            // comment của chương đã xóa mềm hoặc đã gỡ công khai
+            // không được đếm (C-M1, F10).
             $comments = Comment::query()
                 ->whereIn('story_id', $chunk)
                 ->visible()
@@ -54,6 +55,12 @@ class StoryStatsService
 
             Story::withTrashed()
                 ->whereIn('id', $chunk)
+                // Khóa dòng truyện trong transaction của caller (xóa tài
+                // khoản) để increment đồng thời (bình luận/đánh giá/yêu
+                // thích) phải chờ, không bị bản đếm lại này ghi đè mất
+                // (F2). Ngoài transaction thì lock chỉ giữ tới hết câu
+                // lệnh nên vô hại.
+                ->lockForUpdate()
                 ->get()
                 ->each(function (Story $story) use ($ratings, $favorites, $comments) {
                     $rating = $ratings->get($story->id);
@@ -103,11 +110,13 @@ class StoryStatsService
             }
         }
 
-        // Comment thuộc chương đã xóa mềm cũng không hiển thị ở đâu nữa.
+        // Comment thuộc chương đã xóa mềm hoặc đã gỡ công khai cũng
+        // không hiển thị ở đâu nữa (trang chương 404 khi status =
+        // false) nên không được đếm (F10).
         if ($comment->chapter_id !== null) {
             $chapter = Chapter::query()->withTrashed()->find($comment->chapter_id);
 
-            if ($chapter === null || $chapter->trashed()) {
+            if ($chapter === null || $chapter->trashed() || ! $chapter->status) {
                 return 0;
             }
         }
@@ -118,19 +127,25 @@ class StoryStatsService
     /**
      * Trừ comment_count nhưng không để âm. Dùng 2 câu lệnh để chạy được
      * cả MySQL lẫn SQLite (SQLite không có GREATEST()).
+     *
+     * Câu thứ hai chỉ chạy khi câu đầu không trừ được dòng nào (count
+     * đã nhỏ hơn amount từ trước): đánh giá count sau khi trừ như
+     * trước đây sẽ zero nhầm — count=5, amount=3 thì câu đầu trừ còn
+     * 2, câu sau thấy 0 < 2 < 3 nên set về 0 (F1).
      */
     public static function decrementCommentCount(string $table, int $id, int $amount): void
     {
-        DB::table($table)
+        $affected = DB::table($table)
             ->where('id', $id)
             ->where('comment_count', '>=', $amount)
             ->decrement('comment_count', $amount);
 
-        DB::table($table)
-            ->where('id', $id)
-            ->where('comment_count', '>', 0)
-            ->where('comment_count', '<', $amount)
-            ->update(['comment_count' => 0]);
+        if ($affected === 0) {
+            DB::table($table)
+                ->where('id', $id)
+                ->where('comment_count', '>', 0)
+                ->update(['comment_count' => 0]);
+        }
     }
 
     /**
@@ -177,6 +192,10 @@ class StoryStatsService
 
             Chapter::withTrashed()
                 ->whereIn('id', $chunk)
+                // Như refreshStories (F2): khóa dòng chương trong
+                // transaction của caller để increment đồng thời không
+                // bị bản đếm lại này ghi đè mất.
+                ->lockForUpdate()
                 ->get()
                 ->each(function (Chapter $chapter) use ($comments) {
                     // Xem ghi chú ở refreshStories (NL-4).

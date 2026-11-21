@@ -57,7 +57,7 @@ test('user can delete their account', function () {
     $response = $this
         ->actingAs($user)
         ->delete('/profile', [
-            'password' => 'password',
+            'password' => 'Password1234',
         ]);
 
     $response
@@ -97,7 +97,7 @@ test('the final active administrator cannot delete their own account', function 
 
     $this->actingAs($admin)
         ->from('/profile')
-        ->delete('/profile', ['password' => 'password'])
+        ->delete('/profile', ['password' => 'Password1234'])
         ->assertSessionHasErrorsIn('userDeletion', 'password')
         ->assertRedirect('/profile');
 
@@ -120,7 +120,7 @@ test('an administrator may delete their account when another active administrato
     ]);
 
     $this->actingAs($admin)
-        ->delete('/profile', ['password' => 'password'])
+        ->delete('/profile', ['password' => 'Password1234'])
         ->assertRedirect('/');
 
     expect($admin->fresh())->toBeNull()

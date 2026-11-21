@@ -1,0 +1,2989 @@
+From cbca76b15a8cc77cdd6c8b5d402cd58405b95d3b Mon Sep 17 00:00:00 2001
+From: Nqn7749 <184545265+Nqn7749@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 11:20:03 +0000
+Subject: [PATCH 1/4] fix: round 6 findings (4 mediums + lows from post-merge
+ re-review)
+
+---
+ .../Admin/ActivityLogController.php           |   7 +-
+ .../Controllers/Admin/ChapterController.php   |  32 ++-
+ .../Controllers/Admin/StoryController.php     |  54 +++-
+ .../Auth/NewPasswordController.php            |   8 +
+ .../Controllers/Auth/PasswordController.php   |   7 +
+ .../Auth/PasswordResetLinkController.php      |  10 +-
+ .../Auth/RegisteredUserController.php         |  30 ++-
+ app/Http/Controllers/ChapterController.php    |  64 +++--
+ app/Http/Controllers/CommentController.php    | 131 +++++++---
+ app/Http/Controllers/FavoriteController.php   |  28 +-
+ app/Http/Controllers/ProfileController.php    |  45 ++--
+ app/Http/Controllers/SearchController.php     |  16 +-
+ app/Http/Controllers/SitemapController.php    |  10 +-
+ .../Controllers/Writer/ChapterController.php  |   8 +-
+ .../Controllers/Writer/CommentController.php  |  10 +-
+ .../Controllers/Writer/StoryController.php    |  22 +-
+ .../Requests/Admin/StoreCategoryRequest.php   |   8 +-
+ app/Http/Requests/Admin/StoreStoryRequest.php |  10 +-
+ .../Requests/Admin/UpdateCategoryRequest.php  |   8 +-
+ .../Requests/Admin/UpdateStoryRequest.php     |  10 +-
+ app/Http/Requests/Auth/LoginRequest.php       |  84 +++++-
+ app/Http/Requests/ProfileUpdateRequest.php    |   2 +-
+ app/Jobs/SendBulkChapterNotifications.php     |  18 +-
+ app/Jobs/SendNewChapterNotifications.php      |  22 +-
+ app/Models/Comment.php                        |   9 +-
+ app/Models/Story.php                          |   8 -
+ app/Providers/AppServiceProvider.php          |   8 +
+ app/Services/StoryStatsService.php            |  37 ++-
+ bootstrap/app.php                             |  10 +
+ config/queue.php                              |  10 +-
+ database/factories/UserFactory.php            |   2 +-
+ resources/views/layouts/public.blade.php      |  23 +-
+ resources/views/sitemap/static.blade.php      |   9 +
+ routes/admin.php                              |  72 +++---
+ routes/console.php                            |  14 +-
+ tests/Feature/Admin/SecurityRound3Test.php    |   4 +-
+ tests/Feature/Auth/AuthenticationTest.php     |  14 +-
+ .../Feature/Auth/PasswordConfirmationTest.php |   2 +-
+ tests/Feature/Auth/PasswordResetTest.php      |   4 +-
+ tests/Feature/Auth/PasswordUpdateTest.php     |  12 +-
+ tests/Feature/Auth/RegistrationTest.php       |   8 +-
+ tests/Feature/CommentSpamTest.php             |   8 +-
+ tests/Feature/MySqlFullTextSearchTest.php     |   6 +-
+ tests/Feature/ProfileTest.php                 |   6 +-
+ tests/Feature/Round6AuthTest.php              | 171 ++++++++++++
+ tests/Feature/Round6CommentSearchTest.php     | 110 ++++++++
+ tests/Feature/Round6CountersTest.php          | 141 ++++++++++
+ tests/Feature/Round6JobsMiscTest.php          | 244 ++++++++++++++++++
+ 48 files changed, 1328 insertions(+), 248 deletions(-)
+ create mode 100644 tests/Feature/Round6AuthTest.php
+ create mode 100644 tests/Feature/Round6CommentSearchTest.php
+ create mode 100644 tests/Feature/Round6CountersTest.php
+ create mode 100644 tests/Feature/Round6JobsMiscTest.php
+
+diff --git a/app/Http/Controllers/Admin/ActivityLogController.php b/app/Http/Controllers/Admin/ActivityLogController.php
+index 778dddf..620eb43 100644
+--- a/app/Http/Controllers/Admin/ActivityLogController.php
++++ b/app/Http/Controllers/Admin/ActivityLogController.php
+@@ -11,9 +11,14 @@ class ActivityLogController extends Controller
+ {
+     public function index(Request $request): View
+     {
++        // Chỉ lọc theo action khi giá trị là chuỗi: ?action[]=x làm
++        // $request->string('action') ném lỗi "Array to string
++        // conversion" → 500 (V2). Array thì bỏ qua filter.
++        $action = $request->query('action');
++
+         $logs = AdminActivityLog::query()
+             ->with('admin')
+-            ->when($request->filled('action'), fn ($query) => $query->where('action', $request->string('action')))
++            ->when(is_string($action) && $action !== '', fn ($query) => $query->where('action', $action))
+             ->latest('id')
+             ->paginate(30)
+             ->withQueryString();
+diff --git a/app/Http/Controllers/Admin/ChapterController.php b/app/Http/Controllers/Admin/ChapterController.php
+index b8ea637..c06720f 100644
+--- a/app/Http/Controllers/Admin/ChapterController.php
++++ b/app/Http/Controllers/Admin/ChapterController.php
+@@ -122,6 +122,29 @@ public function destroy(Chapter $chapter, StoryStatsService $stats)
+             ->with('success', 'Xóa chương thành công.');
+     }
+ 
++    /**
++     * Xóa vĩnh viễn chương đã xóa mềm (F11): ChapterObserver::forceDeleted
++     * dọn notification của chương. Route model binding loại chương đã
++     * xóa mềm nên phải tra bằng withTrashed() thủ công. Chưa có UI: route
++     * đã có sẵn để nối nút xóa vĩnh viễn sau.
++     */
++    public function forceDestroy(int $story, int $chapter, StoryStatsService $stats)
++    {
++        $ownerStory = Story::query()->withTrashed()->findOrFail($story);
++        $trashedChapter = Chapter::query()->withTrashed()->findOrFail($chapter);
++        abort_unless($trashedChapter->story_id === $ownerStory->id, 404);
++
++        DB::transaction(function () use ($trashedChapter, $ownerStory, $stats) {
++            $chapter = Chapter::query()->withTrashed()->lockForUpdate()->findOrFail($trashedChapter->id);
++            $chapter->forceDelete();
++            $stats->refreshChapterStats($ownerStory);
++        });
++
++        return redirect()
++            ->route('admin.stories.chapters.index', $ownerStory)
++            ->with('success', 'Đã xóa vĩnh viễn chương.');
++    }
++
+     private function assertChapterNumberAvailable(Story $story, int $number, ?int $ignoreChapterId = null): void
+     {
+         $exists = $story->chapters()
+@@ -153,7 +176,11 @@ private function generateUniqueSlug(string $title, int $storyId, ?int $ignoreId
+             $slug = 'chuong-'.$slug;
+         }
+ 
+-        $original = $slug;
++        // Cột slug là varchar(255): cắt base còn tối đa 250 ký tự rồi
++        // mới thêm hậu tố trùng, để slug cuối cùng không bao giờ vượt
++        // 255 ký tự rồi lỗi 22001 (V3).
++        $original = mb_substr($slug, 0, 250);
++        $slug = $original;
+         $i = 1;
+ 
+         while (
+@@ -163,8 +190,9 @@ private function generateUniqueSlug(string $title, int $storyId, ?int $ignoreId
+                 ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+                 ->exists()
+         ) {
+-            $slug = "{$original}-{$i}";
++            $suffixText = "-{$i}";
+             $i++;
++            $slug = mb_substr($original, 0, 255 - mb_strlen($suffixText)).$suffixText;
+         }
+ 
+         return $slug;
+diff --git a/app/Http/Controllers/Admin/StoryController.php b/app/Http/Controllers/Admin/StoryController.php
+index e5b1a5f..9b8243b 100644
+--- a/app/Http/Controllers/Admin/StoryController.php
++++ b/app/Http/Controllers/Admin/StoryController.php
+@@ -9,6 +9,7 @@
+ use App\Services\HomeCacheService;
+ use App\Services\StoryDeletionService;
+ use Illuminate\Http\Request;
++use Illuminate\Support\Facades\DB;
+ use Illuminate\Validation\Rule;
+ 
+ class StoryController extends Controller
+@@ -31,9 +32,19 @@ public function index()
+      */
+     public function togglePublish(Request $request, Story $story, AdminActivityLogger $logger)
+     {
+-        $published = ! $story->status_publish;
++        // Khóa dòng truyện rồi mới đọc/sửa trong một transaction: hai lần
++        // bấm đồng thời không còn đọc cùng status_publish cũ rồi cho kết
++        // quả cuối không xác định (F6/W5). Dispatch job + ghi log nằm
++        // sau khi transaction commit thành công.
++        $published = DB::transaction(function () use ($story) {
++            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+ 
+-        $story->forceFill(['status_publish' => $published])->save();
++            $published = ! $lockedStory->status_publish;
++
++            $lockedStory->forceFill(['status_publish' => $published])->save();
++
++            return $published;
++        });
+ 
+         if ($published) {
+             // Các chương đã công khai trong lúc truyện bị gỡ chưa từng gửi
+@@ -88,9 +99,17 @@ public function toggleFlag(Request $request, Story $story, AdminActivityLogger $
+             'is_recommended' => 'Đề cử',
+         ];
+ 
+-        $enabled = ! $story->{$flag};
++        // Như togglePublish: khóa dòng rồi mới đọc/sửa trong transaction
++        // để hai lần bấm đồng thời không đọc cùng giá trị cũ (F6/W5).
++        $enabled = DB::transaction(function () use ($story, $flag) {
++            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
++
++            $enabled = ! $lockedStory->{$flag};
+ 
+-        $story->forceFill([$flag => $enabled])->save();
++            $lockedStory->forceFill([$flag => $enabled])->save();
++
++            return $enabled;
++        });
+ 
+         app(HomeCacheService::class)->invalidate();
+ 
+@@ -121,4 +140,31 @@ public function destroy(Request $request, Story $story, StoryDeletionService $de
+ 
+         return redirect()->route('admin.stories.index')->with('success', 'Đã xóa truyện và lưu lý do xóa.');
+     }
++
++    /**
++     * Xóa vĩnh viễn truyện đã xóa mềm (F11): trước đây không có
++     * controller nào gọi StoryDeletionService::forceDelete() nên việc
++     * dọn notification ở đó là dead code. Route model binding loại
++     * truyện đã xóa mềm nên phải tra bằng withTrashed() thủ công.
++     * Chưa có UI: route đã có sẵn để nối nút xóa vĩnh viễn sau.
++     */
++    public function forceDestroy(Request $request, int $story, StoryDeletionService $deletion, AdminActivityLogger $logger)
++    {
++        $validated = $request->validate([
++            'deletion_reason' => ['required', 'string', 'min:10', 'max:1000'],
++        ], [
++            'deletion_reason.required' => 'Vui lòng nhập lý do xóa truyện.',
++            'deletion_reason.min' => 'Lý do xóa phải có ít nhất 10 ký tự.',
++            'deletion_reason.max' => 'Lý do xóa không được vượt quá 1000 ký tự.',
++        ]);
++
++        $trashedStory = Story::query()->withTrashed()->findOrFail($story);
++
++        $deleted = $deletion->forceDelete($trashedStory, $validated['deletion_reason'], $request->user()->id);
++        abort_unless($deleted, 404);
++
++        $logger->record($request, 'story.force-deleted', $trashedStory, 'Xóa vĩnh viễn truyện "'.$trashedStory->title.'": '.$validated['deletion_reason']);
++
++        return redirect()->route('admin.stories.index')->with('success', 'Đã xóa vĩnh viễn truyện.');
++    }
+ }
+diff --git a/app/Http/Controllers/Auth/NewPasswordController.php b/app/Http/Controllers/Auth/NewPasswordController.php
+index fc16e14..74eb182 100644
+--- a/app/Http/Controllers/Auth/NewPasswordController.php
++++ b/app/Http/Controllers/Auth/NewPasswordController.php
+@@ -7,6 +7,7 @@
+ use Illuminate\Auth\Events\PasswordReset;
+ use Illuminate\Http\RedirectResponse;
+ use Illuminate\Http\Request;
++use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Hash;
+ use Illuminate\Support\Facades\Password;
+ use Illuminate\Support\Str;
+@@ -48,6 +49,13 @@ function (User $user) use ($request) {
+                     'remember_token' => Str::random(60),
+                 ])->save();
+ 
++                // Reset mật khẩu lúc user chưa đăng nhập nên không dùng
++                // logoutOtherDevices được (cần user đang đăng nhập):
++                // xóa thẳng toàn bộ session của user trong bảng sessions
++                // để mọi thiết bị đang đăng nhập đều phải đăng nhập lại
++                // bằng mật khẩu mới.
++                DB::table('sessions')->where('user_id', $user->id)->delete();
++
+                 event(new PasswordReset($user));
+             }
+         );
+diff --git a/app/Http/Controllers/Auth/PasswordController.php b/app/Http/Controllers/Auth/PasswordController.php
+index 6916409..9bde3c9 100644
+--- a/app/Http/Controllers/Auth/PasswordController.php
++++ b/app/Http/Controllers/Auth/PasswordController.php
+@@ -5,6 +5,7 @@
+ use App\Http\Controllers\Controller;
+ use Illuminate\Http\RedirectResponse;
+ use Illuminate\Http\Request;
++use Illuminate\Support\Facades\Auth;
+ use Illuminate\Support\Facades\Hash;
+ use Illuminate\Validation\Rules\Password;
+ 
+@@ -24,6 +25,12 @@ public function update(Request $request): RedirectResponse
+             'password' => Hash::make($validated['password']),
+         ]);
+ 
++        // Đuổi các session khác của user: logoutOtherDevices hash lại
++        // mật khẩu mới nên các session cũ (kể cả session bị đánh cắp)
++        // không còn khớp hash và bị middleware AuthenticateSession đăng
++        // xuất ở request tiếp theo; session hiện tại được giữ lại.
++        Auth::logoutOtherDevices($validated['password']);
++
+         return back()->with('status', 'password-updated');
+     }
+ }
+diff --git a/app/Http/Controllers/Auth/PasswordResetLinkController.php b/app/Http/Controllers/Auth/PasswordResetLinkController.php
+index 1bc9c11..c27022e 100644
+--- a/app/Http/Controllers/Auth/PasswordResetLinkController.php
++++ b/app/Http/Controllers/Auth/PasswordResetLinkController.php
+@@ -33,13 +33,13 @@ public function store(Request $request): RedirectResponse
+         // We will send the password reset link to this user. Once we have attempted
+         // to send the link, we will examine the response then see the message we
+         // need to show to the user. Finally, we'll send out a proper response.
+-        $status = Password::sendResetLink(
++        Password::sendResetLink(
+             $request->only('email')
+         );
+ 
+-        return $status == Password::RESET_LINK_SENT
+-                    ? back()->with('status', __($status))
+-                    : back()->withInput($request->only('email'))
+-                        ->withErrors(['email' => __($status)]);
++        // Luôn trả về cùng một thông báo thành công chung chung, kể cả
++        // khi email chưa đăng ký: trả về lỗi khác nhau sẽ lộ email nào
++        // có tài khoản (A-L3).
++        return back()->with('status', 'Nếu email đã đăng ký, liên kết đặt lại mật khẩu đã được gửi.');
+     }
+ }
+diff --git a/app/Http/Controllers/Auth/RegisteredUserController.php b/app/Http/Controllers/Auth/RegisteredUserController.php
+index 338a441..1eaa115 100644
+--- a/app/Http/Controllers/Auth/RegisteredUserController.php
++++ b/app/Http/Controllers/Auth/RegisteredUserController.php
+@@ -9,6 +9,7 @@
+ use Illuminate\Http\RedirectResponse;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Auth;
++use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Hash;
+ use Illuminate\Validation\Rule;
+ use Illuminate\Validation\Rules;
+@@ -35,7 +36,7 @@ public function store(Request $request): RedirectResponse
+         $request->validate([
+             // Cột users.name là varchar(100): max:255 cho qua rồi MySQL
+             // báo 500 (NM-2).
+-            'name' => ['required', 'string', 'max:100'],
++            'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
+             'username' => [
+                 'required',
+                 'string',
+@@ -47,17 +48,26 @@ public function store(Request $request): RedirectResponse
+             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+         ]);
+ 
+-        $userRoleId = Role::where('slug', 'user')->value('id');
++        // Tạo user và gán role trong cùng một transaction: trước đây
++        // User::create rồi forceFill()->save() là 2 lần ghi rời, nếu
++        // lần save thứ 2 lỗi thì user tồn tại mà không có role (R2).
++        // Role 'user' chưa tồn tại (chưa chạy seeder) thì tạo luôn
++        // thay vì tạo user với role_id null âm thầm (R1).
++        $user = DB::transaction(function () use ($request) {
++            $role = Role::firstOrCreate(['slug' => 'user'], ['name' => 'User']);
+ 
+-        $user = User::create([
+-            'username' => $request->username,
+-            'name' => $request->name,
+-            'email' => $request->email,
+-            'password' => Hash::make($request->password),
+-        ]);
++            $user = User::create([
++                'username' => $request->username,
++                'name' => $request->name,
++                'email' => $request->email,
++                'password' => Hash::make($request->password),
++            ]);
++
++            // role_id không nằm trong $fillable của User nên gán riêng ở đây.
++            $user->forceFill(['role_id' => $role->id])->save();
+ 
+-        // role_id không nằm trong $fillable của User nên gán riêng ở đây.
+-        $user->forceFill(['role_id' => $userRoleId])->save();
++            return $user;
++        });
+ 
+         event(new Registered($user));
+ 
+diff --git a/app/Http/Controllers/ChapterController.php b/app/Http/Controllers/ChapterController.php
+index 0bb24d3..10df75a 100644
+--- a/app/Http/Controllers/ChapterController.php
++++ b/app/Http/Controllers/ChapterController.php
+@@ -156,15 +156,24 @@ public function recordRead(Story $story, Chapter $chapter): JsonResponse
+             return response()->json(['status' => 'already_recorded']);
+         }
+ 
+-        DB::transaction(function () use ($chapter, $story) {
+-            $chapter->timestamps = false;
+-            $chapter->increment('reads_count');
+-            $chapter->timestamps = true;
+-
+-            $story->timestamps = false;
+-            $story->increment('reads_count');
+-            $story->timestamps = true;
+-        });
++        try {
++            DB::transaction(function () use ($chapter, $story) {
++                $chapter->timestamps = false;
++                $chapter->increment('reads_count');
++                $chapter->timestamps = true;
++
++                $story->timestamps = false;
++                $story->increment('reads_count');
++                $story->timestamps = true;
++            });
++        } catch (\Throwable $e) {
++            // Transaction lỗi thì trả lại khóa throttle: khóa đã giữ
++            // trước khi transaction chạy, nếu không lượt đọc thật này
++            // mất luôn cho tới khi khóa hết hạn (F15).
++            Cache::forget($key);
++
++            throw $e;
++        }
+ 
+         return response()->json(['status' => 'ok']);
+     }
+@@ -224,20 +233,29 @@ private function trackView(Story $story, Chapter $chapter): void
+         // Cache::add() là check-and-set nguyên tử: hai view đồng thời chỉ
+         // một lần đếm được, thay cho cặp has() rồi put() dễ đếm trùng.
+         if (Cache::add($throttleKey, true, now()->addMinutes(30))) {
+-            // Hai lần tăng (chương + truyện) phải chung một transaction,
+-            // nếu không câu thứ hai lỗi sẽ làm hai counter lệch nhau vĩnh
+-            // viễn. Đồng thời đóng băng updated_at: tăng view không phải
+-            // cập nhật nội dung nên không được làm sitemap tưởng truyện
+-            // mới cập nhật (xem StoryStatsService, NL-4).
+-            DB::transaction(function () use ($chapter, $story) {
+-                $chapter->timestamps = false;
+-                $chapter->increment('views');
+-                $chapter->timestamps = true;
+-
+-                $story->timestamps = false;
+-                $story->incrementViews();
+-                $story->timestamps = true;
+-            });
++            try {
++                // Hai lần tăng (chương + truyện) phải chung một transaction,
++                // nếu không câu thứ hai lỗi sẽ làm hai counter lệch nhau vĩnh
++                // viễn. Đồng thời đóng băng updated_at: tăng view không phải
++                // cập nhật nội dung nên không được làm sitemap tưởng truyện
++                // mới cập nhật (xem StoryStatsService, NL-4).
++                DB::transaction(function () use ($chapter, $story) {
++                    $chapter->timestamps = false;
++                    $chapter->increment('views');
++                    $chapter->timestamps = true;
++
++                    $story->timestamps = false;
++                    $story->incrementViews();
++                    $story->timestamps = true;
++                });
++            } catch (\Throwable $e) {
++                // Transaction lỗi thì trả lại khóa throttle: khóa đã giữ
++                // trước khi transaction chạy, nếu không lượt xem này
++                // mất luôn cho tới khi khóa hết hạn (F15).
++                Cache::forget($throttleKey);
++
++                throw $e;
++            }
+         }
+ 
+         $viewedInSession[] = $chapter->id;
+diff --git a/app/Http/Controllers/CommentController.php b/app/Http/Controllers/CommentController.php
+index 3287d77..d304645 100644
+--- a/app/Http/Controllers/CommentController.php
++++ b/app/Http/Controllers/CommentController.php
+@@ -10,6 +10,7 @@
+ use Illuminate\Http\JsonResponse;
+ use Illuminate\Http\RedirectResponse;
+ use Illuminate\Support\Facades\Auth;
++use Illuminate\Support\Facades\Cache;
+ use Illuminate\Support\Facades\DB;
+ 
+ class CommentController extends Controller
+@@ -79,54 +80,95 @@ public function store(
+ 
+         /*
+         |--------------------------------------------------------------------------
+-        | Chống spam: cùng một truyện, một user không bình luận 2 lần trong
+-        | 30 giây và không gửi 2 lần cùng một nội dung liên tiếp (P-M6).
++        | Chống spam: một user không bình luận 2 lần trong 30 giây (tính
++        | theo user, không phân biệt truyện để đổi truyện khác không còn
++        | bypass được — C2) và không gửi trùng nội dung trong 10 phút
++        | gần nhất (P-M6). Khóa theo user trong suốt quá trình
++        | kiểm tra + tạo bình luận để hai request đăng cùng lúc không
++        | cùng đọc được dữ liệu cũ rồi cùng insert (F4) — khóa theo
++        | user (không theo truyện) vì cooldown 30 giây đã tính toàn
++        | cục theo user (C2).
+         |--------------------------------------------------------------------------
+         */
+ 
+-        $latest = Comment::query()
+-            ->where('user_id', Auth::id())
+-            ->where('story_id', $story->id)
+-            ->latest('id')
+-            ->first();
++        $lock = Cache::lock('comment-post-'.Auth::id(), 10);
+ 
+-        if ($latest) {
+-            abort_if($latest->created_at->gt(now()->subSeconds(30)), 429, 'Bạn đang bình luận quá nhanh, thử lại sau ít giây.');
++        abort_unless($lock->acquire(), 429, 'Bạn đang gửi bình luận, thử lại sau ít giây.');
+ 
+-            abort_if($latest->content === $data['content'], 422, 'Bạn vừa gửi bình luận giống hệt nội dung này.');
+-        }
++        try {
++            $latest = Comment::query()
++                ->where('user_id', Auth::id())
++                ->latest('id')
++                ->first();
+ 
+-        /*
+-        |--------------------------------------------------------------------------
+-        | Create comment
+-        |--------------------------------------------------------------------------
+-        */
++            abort_if($latest && $latest->created_at->gt(now()->subSeconds(30)), 429, 'Bạn đang bình luận quá nhanh, thử lại sau ít giây.');
+ 
+-        $comment = DB::transaction(function () use ($data, $story) {
+-
+-            // user_id không nằm trong $fillable của Comment nên không
+-            // đưa vào create(): gán trực tiếp rồi save một lần. Trước
+-            // đây create() insert trước khi user_id được gán nên cột
+-            // user_id NOT NULL bị lỗi ngay ở câu INSERT (fix1).
+-            $comment = new Comment($data);
+-            $comment->user_id = Auth::id();
+-            $comment->save();
+-
+-            // Tăng số comment của story/chương. Bình luận mới không phải
+-            // cập nhật nội dung nên đóng băng updated_at để sitemap
+-            // không tưởng truyện mới cập nhật (S-M1).
+-            $story->timestamps = false;
+-            $story->increment('comment_count');
+-            $story->timestamps = true;
+-
+-            if ($comment->chapter_id) {
+-                $comment->chapter->timestamps = false;
+-                $comment->chapter->increment('comment_count');
+-                $comment->chapter->timestamps = true;
++            // So trùng sau khi chuẩn hóa (trim, gộp khoảng trắng, hạ
++            // chữ hoa): sửa khoảng trắng/hoa-thường không còn qua mặt
++            // được, và so với mọi bình luận trong 10 phút gần nhất chứ
++            // không chỉ bình luận mới nhất (C1).
++            $normalized = $this->normalizeCommentContent($data['content']);
++
++            $recent = Comment::query()
++                ->where('user_id', Auth::id())
++                ->where('story_id', $story->id)
++                ->where('created_at', '>=', now()->subMinutes(10))
++                ->latest('id')
++                ->take(20)
++                ->get(['content']);
++
++            foreach ($recent as $comment) {
++                abort_if($this->normalizeCommentContent($comment->content) === $normalized, 422, 'Bạn vừa gửi bình luận giống hệt nội dung này.');
+             }
+ 
+-            return $comment;
+-        });
++            /*
++            |--------------------------------------------------------------------------
++            | Create comment
++            |--------------------------------------------------------------------------
++            */
++
++            $comment = DB::transaction(function () use ($data, $story) {
++
++                // Chương được validate TRƯỚC transaction, nhưng có thể
++                // bị xóa mềm ngay sau đó (F5): đọc lại trong transaction,
++                // khóa dòng, kiểm tra lại trạng thái trước khi insert.
++                if (! empty($data['chapter_id'])) {
++                    $chapter = Chapter::query()
++                        ->lockForUpdate()
++                        ->findOrFail($data['chapter_id']);
++
++                    abort_unless(
++                        $chapter->story_id === $story->id && $chapter->status,
++                        404
++                    );
++                }
++
++                // user_id không nằm trong $fillable của Comment nên không
++                // đưa vào create(): gán trực tiếp rồi save một lần. Trước
++                // đây create() insert trước khi user_id được gán nên cột
++                // user_id NOT NULL bị lỗi ngay ở câu INSERT (fix1).
++                $comment = new Comment($data);
++                $comment->user_id = Auth::id();
++                $comment->save();
++
++                // Tăng số comment của story/chương. Bình luận mới không phải
++                // cập nhật nội dung nên đóng băng updated_at để sitemap
++                // không tưởng truyện mới cập nhật (S-M1).
++                $story->timestamps = false;
++                $story->increment('comment_count');
++                $story->timestamps = true;
++
++                if ($comment->chapter_id) {
++                    $comment->chapter->timestamps = false;
++                    $comment->chapter->increment('comment_count');
++                    $comment->chapter->timestamps = true;
++                }
++
++                return $comment;
++            });
++        } finally {
++            $lock->release();
++        }
+ 
+         /*
+         |--------------------------------------------------------------------------
+@@ -152,6 +194,17 @@ public function store(
+         ]);
+     }
+ 
++    /**
++     * Chuẩn hóa nội dung bình luận để so trùng: bỏ khoảng trắng đầu/
++     * cuối, gộp khoảng trắng thừa thành một, hạ chữ hoa (C1).
++     */
++    private function normalizeCommentContent(string $content): string
++    {
++        $collapsed = trim((string) preg_replace('/\s+/u', ' ', $content));
++
++        return mb_strtolower($collapsed);
++    }
++
+     /**
+      * Delete a comment.
+      */
+diff --git a/app/Http/Controllers/FavoriteController.php b/app/Http/Controllers/FavoriteController.php
+index 0247cd8..47df34a 100644
+--- a/app/Http/Controllers/FavoriteController.php
++++ b/app/Http/Controllers/FavoriteController.php
+@@ -22,9 +22,7 @@ public function toggle(Story $story)
+ 
+         DB::transaction(function () use ($story, $userId, &$flash) {
+ 
+-            $lockedStory = Story::whereKey($story->id)
+-                ->lockForUpdate()
+-                ->first();
++            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
+ 
+             abort_unless($lockedStory->status_publish, 404);
+ 
+@@ -97,18 +95,26 @@ public function toggleNotify(Story $story)
+         // Tác giả không tự yêu thích truyện của mình (xem toggle()).
+         abort_if($story->user_id === Auth::id(), 403);
+ 
+-        $favorite = Auth::user()
+-            ->favorites()
+-            ->where('story_id', $story->id)
+-            ->firstOrFail();
++        // Khóa dòng favorite rồi mới đọc/ghi trong transaction: hai lần
++        // bấm đồng thời không còn cùng đọc một giá trị rồi cùng ghi
++        // ngược ý user (F12/W2).
++        $notify = DB::transaction(function () use ($story) {
++            $favorite = Auth::user()
++                ->favorites()
++                ->where('story_id', $story->id)
++                ->lockForUpdate()
++                ->firstOrFail();
+ 
+-        $favorite->update([
+-            'notify_new_chapter' => ! $favorite->notify_new_chapter,
+-        ]);
++            $favorite->update([
++                'notify_new_chapter' => ! $favorite->notify_new_chapter,
++            ]);
++
++            return (bool) $favorite->notify_new_chapter;
++        });
+ 
+         return response()->json([
+             'success' => true,
+-            'notify_new_chapter' => (bool) $favorite->notify_new_chapter,
++            'notify_new_chapter' => $notify,
+ 
+         ]);
+     }
+diff --git a/app/Http/Controllers/ProfileController.php b/app/Http/Controllers/ProfileController.php
+index c1077db..8f31c72 100644
+--- a/app/Http/Controllers/ProfileController.php
++++ b/app/Http/Controllers/ProfileController.php
+@@ -3,6 +3,7 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Http\Requests\ProfileUpdateRequest;
++use App\Models\User;
+ use App\Services\AdminAccountProtectionService;
+ use App\Services\StoryStatsService;
+ use Illuminate\Http\RedirectResponse;
+@@ -49,23 +50,37 @@ public function destroy(
+             ], 'userDeletion');
+         }
+ 
+-        $storyIds = collect()
+-            ->merge($user->comments()->withTrashed()->pluck('story_id'))
+-            ->merge($user->ratings()->pluck('story_id'))
+-            ->merge($user->favorites()->pluck('story_id'))
+-            ->unique()
+-            ->values();
+-
+-        $chapterIds = $user->comments()
+-            ->withTrashed()
+-            ->whereNotNull('chapter_id')
+-            ->pluck('chapter_id')
+-            ->unique()
+-            ->values();
+-
+-        DB::transaction(function () use ($user, $stats, $storyIds, $chapterIds, $adminProtection) {
++        DB::transaction(function () use ($user, $stats, $adminProtection) {
++            // Thu thập danh sách truyện/chương cần đếm lại TRONG
++            // transaction, ngay trước khi xóa: pluck trước transaction
++            // có thể bỏ sót bình luận/đánh giá/yêu thích phát sinh đúng
++            // trong khoảng đó, truyện của chúng không được đếm lại (F8).
++            $storyIds = collect()
++                ->merge($user->comments()->withTrashed()->pluck('story_id'))
++                ->merge($user->ratings()->pluck('story_id'))
++                ->merge($user->favorites()->pluck('story_id'))
++                ->unique()
++                ->values();
++
++            $chapterIds = $user->comments()
++                ->withTrashed()
++                ->whereNotNull('chapter_id')
++                ->pluck('chapter_id')
++                ->unique()
++                ->values();
++
+             $adminProtection->assertCanDelete($user);
+             DB::table($user->getTable())->where($user->getKeyName(), $user->getKey())->delete();
++
++            // Dọn notification của tài khoản: bảng notifications là
++            // polymorphic (notifiable_type/notifiable_id) nên không có
++            // FK cascade, không xóa ở đây thì notification chưa đọc của
++            // tài khoản đã xóa sẽ ở lại vĩnh viễn (C4/F9).
++            DB::table('notifications')
++                ->where('notifiable_type', User::class)
++                ->where('notifiable_id', $user->id)
++                ->delete();
++
+             $stats->refreshStories($storyIds);
+             $stats->refreshChapterComments($chapterIds);
+         });
+diff --git a/app/Http/Controllers/SearchController.php b/app/Http/Controllers/SearchController.php
+index 428ebb4..e985d07 100644
+--- a/app/Http/Controllers/SearchController.php
++++ b/app/Http/Controllers/SearchController.php
+@@ -18,6 +18,13 @@ class SearchController extends Controller
+ 
+     public function index(Request $request)
+     {
++        // Query param q dạng array (?q[]=x) làm validate rớt rồi
++        // redirect 302 về trang trước, refresh lại sẽ lặp (V1): chuẩn
++        // hóa về null ngay từ đầu, coi array như không có từ khóa.
++        if (is_array($request->query('q'))) {
++            $request->merge(['q' => null]);
++        }
++
+         $filters = $request->validate([
+             'q' => ['nullable', 'string', 'max:100'],
+             'category' => ['nullable', 'string', 'max:100'],
+@@ -111,13 +118,20 @@ public function index(Request $request)
+         // kiếm đắt (FULLTEXT OR LIKE + whereHas) mà bot hoặc người dùng
+         // bấm lại liên tục sẽ quét bảng nhiều lần (P-M1). Truyện mới
+         // đăng có thể chậm xuất hiện trong tìm kiếm tối đa 60 giây.
++        // Normalize page theo đúng luật của Paginator::currentPageResolver
++        // (xem AppServiceProvider) rồi mới đưa vào key cache, để
++        // ?page=abc, ?page=1, ?page=1001 không tạo nhiều entry cache
++        // trùng nhau cho cùng một kết quả (C7).
++        $rawPage = $request->query('page', 1);
++        $page = is_numeric($rawPage) ? min(1000, max(1, (int) $rawPage)) : 1;
++
+         $cacheKey = 'search:'.md5(json_encode([
+             'q' => $keyword,
+             'category' => $categorySlug,
+             'status' => $status,
+             'sort' => $sort,
+             'period' => $period,
+-            'page' => $request->query('page', 1),
++            'page' => $page,
+         ]));
+ 
+         $stories = Cache::remember($cacheKey, now()->addSeconds(60), function () use ($query) {
+diff --git a/app/Http/Controllers/SitemapController.php b/app/Http/Controllers/SitemapController.php
+index 687ff77..1156e86 100644
+--- a/app/Http/Controllers/SitemapController.php
++++ b/app/Http/Controllers/SitemapController.php
+@@ -114,7 +114,15 @@ public function categories(): Response
+     public function staticPages(): Response
+     {
+         $xml = Cache::remember($this->sitemapCache->key('static'), now()->addHour(), function () {
+-            return view('sitemap.static')->render();
++            // Trang tĩnh (home, tìm kiếm, danh sách truyện) thay đổi khi
++            // có truyện mới/cập nhật nên lastmod là lần cập nhật truyện
++            // mới nhất, giống sitemap index (C8).
++            $lastStoryUpdate = max(
++                Story::published()->max('updated_at'),
++                Story::published()->max('last_chapter_at')
++            );
++
++            return view('sitemap.static', compact('lastStoryUpdate'))->render();
+         });
+ 
+         return response($xml, 200)->header('Content-Type', 'application/xml');
+diff --git a/app/Http/Controllers/Writer/ChapterController.php b/app/Http/Controllers/Writer/ChapterController.php
+index 05edbb5..45eadc3 100644
+--- a/app/Http/Controllers/Writer/ChapterController.php
++++ b/app/Http/Controllers/Writer/ChapterController.php
+@@ -178,12 +178,18 @@ private function uniqueSlug(string $title, int $storyId, ?int $ignoreId = null):
+             $base = 'chuong-'.$base;
+         }
+ 
++        // Cột slug là varchar(255): cắt base còn tối đa 250 ký tự rồi
++        // mới thêm hậu tố trùng, để slug cuối cùng không bao giờ vượt
++        // 255 ký tự rồi lỗi 22001 (V3).
++        $base = mb_substr($base, 0, 250);
++
+         $slug = $base;
+         $suffix = 1;
+ 
+         while (Chapter::withTrashed()->where('story_id', $storyId)->where('slug', $slug)
+             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))->exists()) {
+-            $slug = $base.'-'.$suffix++;
++            $suffixText = '-'.$suffix++;
++            $slug = mb_substr($base, 0, 255 - mb_strlen($suffixText)).$suffixText;
+         }
+ 
+         return $slug;
+diff --git a/app/Http/Controllers/Writer/CommentController.php b/app/Http/Controllers/Writer/CommentController.php
+index c7a79b6..907cae8 100644
+--- a/app/Http/Controllers/Writer/CommentController.php
++++ b/app/Http/Controllers/Writer/CommentController.php
+@@ -37,12 +37,12 @@ public function toggleHidden(Comment $comment): RedirectResponse
+             // CommentController@toggleHidden, C-L2).
+             $amountBefore = StoryStatsService::countedCommentAmount($lockedComment);
+ 
+-            DB::table('comments')
+-                ->where('id', $lockedComment->id)
+-                ->update(['is_hidden' => $isHidden]);
+-
+-            // Đồng bộ model trong bộ nhớ để tính số đếm sau khi đổi.
++            // Dùng save() như bản Admin để updated_at và model event
++            // nhất quán (F14); bản cũ dùng query builder nên không chạm
++            // updated_at và không chạy event.
+             $lockedComment->is_hidden = $isHidden;
++            $lockedComment->save();
++
+             $amountAfter = StoryStatsService::countedCommentAmount($lockedComment);
+             $delta = $amountAfter - $amountBefore;
+ 
+diff --git a/app/Http/Controllers/Writer/StoryController.php b/app/Http/Controllers/Writer/StoryController.php
+index c42e935..9df796f 100644
+--- a/app/Http/Controllers/Writer/StoryController.php
++++ b/app/Http/Controllers/Writer/StoryController.php
+@@ -8,6 +8,7 @@
+ use App\Models\Category;
+ use App\Models\Story;
+ use App\Models\Tag;
++use App\Services\HomeCacheService;
+ use App\Services\StoryDeletionService;
+ use Illuminate\Database\QueryException;
+ use Illuminate\Support\Facades\DB;
+@@ -76,6 +77,11 @@ public function store(StoreStoryRequest $request)
+                         ])->save();
+                         $story->categories()->sync($categoryIds);
+                         $story->tags()->sync($tagIds);
++
++                        // sync() pivot không kích hoạt observer của Story
++                        // nên cache trang chủ không tự làm mới: đổi chỉ
++                        // thể loại/tag cũng phải invalidate tay (W1).
++                        app(HomeCacheService::class)->invalidate();
+                     });
+ 
+                     break;
+@@ -85,7 +91,9 @@ public function store(StoreStoryRequest $request)
+                     }
+ 
+                     // Slug vừa bị người khác chiếm trước, tạo slug mới rồi thử lại.
+-                    $data['slug'] = $this->uniqueSlug($data['title']).'-'.Str::lower(Str::random(6));
++                    // Hậu tố ngẫu nhiên dài 7 ký tự nên cắt slug còn tối
++                    // đa 248 ký tự để tổng không vượt 255 (V3).
++                    $data['slug'] = mb_substr($this->uniqueSlug($data['title']), 0, 248).'-'.Str::lower(Str::random(6));
+                 }
+             } while ($attempts < 3);
+         } catch (Throwable $exception) {
+@@ -141,6 +149,10 @@ public function update(UpdateStoryRequest $request, Story $story)
+                 $lockedStory->update($data);
+                 $lockedStory->categories()->sync($categoryIds);
+                 $lockedStory->tags()->sync($tagIds);
++
++                // sync() pivot không kích hoạt observer của Story nên
++                // cache trang chủ không tự làm mới (xem store(), W1).
++                app(HomeCacheService::class)->invalidate();
+             });
+         } catch (Throwable $exception) {
+             if ($newCover) {
+@@ -178,13 +190,17 @@ private function ensureOwner(Story $story): void
+ 
+     private function uniqueSlug(string $title, ?int $ignoreId = null): string
+     {
+-        $base = Str::slug($title) ?: 'truyen';
++        // Cột slug là varchar(255): cắt base còn tối đa 250 ký tự rồi
++        // mới thêm hậu tố trùng, để slug cuối cùng không bao giờ vượt
++        // 255 ký tự rồi lỗi 22001 (V3).
++        $base = mb_substr(Str::slug($title) ?: 'truyen', 0, 250);
+         $slug = $base;
+         $suffix = 1;
+ 
+         while (Story::withTrashed()->where('slug', $slug)
+             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))->exists()) {
+-            $slug = $base.'-'.$suffix++;
++            $suffixText = '-'.$suffix++;
++            $slug = mb_substr($base, 0, 255 - mb_strlen($suffixText)).$suffixText;
+         }
+ 
+         return $slug;
+diff --git a/app/Http/Requests/Admin/StoreCategoryRequest.php b/app/Http/Requests/Admin/StoreCategoryRequest.php
+index b5c52a2..de41c04 100644
+--- a/app/Http/Requests/Admin/StoreCategoryRequest.php
++++ b/app/Http/Requests/Admin/StoreCategoryRequest.php
+@@ -29,10 +29,10 @@ public function rules(): array
+             // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
+             // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
+             'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
+-            // Cột description là TEXT (tối đa 65.535 byte): 20.000 ký tự là
+-            // mức an toàn cho tiếng Việt (3 byte/ký tự), quá dài trả lỗi
+-            // validation thay vì lỗi 500 của DB.
+-            'description' => ['nullable', 'string', 'max:20000'],
++            // Cột description là TEXT (tối đa 65.535 byte): 16.000 ký tự là
++            // mức an toàn kể cả khi toàn emoji (4 byte/ký tự, ~64.000
++            // byte), quá dài trả lỗi validation thay vì lỗi 500 của DB.
++            'description' => ['nullable', 'string', 'max:16000'],
+         ];
+     }
+ }
+diff --git a/app/Http/Requests/Admin/StoreStoryRequest.php b/app/Http/Requests/Admin/StoreStoryRequest.php
+index d96b46e..3ba8e5e 100644
+--- a/app/Http/Requests/Admin/StoreStoryRequest.php
++++ b/app/Http/Requests/Admin/StoreStoryRequest.php
+@@ -28,14 +28,14 @@ public function rules(): array
+             // Chặn <> trong tiêu đề để không thể chèn thẻ HTML qua tiêu đề
+             // (phòng thủ thêm cho lỗi XSS ở meta og:title).
+             'title' => ['required', 'string', 'max:255', 'not_regex:/[<>]/'],
+-            'author_name' => ['nullable', 'string', 'max:255'],
++            'author_name' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+             // Chỉ nhận ảnh raster (jpeg/png/webp): rule 'image' vẫn cho file
+             // SVG qua, mà SVG có thể chứa script và file lưu ở disk public
+             // (stored XSS khi mở trực tiếp).
+-            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
++            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:max_width=4000,max_height=4000'],
+             // description là longText, meta_description là TEXT (tối đa
+-            // 65.535 byte): tiếng Việt mỗi ký tự tốn ~3 byte nên giới hạn
+-            // 20.000 ký tự (~60.000 byte) để nhập quá dài trả lỗi validation
++            // 65.535 byte): emoji tốn 4 byte/ký tự nên giới hạn 16.000
++            // ký tự (~64.000 byte) để nhập quá dài trả lỗi validation
+             // thay vì lỗi 500 của DB. Cùng lỗi M12 đã sửa cho mô tả thể loại.
+             'description' => ['nullable', 'string', 'max:1000000'],
+             'status' => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
+@@ -44,7 +44,7 @@ public function rules(): array
+             'tags' => ['nullable', 'array', 'max:10'],
+             'tags.*' => ['exists:tags,id'],
+             'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+-            'meta_description' => ['nullable', 'string', 'max:20000'],
++            'meta_description' => ['nullable', 'string', 'max:16000'],
+             'meta_keywords' => ['nullable', 'string', 'max:255'],
+         ];
+     }
+diff --git a/app/Http/Requests/Admin/UpdateCategoryRequest.php b/app/Http/Requests/Admin/UpdateCategoryRequest.php
+index b9b5e6f..748eff7 100644
+--- a/app/Http/Requests/Admin/UpdateCategoryRequest.php
++++ b/app/Http/Requests/Admin/UpdateCategoryRequest.php
+@@ -41,10 +41,10 @@ function ($attribute, $value, $fail) use ($category) {
+             // Chặn <> trong tên để không thể chèn thẻ HTML qua tên
+             // (tên thể loại được đưa vào thẻ <title> ở trang thể loại).
+             'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
+-            // Cột description là TEXT (tối đa 65.535 byte): 20.000 ký tự là
+-            // mức an toàn cho tiếng Việt (3 byte/ký tự), quá dài trả lỗi
+-            // validation thay vì lỗi 500 của DB.
+-            'description' => ['nullable', 'string', 'max:20000'],
++            // Cột description là TEXT (tối đa 65.535 byte): 16.000 ký tự là
++            // mức an toàn kể cả khi toàn emoji (4 byte/ký tự, ~64.000
++            // byte), quá dài trả lỗi validation thay vì lỗi 500 của DB.
++            'description' => ['nullable', 'string', 'max:16000'],
+         ];
+     }
+ 
+diff --git a/app/Http/Requests/Admin/UpdateStoryRequest.php b/app/Http/Requests/Admin/UpdateStoryRequest.php
+index 6394d61..e7ca2ab 100644
+--- a/app/Http/Requests/Admin/UpdateStoryRequest.php
++++ b/app/Http/Requests/Admin/UpdateStoryRequest.php
+@@ -42,11 +42,11 @@ public function rules(): array
+     {
+         return [
+             'title' => ['required', 'string', 'max:255', 'not_regex:/[<>]/'],
+-            'author_name' => ['nullable', 'string', 'max:255'],
++            'author_name' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+             // Chỉ nhận ảnh raster (jpeg/png/webp): rule 'image' vẫn cho file
+             // SVG qua, mà SVG có thể chứa script và file lưu ở disk public
+             // (stored XSS khi mở trực tiếp).
+-            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
++            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:max_width=4000,max_height=4000'],
+             'description' => ['nullable', 'string', 'max:1000000'],
+             'status' => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
+             'status_publish' => ['nullable', 'boolean'],
+@@ -55,9 +55,9 @@ public function rules(): array
+             'tags' => ['nullable', 'array', 'max:10'],
+             'tags.*' => ['exists:tags,id'],
+             'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+-            // TEXT chỉ chứa 65.535 byte, tiếng Việt ~3 byte/ký tự nên
+-            // max 20.000 ký tự (~60.000 byte), nhập quá dài trả 422 thay vì 500.
+-            'meta_description' => ['nullable', 'string', 'max:20000'],
++            // TEXT chỉ chứa 65.535 byte, emoji tốn 4 byte/ký tự nên
++            // max 16.000 ký tự (~64.000 byte), nhập quá dài trả 422 thay vì 500.
++            'meta_description' => ['nullable', 'string', 'max:16000'],
+             'meta_keywords' => ['nullable', 'string', 'max:255'],
+         ];
+     }
+diff --git a/app/Http/Requests/Auth/LoginRequest.php b/app/Http/Requests/Auth/LoginRequest.php
+index 816cff7..272d3cd 100644
+--- a/app/Http/Requests/Auth/LoginRequest.php
++++ b/app/Http/Requests/Auth/LoginRequest.php
+@@ -49,21 +49,38 @@ public function authenticate(): void
+         if (! Auth::attempt([$field => $login, 'password' => $this->input('password')], $this->boolean('remember'))) {
+             RateLimiter::hit($this->throttleKey());
+ 
++            // Ghi thêm vào bucket toàn cục theo tài khoản (không gắn IP)
++            // để xoay IP không bypass được ngân sách theo tài khoản.
++            $globalKey = $this->globalThrottleKey();
++
++            if ($globalKey !== null) {
++                RateLimiter::hit($globalKey, 3600);
++            }
++
+             throw ValidationException::withMessages([
+                 'email' => trans('auth.failed'),
+             ]);
+         }
+ 
+-        // Tài khoản bị khóa: đăng xuất ngay
++        // Tài khoản bị khóa: đăng xuất ngay. Trả về thông báo chung chung
++        // như khi sai mật khẩu để không lộ là mật khẩu đã đúng
++        // (kẻ tấn công đoán trúng mật khẩu của tài khoản bị khóa sẽ
++        // biết mình đoán đúng) (L1).
+         if (! Auth::user()->status) {
+             Auth::logout();
+ 
+             throw ValidationException::withMessages([
+-                'email' => 'Tài khoản của bạn đã bị khóa.',
++                'email' => trans('auth.failed'),
+             ]);
+         }
+ 
+         RateLimiter::clear($this->throttleKey());
++
++        $globalKey = $this->globalThrottleKey();
++
++        if ($globalKey !== null) {
++            RateLimiter::clear($globalKey);
++        }
+     }
+ 
+     /**
+@@ -73,13 +90,30 @@ public function authenticate(): void
+      */
+     public function ensureIsNotRateLimited(): void
+     {
+-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+-            return;
++        if (RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
++            $this->throwRateLimited($this->throttleKey());
+         }
+ 
++        // Bucket toàn cục theo tài khoản (không gắn IP): 20 lần sai /
++        // 60 phút cho cùng một tài khoản bất kể IP, chặn kiểu tấn công
++        // xoay IP để bypass ngân sách theo IP (phần còn lại của P-M5).
++        $globalKey = $this->globalThrottleKey();
++
++        if ($globalKey !== null && RateLimiter::tooManyAttempts($globalKey, 20)) {
++            $this->throwRateLimited($globalKey);
++        }
++    }
++
++    /**
++     * Ném lỗi khóa đăng nhập tạm thời cho một key throttle.
++     *
++     * @throws ValidationException
++     */
++    private function throwRateLimited(string $key): void
++    {
+         event(new Lockout($this));
+ 
+-        $seconds = RateLimiter::availableIn($this->throttleKey());
++        $seconds = RateLimiter::availableIn($key);
+ 
+         throw ValidationException::withMessages([
+             'email' => trans('auth.throttle', [
+@@ -89,6 +123,30 @@ public function ensureIsNotRateLimited(): void
+         ]);
+     }
+ 
++    /**
++     * Tài khoản được đăng nhập (tìm theo email hoặc username), hoặc null
++     * nếu không tồn tại. Kết quả được nhớ lại trong request để các key
++     * throttle không phải truy vấn nhiều lần.
++     */
++    private ?User $cachedLoginUser = null;
++
++    private bool $loginUserLoaded = false;
++
++    private function loginUser(): ?User
++    {
++        if (! $this->loginUserLoaded) {
++            $login = (string) $this->string('email');
++
++            $this->cachedLoginUser = User::query()
++                ->where('email', $login)
++                ->orWhere('username', $login)
++                ->first(['id']);
++            $this->loginUserLoaded = true;
++        }
++
++        return $this->cachedLoginUser;
++    }
++
+     /**
+      * Get the rate limiting throttle key for the request.
+      */
+@@ -101,10 +159,7 @@ public function throttleKey(): string
+         // riêng nên kẻ tấn công có gấp đôi số lần thử cho cùng một tài
+         // khoản (P-M5). Không tìm thấy tài khoản thì giữ nguyên key cũ
+         // để không đổi hành vi với identity chưa tồn tại.
+-        $user = User::query()
+-            ->where('email', $login)
+-            ->orWhere('username', $login)
+-            ->first(['id']);
++        $user = $this->loginUser();
+ 
+         if ($user) {
+             return 'user:'.$user->id.'|'.$this->ip();
+@@ -112,4 +167,15 @@ public function throttleKey(): string
+ 
+         return Str::transliterate(Str::lower($login).'|'.$this->ip());
+     }
++
++    /**
++     * Key bucket toàn cục theo tài khoản (không gắn IP), hoặc null nếu
++     * tài khoản không tồn tại.
++     */
++    public function globalThrottleKey(): ?string
++    {
++        $user = $this->loginUser();
++
++        return $user ? 'login-user:'.$user->id : null;
++    }
+ }
+diff --git a/app/Http/Requests/ProfileUpdateRequest.php b/app/Http/Requests/ProfileUpdateRequest.php
+index 380a717..8320254 100644
+--- a/app/Http/Requests/ProfileUpdateRequest.php
++++ b/app/Http/Requests/ProfileUpdateRequest.php
+@@ -19,7 +19,7 @@ public function rules(): array
+         return [
+             // Cột users.name là varchar(100): max:255 cho qua rồi MySQL
+             // báo 500 (NM-2).
+-            'name' => ['required', 'string', 'max:100'],
++            'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
+             'email' => [
+                 'required',
+                 'string',
+diff --git a/app/Jobs/SendBulkChapterNotifications.php b/app/Jobs/SendBulkChapterNotifications.php
+index eba1bff..00bfd63 100644
+--- a/app/Jobs/SendBulkChapterNotifications.php
++++ b/app/Jobs/SendBulkChapterNotifications.php
+@@ -31,26 +31,38 @@ class SendBulkChapterNotifications implements ShouldQueue
+     /**
+      * @param  array<int, int>  $chapterIds
+      * @param  int  $waitSeconds  thời gian tối đa chờ lock của mỗi chương
++     * @param  int  $lockBudgetSeconds  tổng ngân sách chờ lock của cả job
+      */
+     public function __construct(
+         public array $chapterIds,
+-        public int $waitSeconds = 60
++        public int $waitSeconds = 60,
++        public int $lockBudgetSeconds = 1200
+     ) {}
+ 
+     public function handle(): void
+     {
+         $locked = [];
+ 
++        // Giới hạn tổng thời gian chờ lock: mỗi chương chờ tối đa
++        // $waitSeconds mà một job có tới 100 chương thì tổng có thể
++        // vượt $timeout (1500s) rồi bị worker kill giữa chừng, mất danh
++        // sách chương kẹt (C3). Deadline = bắt đầu + ngân sách chờ lock
++        // (mặc định 1200s, chừa 300s cho phần gửi thật); mỗi chương chỉ
++        // chờ số giây còn lại tới deadline.
++        $deadline = now()->addSeconds($this->lockBudgetSeconds);
++
+         foreach (array_unique(array_map('intval', $this->chapterIds)) as $chapterId) {
+             // Một chương không lấy được lock không được làm mất các chương
+             // còn lại: gom lại rồi gửi bù sau 5 phút (J-M3).
+-            if (! SendNewChapterNotifications::notifyChapter($chapterId, $this->waitSeconds)) {
++            $waitSeconds = max(0, min($this->waitSeconds, $deadline->timestamp - now()->timestamp));
++
++            if (! SendNewChapterNotifications::notifyChapter($chapterId, $waitSeconds)) {
+                 $locked[] = $chapterId;
+             }
+         }
+ 
+         if ($locked !== []) {
+-            self::dispatch($locked, $this->waitSeconds)->delay(now()->addMinutes(5));
++            self::dispatch($locked, $this->waitSeconds, $this->lockBudgetSeconds)->delay(now()->addMinutes(5));
+         }
+     }
+ }
+diff --git a/app/Jobs/SendNewChapterNotifications.php b/app/Jobs/SendNewChapterNotifications.php
+index 90066ef..54dc6d0 100644
+--- a/app/Jobs/SendNewChapterNotifications.php
++++ b/app/Jobs/SendNewChapterNotifications.php
+@@ -34,21 +34,25 @@ class SendNewChapterNotifications implements ShouldQueue
+      */
+     public int $timeout = 900;
+ 
++    /**
++     * @param  int  $waitSeconds  thời gian tối đa chờ lock của chương
++     */
+     public function __construct(
+-        public int $chapterId
++        public int $chapterId,
++        public int $waitSeconds = 60
+     ) {}
+ 
+     public function handle(): void
+     {
+-        if (! self::notifyChapter($this->chapterId)) {
++        if (! self::notifyChapter($this->chapterId, $this->waitSeconds)) {
+             // Không lấy được lock trong thời gian chờ: một job khác đang
+-            // gửi cho chương này. Đưa job trở lại hàng đợi sau 60 giây
+-            // mà không tốn lượt tries (thay vì fail rồi retry) — thông
+-            // báo không bị mất (J-M3). Khi chạy trực tiếp (test, console)
+-            // không có job để release nên chỉ bỏ qua.
+-            if ($this->job !== null) {
+-                $this->release(60);
+-            }
++            // gửi cho chương này. Dispatch job mới chạy sau 60 giây thay
++            // vì release(): release() vẫn tốn một lượt tries nên job kẹt
++            // lock có thể cạn tries rồi rơi vào failed_jobs, mất thông
++            // báo (C1). Job mới có tries mới; vòng lặp hữu hạn vì lock
++            // tối đa 1200s rồi hết hạn, và chương/truyện không còn công
++            // khai thì notifyChapter trả true nên không dispatch nữa.
++            self::dispatch($this->chapterId, $this->waitSeconds)->delay(now()->addSeconds(60));
+         }
+     }
+ 
+diff --git a/app/Models/Comment.php b/app/Models/Comment.php
+index 59f2457..85cfac1 100644
+--- a/app/Models/Comment.php
++++ b/app/Models/Comment.php
+@@ -65,7 +65,8 @@ public function reports()
+ 
+     /**
+      * Chỉ các comment đang hiển thị trên giao diện: chưa ẩn, reply của
+-     * comment cha chưa ẩn/chưa xóa, và không thuộc chương đã xóa mềm.
++     * comment cha chưa ẩn/chưa xóa, và không thuộc chương đã xóa mềm
++     * hoặc đã gỡ công khai (trang chương 404 khi status = false).
+      * Mọi chỗ đếm comment (StoryStatsService::refreshStories,
+      * refreshChapterComments) và mọi chỗ tăng/giảm tay
+      * (StoryStatsService::countedCommentAmount) phải dùng chung định
+@@ -86,9 +87,11 @@ public function scopeVisible(Builder $query): Builder
+             ->where(function (Builder $query) {
+                 $query->whereNull('chapter_id')
+                     // chapter() có withTrashed nên phải loại chương đã
+-                    // xóa mềm tay ở đây.
++                    // xóa mềm tay ở đây, và loại luôn chương đã gỡ
++                    // công khai (F10).
+                     ->orWhereHas('chapter', fn (Builder $chapter) => $chapter
+-                        ->whereNull('deleted_at'));
++                        ->whereNull('deleted_at')
++                        ->where('status', true));
+             });
+     }
+ }
+diff --git a/app/Models/Story.php b/app/Models/Story.php
+index 7fc9725..4727351 100644
+--- a/app/Models/Story.php
++++ b/app/Models/Story.php
+@@ -163,14 +163,6 @@ public function scopeCompleted(Builder $query): Builder
+             ->orderByDesc('last_chapter_at');
+     }
+ 
+-    /**
+-     * Tìm kiếm full-text theo title/description.
+-     */
+-    public function scopeSearch(Builder $query, string $keyword): Builder
+-    {
+-        return $query->whereFullText(['title', 'description'], $keyword);
+-    }
+-
+     // ================= Helper (counter) =================
+ 
+     public function incrementViews(): void
+diff --git a/app/Providers/AppServiceProvider.php b/app/Providers/AppServiceProvider.php
+index 8dc97db..db77502 100644
+--- a/app/Providers/AppServiceProvider.php
++++ b/app/Providers/AppServiceProvider.php
+@@ -12,6 +12,7 @@
+ use Illuminate\Support\Facades\Cache;
+ use Illuminate\Support\Facades\View;
+ use Illuminate\Support\ServiceProvider;
++use Illuminate\Validation\Rules\Password;
+ 
+ class AppServiceProvider extends ServiceProvider
+ {
+@@ -22,6 +23,13 @@ public function register(): void
+ 
+     public function boot(): void
+     {
++        // Siết chính sách mật khẩu mặc định: tối thiểu 12 ký tự, có chữ,
++        // có số, có cả hoa lẫn thường (A-L4). Không dùng uncompromised()
++        // vì nó cần gọi API ngoài để kiểm tra mật khẩu bị lộ.
++        Password::defaults(function () {
++            return Password::min(12)->letters()->numbers()->mixedCase();
++        });
++
+         Paginator::useBootstrapFive();
+ 
+         // Giới hạn số trang tối đa cho mọi paginate(): ?page=999999 bắt
+diff --git a/app/Services/StoryStatsService.php b/app/Services/StoryStatsService.php
+index 9b4c3d9..c9c7342 100644
+--- a/app/Services/StoryStatsService.php
++++ b/app/Services/StoryStatsService.php
+@@ -43,7 +43,8 @@ public function refreshStories(Collection|array $storyIds): void
+ 
+             // Dùng cùng định nghĩa hiển thị với giao diện
+             // (Comment::scopeVisible): reply của cha đã ẩn/xóa và
+-            // comment của chương đã xóa mềm không được đếm (C-M1).
++            // comment của chương đã xóa mềm hoặc đã gỡ công khai
++            // không được đếm (C-M1, F10).
+             $comments = Comment::query()
+                 ->whereIn('story_id', $chunk)
+                 ->visible()
+@@ -54,6 +55,12 @@ public function refreshStories(Collection|array $storyIds): void
+ 
+             Story::withTrashed()
+                 ->whereIn('id', $chunk)
++                // Khóa dòng truyện trong transaction của caller (xóa tài
++                // khoản) để increment đồng thời (bình luận/đánh giá/yêu
++                // thích) phải chờ, không bị bản đếm lại này ghi đè mất
++                // (F2). Ngoài transaction thì lock chỉ giữ tới hết câu
++                // lệnh nên vô hại.
++                ->lockForUpdate()
+                 ->get()
+                 ->each(function (Story $story) use ($ratings, $favorites, $comments) {
+                     $rating = $ratings->get($story->id);
+@@ -103,11 +110,13 @@ public static function countedCommentAmount(Comment $comment): int
+             }
+         }
+ 
+-        // Comment thuộc chương đã xóa mềm cũng không hiển thị ở đâu nữa.
++        // Comment thuộc chương đã xóa mềm hoặc đã gỡ công khai cũng
++        // không hiển thị ở đâu nữa (trang chương 404 khi status =
++        // false) nên không được đếm (F10).
+         if ($comment->chapter_id !== null) {
+             $chapter = Chapter::query()->withTrashed()->find($comment->chapter_id);
+ 
+-            if ($chapter === null || $chapter->trashed()) {
++            if ($chapter === null || $chapter->trashed() || ! $chapter->status) {
+                 return 0;
+             }
+         }
+@@ -118,19 +127,25 @@ public static function countedCommentAmount(Comment $comment): int
+     /**
+      * Trừ comment_count nhưng không để âm. Dùng 2 câu lệnh để chạy được
+      * cả MySQL lẫn SQLite (SQLite không có GREATEST()).
++     *
++     * Câu thứ hai chỉ chạy khi câu đầu không trừ được dòng nào (count
++     * đã nhỏ hơn amount từ trước): đánh giá count sau khi trừ như
++     * trước đây sẽ zero nhầm — count=5, amount=3 thì câu đầu trừ còn
++     * 2, câu sau thấy 0 < 2 < 3 nên set về 0 (F1).
+      */
+     public static function decrementCommentCount(string $table, int $id, int $amount): void
+     {
+-        DB::table($table)
++        $affected = DB::table($table)
+             ->where('id', $id)
+             ->where('comment_count', '>=', $amount)
+             ->decrement('comment_count', $amount);
+ 
+-        DB::table($table)
+-            ->where('id', $id)
+-            ->where('comment_count', '>', 0)
+-            ->where('comment_count', '<', $amount)
+-            ->update(['comment_count' => 0]);
++        if ($affected === 0) {
++            DB::table($table)
++                ->where('id', $id)
++                ->where('comment_count', '>', 0)
++                ->update(['comment_count' => 0]);
++        }
+     }
+ 
+     /**
+@@ -177,6 +192,10 @@ public function refreshChapterComments(Collection|array $chapterIds): void
+ 
+             Chapter::withTrashed()
+                 ->whereIn('id', $chunk)
++                // Như refreshStories (F2): khóa dòng chương trong
++                // transaction của caller để increment đồng thời không
++                // bị bản đếm lại này ghi đè mất.
++                ->lockForUpdate()
+                 ->get()
+                 ->each(function (Chapter $chapter) use ($comments) {
+                     // Xem ghi chú ở refreshStories (NL-4).
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index 4b6ee84..a60c54b 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -5,6 +5,7 @@
+ use Illuminate\Foundation\Application;
+ use Illuminate\Foundation\Configuration\Exceptions;
+ use Illuminate\Foundation\Configuration\Middleware;
++use Illuminate\Session\Middleware\AuthenticateSession;
+ use Illuminate\Support\Facades\Route;
+ 
+ return Application::configure(basePath: dirname(__DIR__))
+@@ -42,7 +43,16 @@
+         ]);
+ 
+         $middleware->web(append: [
++            // Chặn hammer toàn cục: 600 request/phút cho mọi route web —
++            // đủ rộng để người dùng thường không bao giờ chạm, chỉ chặn
++            // bot quét (M2). Đặt đầu để request rác bị chặn sớm.
++            'throttle:600,1',
+             EnsureUserIsActive::class,
++            // Vô hiệu session khác khi đổi mật khẩu: logoutOtherDevices
++            // chỉ hash lại mật khẩu, chính middleware này mới so hash
++            // trong session với hash hiện tại và đăng xuất các session
++            // có hash cũ ở request tiếp theo (xem PasswordController).
++            AuthenticateSession::class,
+         ]);
+     })
+     ->withExceptions(function (Exceptions $exceptions): void {
+diff --git a/config/queue.php b/config/queue.php
+index 6f822c4..f9c215f 100644
+--- a/config/queue.php
++++ b/config/queue.php
+@@ -52,7 +52,10 @@
+             'driver' => 'beanstalkd',
+             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
+             'queue' => env('BEANSTALKD_QUEUE', 'default'),
+-            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
++            // Như kết nối database: job gửi thông báo có $timeout tới
++            // 1500s nên retry_after phải lớn hơn để queue không release
++            // rồi chạy trùng job đang chạy (C2).
++            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 1800),
+             'block_for' => 0,
+             'after_commit' => false,
+         ],
+@@ -72,7 +75,10 @@
+             'driver' => 'redis',
+             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+             'queue' => env('REDIS_QUEUE', 'default'),
+-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
++            // Như kết nối database: job gửi thông báo có $timeout tới
++            // 1500s nên retry_after phải lớn hơn để queue không release
++            // rồi chạy trùng job đang chạy (C2).
++            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 1800),
+             'block_for' => null,
+             'after_commit' => false,
+         ],
+diff --git a/database/factories/UserFactory.php b/database/factories/UserFactory.php
+index 2003519..96ee945 100644
+--- a/database/factories/UserFactory.php
++++ b/database/factories/UserFactory.php
+@@ -29,7 +29,7 @@ public function definition(): array
+             'name' => fake()->name(),
+             'email' => fake()->unique()->safeEmail(),
+             'email_verified_at' => now(),
+-            'password' => static::$password ??= Hash::make('password'),
++            'password' => static::$password ??= Hash::make('Password1234'),
+             'avatar' => null,
+             'phone' => fake()->phoneNumber(),
+             'status' => true,
+diff --git a/resources/views/layouts/public.blade.php b/resources/views/layouts/public.blade.php
+index 01cbd48..02738e5 100644
+--- a/resources/views/layouts/public.blade.php
++++ b/resources/views/layouts/public.blade.php
+@@ -17,8 +17,20 @@
+     <meta name="description" content="{{ $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
+     {{-- Canonical giữ lại query string phân trang/lọc (page, q, ...) để các
+          trang phân trang và kết quả tìm kiếm không bị gộp thành một URL duy
+-         nhất. Chỉ giữ các tham số đã biết, bỏ utm_ và tham số lạ. --}}
+-    @php($canonicalQuery = collect(request()->query())->only(['page', 'q', 'category', 'status', 'sort', 'period', 'recent', 'chapter_page', 'comment_page', 'categories', 'chapters'])->filter(fn ($value) => $value !== '' && $value !== null)->all())
++         nhất. Allowlist theo từng route (V5): trang tìm kiếm/danh sách giữ
++         bộ lọc, trang truyện/chương chỉ giữ phân trang của nó, trang khác
++         chỉ giữ page. Giá trị dạng array (?q[]=x) bị loại để canonical
++         không chứa q[0]=x. --}}
++    @php
++        $canonicalParams = match (true) {
++            request()->routeIs('search', 'stories.index') => ['q', 'category', 'status', 'sort', 'period', 'page'],
++            request()->routeIs('home') => ['recent', 'page'],
++            request()->routeIs('stories.show') => ['chapter_page', 'comment_page', 'page'],
++            request()->routeIs('chapters.show') => ['comment_page', 'page'],
++            default => ['page'],
++        };
++        $canonicalQuery = collect(request()->query())->only($canonicalParams)->filter(fn ($value) => ! is_array($value) && $value !== '' && $value !== null)->all();
++    @endphp
+     @php($canonicalUrl = url()->current().($canonicalQuery ? '?'.http_build_query($canonicalQuery) : ''))
+     <link rel="canonical" href="{{ $canonicalUrl }}">
+ 
+@@ -416,7 +428,12 @@ function escapeHtml(value) {
+         div.textContent =
+             value ?? '';
+ 
+-        return div.innerHTML;
++        // textContent → innerHTML đã escape <, > và &, nhưng dấu ngoặc
++        // kép không được escape — thêm tay để an toàn khi chuỗi được
++        // chèn vào ngữ cảnh attribute (V7).
++        return div.innerHTML
++            .replaceAll('"', '&quot;')
++            .replaceAll("'", '&#039;');
+     }
+ 
+ 
+diff --git a/resources/views/sitemap/static.blade.php b/resources/views/sitemap/static.blade.php
+index 87c146e..931f562 100644
+--- a/resources/views/sitemap/static.blade.php
++++ b/resources/views/sitemap/static.blade.php
+@@ -1,16 +1,25 @@
+ <?php echo '<?xml version="1.0" encoding="UTF-8"?' . '>'; ?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+     <url>
+         <loc>{{ route('home') }}</loc>
++        @if ($lastStoryUpdate)
++            <lastmod>{{ \Illuminate\Support\Carbon::parse($lastStoryUpdate)->toAtomString() }}</lastmod>
++        @endif
+         <changefreq>hourly</changefreq>
+         <priority>1.0</priority>
+     </url>
+     <url>
+         <loc>{{ route('search') }}</loc>
++        @if ($lastStoryUpdate)
++            <lastmod>{{ \Illuminate\Support\Carbon::parse($lastStoryUpdate)->toAtomString() }}</lastmod>
++        @endif
+         <changefreq>daily</changefreq>
+         <priority>0.7</priority>
+     </url>
+     <url>
+         <loc>{{ route('stories.index') }}</loc>
++        @if ($lastStoryUpdate)
++            <lastmod>{{ \Illuminate\Support\Carbon::parse($lastStoryUpdate)->toAtomString() }}</lastmod>
++        @endif
+         <changefreq>daily</changefreq>
+         <priority>0.8</priority>
+     </url>
+diff --git a/routes/admin.php b/routes/admin.php
+index 4360230..6603593 100644
+--- a/routes/admin.php
++++ b/routes/admin.php
+@@ -11,42 +11,56 @@
+ use App\Http\Controllers\Admin\UserController;
+ use Illuminate\Support\Facades\Route;
+ 
+-Route::get('/', DashboardController::class)
+-    ->name('dashboard');
++// Toàn bộ khu vực admin giới hạn 60 request/phút (M1): trước đây chỉ
++// vài route phá hoại có throttle:30,1, còn lại (destroy truyện/chương,
++// update user...) không giới hạn. Route nào đã có throttle:30,1 thì
++// vẫn giữ mức chặt hơn đó vì cả hai middleware đều chạy.
++Route::middleware('throttle:60,1')->group(function () {
++    Route::get('/', DashboardController::class)
++        ->name('dashboard');
+ 
+-Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+-Route::patch('reports/{report}', [ReportController::class, 'update'])->middleware('throttle:30,1')->name('reports.update');
+-Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
++    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
++    Route::patch('reports/{report}', [ReportController::class, 'update'])->middleware('throttle:30,1')->name('reports.update');
++    Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+ 
+-Route::resource('categories', CategoryController::class)
+-    ->except(['show']);
++    Route::resource('categories', CategoryController::class)
++        ->except(['show']);
+ 
+-Route::resource('tags', TagController::class)
+-    ->except(['show']);
++    Route::resource('tags', TagController::class)
++        ->except(['show']);
+ 
+-// Admin xem danh sách, duyệt/gỡ công khai và xóa truyện; không sửa nội dung truyện.
+-Route::resource('stories', StoryController::class)
+-    ->only(['index', 'destroy']);
++    // Admin xem danh sách, duyệt/gỡ công khai và xóa truyện; không sửa nội dung truyện.
++    Route::resource('stories', StoryController::class)
++        ->only(['index', 'destroy']);
+ 
+-Route::patch('stories/{story}/toggle-publish', [StoryController::class, 'togglePublish'])
+-    ->middleware('throttle:30,1')
+-    ->name('stories.toggle-publish');
++    Route::delete('stories/{story}/force', [StoryController::class, 'forceDestroy'])
++        ->middleware('throttle:30,1')
++        ->name('stories.force-destroy');
+ 
+-Route::patch('stories/{story}/toggle-flag', [StoryController::class, 'toggleFlag'])
+-    ->middleware('throttle:30,1')
+-    ->name('stories.toggle-flag');
++    Route::patch('stories/{story}/toggle-publish', [StoryController::class, 'togglePublish'])
++        ->middleware('throttle:30,1')
++        ->name('stories.toggle-publish');
+ 
+-Route::resource('stories.chapters', ChapterController::class)
+-    ->except(['show'])
+-    ->shallow();
++    Route::patch('stories/{story}/toggle-flag', [StoryController::class, 'toggleFlag'])
++        ->middleware('throttle:30,1')
++        ->name('stories.toggle-flag');
+ 
+-Route::resource('users', UserController::class)
+-    ->only(['index', 'edit', 'update']);
++    Route::resource('stories.chapters', ChapterController::class)
++        ->except(['show'])
++        ->shallow();
+ 
+-Route::resource('comments', CommentController::class)
+-    ->only(['index', 'destroy']);
++    Route::delete('stories/{story}/chapters/{chapter}/force', [ChapterController::class, 'forceDestroy'])
++        ->middleware('throttle:30,1')
++        ->name('stories.chapters.force-destroy');
+ 
+-Route::patch(
+-    'comments/{comment}/toggle-hidden',
+-    [CommentController::class, 'toggleHidden']
+-)->middleware('throttle:30,1')->name('comments.toggle-hidden');
++    Route::resource('users', UserController::class)
++        ->only(['index', 'edit', 'update']);
++
++    Route::resource('comments', CommentController::class)
++        ->only(['index', 'destroy']);
++
++    Route::patch(
++        'comments/{comment}/toggle-hidden',
++        [CommentController::class, 'toggleHidden']
++    )->middleware('throttle:30,1')->name('comments.toggle-hidden');
++});
+diff --git a/routes/console.php b/routes/console.php
+index 1c5ac07..4f62d6e 100644
+--- a/routes/console.php
++++ b/routes/console.php
+@@ -15,10 +15,18 @@
+ 
+ Schedule::call(function () {
+     // Thông báo đã đọc quá 90 ngày thì xóa: bảng notifications không
+-    // giới hạn sẽ phình vô hạn (P-M2). Thông báo chưa đọc không xóa
+-    // để người dùng vẫn xem được.
++    // giới hạn sẽ phình vô hạn (P-M2).
+     DB::table('notifications')
+         ->whereNotNull('read_at')
+         ->where('created_at', '<', now()->subDays(90))
+         ->delete();
+-})->dailyAt('03:00')->name('notifications:prune-read');
++
++    // Thông báo chưa đọc quá 365 ngày cũng xóa: giữ lại 1 năm để người
++    // dùng còn xem lại được, quá hạn đó thì coi như không còn giá trị
++    // (C5). Đây là quyết định sản phẩm: tài khoản không đăng nhập trong
++    // 1 năm sẽ mất các thông báo cũ chưa đọc.
++    DB::table('notifications')
++        ->whereNull('read_at')
++        ->where('created_at', '<', now()->subDays(365))
++        ->delete();
++})->dailyAt('03:00')->name('notifications:prune');
+diff --git a/tests/Feature/Admin/SecurityRound3Test.php b/tests/Feature/Admin/SecurityRound3Test.php
+index f013dd9..22728c9 100644
+--- a/tests/Feature/Admin/SecurityRound3Test.php
++++ b/tests/Feature/Admin/SecurityRound3Test.php
+@@ -35,8 +35,8 @@
+         'name' => str_repeat('A', 101),
+         'username' => 'nguoidung',
+         'email' => 'nguoidung@example.com',
+-        'password' => 'password123',
+-        'password_confirmation' => 'password123',
++        'password' => 'Password1234',
++        'password_confirmation' => 'Password1234',
+     ])->assertSessionHasErrors('name');
+ 
+     expect(User::query()->where('email', 'nguoidung@example.com')->exists())->toBeFalse();
+diff --git a/tests/Feature/Auth/AuthenticationTest.php b/tests/Feature/Auth/AuthenticationTest.php
+index 1769d09..b25556b 100644
+--- a/tests/Feature/Auth/AuthenticationTest.php
++++ b/tests/Feature/Auth/AuthenticationTest.php
+@@ -17,7 +17,7 @@
+ 
+     $response = $this->post('/login', [
+         'email' => $user->email,
+-        'password' => 'password',
++        'password' => 'Password1234',
+     ]);
+ 
+     $this->assertAuthenticated();
+@@ -30,7 +30,7 @@
+     $response = $this->withSession(['url.intended' => route('profile.edit')])
+         ->post('/login', [
+             'email' => $user->email,
+-            'password' => 'password',
++            'password' => 'Password1234',
+         ]);
+ 
+     $response->assertRedirect(route('profile.edit'));
+@@ -52,7 +52,7 @@
+ 
+     $response = $this->post('/login', [
+         'email' => 'reader-login',
+-        'password' => 'password',
++        'password' => 'Password1234',
+     ]);
+ 
+     $this->assertAuthenticatedAs($user);
+@@ -70,7 +70,7 @@
+     try {
+         $this->post('/login', [
+             'email' => 'reader-login',
+-            'password' => 'password',
++            'password' => 'Password1234',
+         ])->assertRedirect(route('home', absolute: false));
+ 
+         expect(RateLimiter::tooManyAttempts($key, 5))->toBeFalse();
+@@ -84,7 +84,7 @@
+ 
+     $response = $this->post('/login', [
+         'email' => $user->email,
+-        'password' => 'password',
++        'password' => 'Password1234',
+     ]);
+ 
+     $this->assertGuest();
+@@ -153,7 +153,7 @@
+ 
+         $this->post('/login', [
+             'email' => 'shared-budget@example.com',
+-            'password' => 'password',
++            'password' => 'Password1234',
+         ])->assertSessionHasErrors('email');
+     } finally {
+         RateLimiter::clear($key);
+@@ -182,7 +182,7 @@
+ 
+     $this->post('/login', [
+         'email' => $user->email,
+-        'password' => 'password',
++        'password' => 'Password1234',
+     ])->assertRedirect(route('home', absolute: false));
+ 
+     expect(session()->getId())->not->toBe($originalSessionId);
+diff --git a/tests/Feature/Auth/PasswordConfirmationTest.php b/tests/Feature/Auth/PasswordConfirmationTest.php
+index 8a42902..4acc973 100644
+--- a/tests/Feature/Auth/PasswordConfirmationTest.php
++++ b/tests/Feature/Auth/PasswordConfirmationTest.php
+@@ -14,7 +14,7 @@
+     $user = User::factory()->create();
+ 
+     $response = $this->actingAs($user)->post('/confirm-password', [
+-        'password' => 'password',
++        'password' => 'Password1234',
+     ]);
+ 
+     $response->assertRedirect();
+diff --git a/tests/Feature/Auth/PasswordResetTest.php b/tests/Feature/Auth/PasswordResetTest.php
+index 0504276..c53a96a 100644
+--- a/tests/Feature/Auth/PasswordResetTest.php
++++ b/tests/Feature/Auth/PasswordResetTest.php
+@@ -47,8 +47,8 @@
+         $response = $this->post('/reset-password', [
+             'token' => $notification->token,
+             'email' => $user->email,
+-            'password' => 'password',
+-            'password_confirmation' => 'password',
++            'password' => 'Password1234',
++            'password_confirmation' => 'Password1234',
+         ]);
+ 
+         $response
+diff --git a/tests/Feature/Auth/PasswordUpdateTest.php b/tests/Feature/Auth/PasswordUpdateTest.php
+index e3d1278..783f3f9 100644
+--- a/tests/Feature/Auth/PasswordUpdateTest.php
++++ b/tests/Feature/Auth/PasswordUpdateTest.php
+@@ -10,16 +10,16 @@
+         ->actingAs($user)
+         ->from('/profile')
+         ->put('/password', [
+-            'current_password' => 'password',
+-            'password' => 'new-password',
+-            'password_confirmation' => 'new-password',
++            'current_password' => 'Password1234',
++            'password' => 'NewPassword1234',
++            'password_confirmation' => 'NewPassword1234',
+         ]);
+ 
+     $response
+         ->assertSessionHasNoErrors()
+         ->assertRedirect('/profile');
+ 
+-    $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
++    $this->assertTrue(Hash::check('NewPassword1234', $user->refresh()->password));
+ });
+ 
+ test('correct password must be provided to update password', function () {
+@@ -30,8 +30,8 @@
+         ->from('/profile')
+         ->put('/password', [
+             'current_password' => 'wrong-password',
+-            'password' => 'new-password',
+-            'password_confirmation' => 'new-password',
++            'password' => 'NewPassword1234',
++            'password_confirmation' => 'NewPassword1234',
+         ]);
+ 
+     $response
+diff --git a/tests/Feature/Auth/RegistrationTest.php b/tests/Feature/Auth/RegistrationTest.php
+index 6d69f55..b789b99 100644
+--- a/tests/Feature/Auth/RegistrationTest.php
++++ b/tests/Feature/Auth/RegistrationTest.php
+@@ -16,8 +16,8 @@
+         'name' => 'Test User',
+         'username' => 'test-user',
+         'email' => 'test@example.com',
+-        'password' => 'password',
+-        'password_confirmation' => 'password',
++        'password' => 'Password1234',
++        'password_confirmation' => 'Password1234',
+     ]);
+ 
+     $user = User::where('email', 'test@example.com')->firstOrFail();
+@@ -37,8 +37,8 @@
+         'name' => 'Test User',
+         'username' => 'test-user',
+         'email' => 'test@example.com',
+-        'password' => 'password',
+-        'password_confirmation' => 'password',
++        'password' => 'Password1234',
++        'password_confirmation' => 'Password1234',
+     ]);
+ 
+     $user = User::where('email', 'test@example.com')->firstOrFail();
+diff --git a/tests/Feature/CommentSpamTest.php b/tests/Feature/CommentSpamTest.php
+index 91ce94f..844a5e9 100644
+--- a/tests/Feature/CommentSpamTest.php
++++ b/tests/Feature/CommentSpamTest.php
+@@ -37,7 +37,7 @@
+     expect(Comment::query()->where('story_id', $story->id)->count())->toBe(1);
+ });
+ 
+-test('commenting on different stories is not throttled by the per-story cooldown', function () {
++test('commenting on different stories within thirty seconds is rejected by the global cooldown', function () {
+     $user = User::factory()->create();
+     $storyA = Story::factory()->create(['status_publish' => true]);
+     $storyB = Story::factory()->create(['status_publish' => true]);
+@@ -46,7 +46,11 @@
+         ->postJson(route('comments.store', $storyA), ['content' => 'Bình luận truyện A.'])
+         ->assertOk();
+ 
++    // Cooldown 30 giây tính theo user, không phân biệt truyện (round 6,
++    // C2): đổi truyện khác không còn bypass được nữa.
+     $this->actingAs($user)
+         ->postJson(route('comments.store', $storyB), ['content' => 'Bình luận truyện B.'])
+-        ->assertOk();
++        ->assertStatus(429);
++
++    expect(Comment::query()->count())->toBe(1);
+ });
+diff --git a/tests/Feature/MySqlFullTextSearchTest.php b/tests/Feature/MySqlFullTextSearchTest.php
+index 6b57382..a6985fc 100644
+--- a/tests/Feature/MySqlFullTextSearchTest.php
++++ b/tests/Feature/MySqlFullTextSearchTest.php
+@@ -3,7 +3,7 @@
+ use App\Models\Story;
+ use Illuminate\Support\Facades\DB;
+ 
+-test('mysql full-text scope searches indexed story columns and exposes its index to the query planner', function () {
++test('mysql full-text index matches indexed story columns and exposes its index to the query planner', function () {
+     if (DB::connection()->getDriverName() !== 'mysql') {
+         $this->markTestSkipped('MySQL-specific FULLTEXT verification.');
+     }
+@@ -20,7 +20,9 @@
+     $connection->commit();
+     $connection->beginTransaction();
+ 
+-    $results = Story::search('Ember')->pluck('id');
++    // scopeSearch đã bị xóa (V6, giữ semantics OR cũ): gọi thẳng
++    // whereFullText natural-language mode để kiểm chứng index.
++    $results = Story::query()->whereFullText(['title', 'description'], 'Ember')->pluck('id');
+ 
+     expect($results)->toContain($match->id);
+ 
+diff --git a/tests/Feature/ProfileTest.php b/tests/Feature/ProfileTest.php
+index 43a6568..ff837f5 100644
+--- a/tests/Feature/ProfileTest.php
++++ b/tests/Feature/ProfileTest.php
+@@ -57,7 +57,7 @@
+     $response = $this
+         ->actingAs($user)
+         ->delete('/profile', [
+-            'password' => 'password',
++            'password' => 'Password1234',
+         ]);
+ 
+     $response
+@@ -97,7 +97,7 @@
+ 
+     $this->actingAs($admin)
+         ->from('/profile')
+-        ->delete('/profile', ['password' => 'password'])
++        ->delete('/profile', ['password' => 'Password1234'])
+         ->assertSessionHasErrorsIn('userDeletion', 'password')
+         ->assertRedirect('/profile');
+ 
+@@ -120,7 +120,7 @@
+     ]);
+ 
+     $this->actingAs($admin)
+-        ->delete('/profile', ['password' => 'password'])
++        ->delete('/profile', ['password' => 'Password1234'])
+         ->assertRedirect('/');
+ 
+     expect($admin->fresh())->toBeNull()
+diff --git a/tests/Feature/Round6AuthTest.php b/tests/Feature/Round6AuthTest.php
+new file mode 100644
+index 0000000..41b55ea
+--- /dev/null
++++ b/tests/Feature/Round6AuthTest.php
+@@ -0,0 +1,171 @@
++<?php
++
++use App\Models\Role;
++use App\Models\User;
++use Illuminate\Auth\Notifications\ResetPassword;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Notification;
++use Illuminate\Support\Facades\RateLimiter;
++use Illuminate\Support\Str;
++
++test('changing password logs out other sessions but keeps the current one', function () {
++    config(['session.driver' => 'database']);
++
++    $user = User::factory()->create();
++
++    // Thiết bị A đăng nhập trong test client.
++    $this->post('/login', [
++        'email' => $user->email,
++        'password' => 'Password1234',
++    ])->assertRedirect(route('home', absolute: false));
++    $deviceAId = session()->getId();
++
++    // Thiết bị B: bắt đầu từ một session id hoàn toàn mới rồi đăng nhập
++    // bằng cùng tài khoản. withCookie nhận session id thô, framework
++    // sẽ tự mã hóa cookie khi gửi request.
++    $this->withCookie(config('session.cookie'), (string) Str::uuid())
++        ->post('/login', [
++            'email' => $user->email,
++            'password' => 'Password1234',
++        ])->assertRedirect(route('home', absolute: false));
++    $deviceBId = session()->getId();
++
++    expect($deviceBId)->not->toBe($deviceAId);
++
++    // Thiết bị A đổi mật khẩu.
++    $this->withCookie(config('session.cookie'), $deviceAId)
++        ->put('/password', [
++            'current_password' => 'Password1234',
++            'password' => 'NewPassword1234',
++            'password_confirmation' => 'NewPassword1234',
++        ])->assertSessionHasNoErrors();
++
++    $this->assertAuthenticatedAs($user);
++
++    // Thiết bị A vẫn dùng được.
++    $this->withCookie(config('session.cookie'), $deviceAId)
++        ->get('/profile')->assertOk();
++
++    // Thiết bị B bị đăng xuất: hash mật khẩu trong session cũ không
++    // còn khớp sau khi đổi mật khẩu (AuthenticateSession).
++    $this->withCookie(config('session.cookie'), $deviceBId)
++        ->get('/profile')->assertRedirect(route('login'));
++});
++
++test('resetting password deletes all user sessions', function () {
++    config(['session.driver' => 'database']);
++
++    $user = User::factory()->create();
++
++    // Giả lập 2 thiết bị đang đăng nhập của user.
++    $sessionIds = [(string) Str::uuid(), (string) Str::uuid()];
++
++    foreach ($sessionIds as $id) {
++        DB::table('sessions')->insert([
++            'id' => $id,
++            'user_id' => $user->id,
++            'ip_address' => '127.0.0.1',
++            'user_agent' => 'test',
++            'payload' => base64_encode(serialize(['login_web' => $user->id])),
++            'last_activity' => now()->timestamp,
++        ]);
++    }
++
++    Notification::fake();
++
++    $this->post('/forgot-password', ['email' => $user->email]);
++
++    Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
++        $response = $this->post('/reset-password', [
++            'token' => $notification->token,
++            'email' => $user->email,
++            'password' => 'NewPassword1234',
++            'password_confirmation' => 'NewPassword1234',
++        ]);
++
++        $response->assertSessionHasNoErrors()->assertRedirect(route('login'));
++
++        expect(DB::table('sessions')->where('user_id', $user->id)->count())->toBe(0);
++
++        return true;
++    });
++});
++
++test('global per-account login bucket locks out after twenty failures regardless of IP', function () {
++    $user = User::factory()->create(['username' => 'global-bucket']);
++    $key = 'login-user:'.$user->id;
++
++    RateLimiter::clear($key);
++
++    try {
++        // Trong test mọi request đều từ 127.0.0.1 nên bucket theo IP
++        // sẽ khóa trước; vì vậy hit trực tiếp bucket toàn cục để
++        // chứng minh nó hoạt động độc lập với IP.
++        foreach (range(1, 20) as $i) {
++            RateLimiter::hit($key, 3600);
++        }
++
++        $this->post('/login', [
++            'email' => 'global-bucket',
++            'password' => 'Password1234',
++        ])->assertSessionHasErrors('email');
++
++        $this->assertGuest();
++    } finally {
++        RateLimiter::clear($key);
++    }
++});
++
++test('registration creates the user role when it does not exist yet', function () {
++    Role::query()->where('slug', 'user')->delete();
++
++    $response = $this->post('/register', [
++        'name' => 'Test User',
++        'username' => 'test-user',
++        'email' => 'test@example.com',
++        'password' => 'Password1234',
++        'password_confirmation' => 'Password1234',
++    ]);
++
++    $response->assertRedirect(route('home', absolute: false));
++
++    $user = User::where('email', 'test@example.com')->firstOrFail();
++
++    expect($user->role_id)->not->toBeNull();
++    expect($user->role->slug)->toBe('user');
++    $this->assertAuthenticatedAs($user);
++});
++
++test('locked account login with the correct password returns the generic failure message', function () {
++    $user = User::factory()->create(['status' => false]);
++
++    $response = $this->post('/login', [
++        'email' => $user->email,
++        'password' => 'Password1234',
++    ]);
++
++    $this->assertGuest();
++    $response->assertSessionHasErrors('email');
++
++    // Cùng thông báo như khi sai mật khẩu, không lộ là mật khẩu đã đúng.
++    expect(session('errors')->getBag('default')->first('email'))->toBe(trans('auth.failed'));
++});
++
++test('forgot password with an unknown email returns the same generic success message', function () {
++    $response = $this->post('/forgot-password', ['email' => 'khong-ton-tai@example.com']);
++
++    $response->assertSessionHasNoErrors();
++    expect(session('status'))->toBe('Nếu email đã đăng ký, liên kết đặt lại mật khẩu đã được gửi.');
++});
++
++test('forgot password with a registered email sends the link and returns the same message', function () {
++    Notification::fake();
++
++    $user = User::factory()->create();
++
++    $response = $this->post('/forgot-password', ['email' => $user->email]);
++
++    $response->assertSessionHasNoErrors();
++    expect(session('status'))->toBe('Nếu email đã đăng ký, liên kết đặt lại mật khẩu đã được gửi.');
++    Notification::assertSentTo($user, ResetPassword::class);
++});
+diff --git a/tests/Feature/Round6CommentSearchTest.php b/tests/Feature/Round6CommentSearchTest.php
+new file mode 100644
+index 0000000..4568a39
+--- /dev/null
++++ b/tests/Feature/Round6CommentSearchTest.php
+@@ -0,0 +1,110 @@
++<?php
++
++use App\Models\Comment;
++use App\Models\Role;
++use App\Models\Story;
++use App\Models\User;
++use Illuminate\Support\Facades\Cache;
++
++test('posting a comment while another post is in progress is rejected', function () {
++    $user = User::factory()->create();
++    $story = Story::factory()->create(['status_publish' => true]);
++
++    // Mô phỏng 2 request đăng cùng lúc: giữ khóa theo user trước
++    // rồi mới post — controller phải trả 429 thay vì cùng insert (F4).
++    $lock = Cache::lock('comment-post-'.$user->id, 10);
++    $lock->acquire();
++
++    try {
++        $this->actingAs($user)
++            ->postJson(route('comments.store', $story), ['content' => 'Bình luận.'])
++            ->assertStatus(429);
++    } finally {
++        $lock->release();
++    }
++
++    // Nhả khóa ra thì đăng lại được bình thường.
++    $this->actingAs($user)
++        ->postJson(route('comments.store', $story), ['content' => 'Bình luận.'])
++        ->assertOk();
++
++    expect(Comment::query()->where('story_id', $story->id)->count())->toBe(1);
++});
++
++test('posting the same content with different spacing or casing is rejected as duplicate', function () {
++    $user = User::factory()->create();
++    $story = Story::factory()->create(['status_publish' => true]);
++
++    $comment = Comment::factory()->create([
++        'user_id' => $user->id,
++        'story_id' => $story->id,
++        'content' => 'Bình luận hay.',
++    ]);
++    $comment->forceFill(['created_at' => now()->subMinutes(1)])->saveQuietly();
++
++    // Thừa khoảng trắng + khác hoa thường nhưng sau chuẩn hóa vẫn là
++    // cùng một nội dung trong 10 phút gần nhất → 422 (C1).
++    $this->actingAs($user)
++        ->postJson(route('comments.store', $story), ['content' => '  BÌNH LUẬN   hay.  '])
++        ->assertUnprocessable();
++
++    expect(Comment::query()->where('story_id', $story->id)->count())->toBe(1);
++});
++
++test('commenting on a different story within thirty seconds is rejected by the global cooldown', function () {
++    $user = User::factory()->create();
++    $storyA = Story::factory()->create(['status_publish' => true]);
++    $storyB = Story::factory()->create(['status_publish' => true]);
++
++    $this->actingAs($user)
++        ->postJson(route('comments.store', $storyA), ['content' => 'Bình luận truyện A.'])
++        ->assertOk();
++
++    // Cooldown 30 giây tính theo user, không phân biệt truyện (C2):
++    // đổi truyện khác không còn bypass được nữa.
++    $this->actingAs($user)
++        ->postJson(route('comments.store', $storyB), ['content' => 'Bình luận truyện B.'])
++        ->assertStatus(429);
++
++    expect(Comment::query()->count())->toBe(1);
++});
++
++test('search with an array q parameter returns the search page instead of redirecting', function () {
++    Story::factory()->create(['status_publish' => true]);
++
++    $response = $this->get(route('search').'?q[]=x');
++
++    $response->assertOk();
++    $response->assertViewIs('search.index');
++});
++
++test('search page abc and page 1 return the same results', function () {
++    Story::factory()->create(['status_publish' => true, 'title' => 'Truyện kiểm tra trang']);
++
++    $first = $this->get(route('search', ['q' => 'kiểm tra', 'page' => 1]));
++    $second = $this->get(route('search', ['q' => 'kiểm tra', 'page' => 'abc']));
++
++    $first->assertOk()->assertSee('Truyện kiểm tra trang');
++    $second->assertOk()->assertSee('Truyện kiểm tra trang');
++
++    // Cache key đã normalize page (C7) nên cả hai trả cùng một nội dung.
++    expect($second->getContent())->toBe($first->getContent());
++});
++
++test('admin activity logs with an array action parameter does not error', function () {
++    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
++    $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
++
++    $this->actingAs($admin)
++        ->get(route('admin.activity-logs.index').'?action[]=x')
++        ->assertOk();
++});
++
++test('story page canonical excludes unrelated search parameters', function () {
++    $story = Story::factory()->create(['status_publish' => true]);
++
++    $response = $this->get(route('stories.show', $story).'?q=kiem&sort=top_rated&page=2');
++
++    $response->assertOk();
++    $response->assertSee('<link rel="canonical" href="'.route('stories.show', $story).'?page=2"', false);
++});
+diff --git a/tests/Feature/Round6CountersTest.php b/tests/Feature/Round6CountersTest.php
+new file mode 100644
+index 0000000..b1cbea4
+--- /dev/null
++++ b/tests/Feature/Round6CountersTest.php
+@@ -0,0 +1,141 @@
++<?php
++
++use App\Models\Category;
++use App\Models\Chapter;
++use App\Models\Comment;
++use App\Models\Role;
++use App\Models\Story;
++use App\Models\User;
++use App\Services\StoryStatsService;
++
++test('F1: hiding a parent with two replies subtracts exactly three', function () {
++    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
++    $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
++
++    $story = Story::factory()->create();
++    $parent = Comment::factory()->for($story)->create();
++    Comment::factory()->for($story)->create(['parent_id' => $parent->id]);
++    Comment::factory()->for($story)->create(['parent_id' => $parent->id]);
++    Comment::factory()->for($story)->create();
++    Comment::factory()->for($story)->create();
++    $story->forceFill(['comment_count' => 5])->saveQuietly();
++
++    $this->actingAs($admin)
++        ->patch(route('admin.comments.toggle-hidden', $parent))
++        ->assertRedirect();
++
++    // Ẩn cha có 2 reply: trừ 3, còn 2 — trước đây câu clamp thứ hai
++    // set nhầm về 0 vì 0 < 2 < 3.
++    expect($story->fresh()->comment_count)->toBe(2);
++});
++
++test('F1: decrementCommentCount keeps the remainder when count is larger than amount', function () {
++    $story = Story::factory()->create();
++    $story->forceFill(['comment_count' => 5])->saveQuietly();
++
++    StoryStatsService::decrementCommentCount('stories', $story->id, 3);
++
++    expect($story->fresh()->comment_count)->toBe(2);
++});
++
++test('F1: decrementCommentCount clamps to zero when count equals amount', function () {
++    $story = Story::factory()->create();
++    $story->forceFill(['comment_count' => 2])->saveQuietly();
++
++    StoryStatsService::decrementCommentCount('stories', $story->id, 2);
++
++    expect($story->fresh()->comment_count)->toBe(0);
++});
++
++test('F1: decrementCommentCount clamps to zero when count is smaller than amount', function () {
++    $story = Story::factory()->create();
++    $story->forceFill(['comment_count' => 1])->saveQuietly();
++
++    StoryStatsService::decrementCommentCount('stories', $story->id, 3);
++
++    expect($story->fresh()->comment_count)->toBe(0);
++});
++
++test('F1: decrementCommentCount keeps zero at zero', function () {
++    $story = Story::factory()->create();
++    $story->forceFill(['comment_count' => 0])->saveQuietly();
++
++    StoryStatsService::decrementCommentCount('stories', $story->id, 1);
++
++    expect($story->fresh()->comment_count)->toBe(0);
++});
++
++test('F10: refresh excludes comments of an unpublished chapter', function () {
++    $story = Story::factory()->create();
++    $chapter = Chapter::factory()->for($story)->create(['status' => false]);
++    Comment::factory()->for($story)->create(['chapter_id' => $chapter->id]);
++    Comment::factory()->for($story)->create(['chapter_id' => $chapter->id]);
++
++    $story->forceFill(['comment_count' => 2])->saveQuietly();
++
++    app(StoryStatsService::class)->refreshStories([$story->id]);
++
++    expect($story->fresh()->comment_count)->toBe(0);
++});
++
++test('F10: refresh still counts comments of a published chapter', function () {
++    $story = Story::factory()->create();
++    $chapter = Chapter::factory()->for($story)->create(['status' => true]);
++    Comment::factory()->for($story)->create(['chapter_id' => $chapter->id]);
++
++    $story->forceFill(['comment_count' => 0])->saveQuietly();
++
++    app(StoryStatsService::class)->refreshStories([$story->id]);
++
++    expect($story->fresh()->comment_count)->toBe(1);
++});
++
++test('V4: a story meta_description of 17,000 emoji is rejected', function () {
++    $user = User::factory()->create(['status' => true]);
++    $category = Category::factory()->create();
++
++    $this->actingAs($user)->post(route('writer.stories.store'), [
++        'title' => 'Truyện meta emoji quá dài',
++        'author_name' => 'Bút danh',
++        'description' => 'Giới thiệu truyện',
++        'status' => 'ongoing',
++        'categories' => [$category->id],
++        // Emoji 4 byte/ký tự: 17.000 ký tự vượt giới hạn 16.000 của rule
++        // (trước đây max:20000 cho qua rồi MySQL báo 500 vì tràn cột TEXT).
++        'meta_description' => str_repeat('😀', 17000),
++    ])->assertSessionHasErrors('meta_description');
++
++    expect(Story::query()->where('title', 'Truyện meta emoji quá dài')->exists())->toBeFalse();
++});
++
++test('V4: a story meta_description of 16,000 emoji is accepted', function () {
++    $user = User::factory()->create(['status' => true]);
++    $category = Category::factory()->create();
++
++    $this->actingAs($user)->post(route('writer.stories.store'), [
++        'title' => 'Truyện meta emoji vừa đủ',
++        'author_name' => 'Bút danh',
++        'description' => 'Giới thiệu truyện',
++        'status' => 'ongoing',
++        'categories' => [$category->id],
++        // 16.000 emoji × 4 byte = 64.000 byte < 65.535 byte của cột TEXT.
++        'meta_description' => str_repeat('😀', 16000),
++    ])->assertRedirect();
++
++    expect(Story::query()->where('title', 'Truyện meta emoji vừa đủ')->exists())->toBeTrue();
++});
++
++test('V8: a story author_name containing angle brackets is rejected', function () {
++    $user = User::factory()->create(['status' => true]);
++    $category = Category::factory()->create();
++
++    $this->actingAs($user)->post(route('writer.stories.store'), [
++        'title' => 'Truyện tác giả lạ',
++        'author_name' => 'Tên <b>đậm</b>',
++        'description' => 'Giới thiệu truyện',
++        'status' => 'ongoing',
++        'categories' => [$category->id],
++    ])->assertSessionHasErrors('author_name');
++
++    expect(Story::query()->where('title', 'Truyện tác giả lạ')->exists())->toBeFalse();
++});
+diff --git a/tests/Feature/Round6JobsMiscTest.php b/tests/Feature/Round6JobsMiscTest.php
+new file mode 100644
+index 0000000..e019e2b
+--- /dev/null
++++ b/tests/Feature/Round6JobsMiscTest.php
+@@ -0,0 +1,244 @@
++<?php
++
++use App\Jobs\SendBulkChapterNotifications;
++use App\Jobs\SendNewChapterNotifications;
++use App\Models\Category;
++use App\Models\Chapter;
++use App\Models\Favorite;
++use App\Models\Role;
++use App\Models\Story;
++use App\Models\User;
++use App\Notifications\NewChapterPublished;
++use Illuminate\Support\Facades\Artisan;
++use Illuminate\Support\Facades\Cache;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Notification;
++use Illuminate\Support\Facades\Queue;
++use Illuminate\Support\Facades\Route;
++use Illuminate\Support\Str;
++
++test('single notification job dispatches a fresh job when the lock is busy', function () {
++    Notification::fake();
++    Queue::fake();
++
++    $story = Story::factory()->create(['status_publish' => true]);
++    $chapter = Chapter::factory()->for($story)->create(['status' => true]);
++    $follower = User::factory()->create();
++
++    Favorite::create([
++        'user_id' => $follower->id,
++        'story_id' => $story->id,
++        'notify_new_chapter' => true,
++    ]);
++
++    $lock = Cache::lock('notify-chapter-'.$chapter->id, 120);
++    $lock->acquire();
++
++    try {
++        // waitSeconds = 1 để test không chờ 60 giây thật.
++        (new SendNewChapterNotifications($chapter->id, 1))->handle();
++
++        Notification::assertNotSentTo($follower, NewChapterPublished::class);
++
++        // Job mới được dispatch (có tries mới) thay vì release() tốn
++        // một lượt tries rồi cạn và mất thông báo (C1).
++        Queue::assertPushed(SendNewChapterNotifications::class, fn ($job) => $job->chapterId === $chapter->id);
++    } finally {
++        $lock->release();
++    }
++});
++
++test('bulk notification job stops waiting once its lock budget is spent', function () {
++    Notification::fake();
++    Queue::fake();
++
++    $story = Story::factory()->create(['status_publish' => true]);
++    $chapterA = Chapter::factory()->for($story)->create(['status' => true, 'chapter_number' => 1]);
++    $chapterB = Chapter::factory()->for($story)->create(['status' => true, 'chapter_number' => 2]);
++    $follower = User::factory()->create();
++
++    Favorite::create([
++        'user_id' => $follower->id,
++        'story_id' => $story->id,
++        'notify_new_chapter' => true,
++    ]);
++
++    $lockA = Cache::lock('notify-chapter-'.$chapterA->id, 120);
++    $lockB = Cache::lock('notify-chapter-'.$chapterB->id, 120);
++    $lockA->acquire();
++    $lockB->acquire();
++
++    try {
++        $startedAt = microtime(true);
++
++        // Ngân sách chờ lock chỉ 2 giây, waitSeconds 60 giây: nếu không
++        // có deadline thì job chờ 60s/chương (tổng 120s); có deadline
++        // thì chương đầu chờ ~2s, chương sau chờ 0s (C3).
++        (new SendBulkChapterNotifications([$chapterA->id, $chapterB->id], 60, 2))->handle();
++
++        expect(microtime(true) - $startedAt)->toBeLessThan(30);
++
++        Notification::assertNotSentTo($follower, NewChapterPublished::class);
++
++        // Cả hai chương kẹt đều được dispatch lại để gửi bù.
++        Queue::assertPushed(SendBulkChapterNotifications::class, fn ($job) => $job->chapterIds === [$chapterA->id, $chapterB->id]);
++    } finally {
++        $lockA->release();
++        $lockB->release();
++    }
++});
++
++test('deleting an account removes its notifications', function () {
++    $user = User::factory()->create();
++    $other = User::factory()->create();
++    $story = Story::factory()->create();
++
++    $ownId = (string) Str::uuid();
++    $otherId = (string) Str::uuid();
++
++    DB::table('notifications')->insert([
++        [
++            'id' => $ownId,
++            'type' => NewChapterPublished::class,
++            'notifiable_type' => User::class,
++            'notifiable_id' => $user->id,
++            'data' => json_encode(['story_id' => $story->id, 'chapter_id' => 1]),
++            'read_at' => null,
++            'created_at' => now(),
++            'updated_at' => now(),
++        ],
++        [
++            'id' => $otherId,
++            'type' => NewChapterPublished::class,
++            'notifiable_type' => User::class,
++            'notifiable_id' => $other->id,
++            'data' => json_encode(['story_id' => $story->id, 'chapter_id' => 1]),
++            'read_at' => null,
++            'created_at' => now(),
++            'updated_at' => now(),
++        ],
++    ]);
++
++    $this->actingAs($user)
++        ->delete('/profile', ['password' => 'Password1234'])
++        ->assertRedirect('/');
++
++    // Notification của tài khoản đã xóa bị dọn, của người khác còn nguyên (C4).
++    expect(DB::table('notifications')->where('id', $ownId)->exists())->toBeFalse()
++        ->and(DB::table('notifications')->where('id', $otherId)->exists())->toBeTrue();
++});
++
++test('scheduled prune deletes unread notifications older than one year', function () {
++    $user = User::factory()->create();
++
++    $oldUnreadId = (string) Str::uuid();
++    $recentUnreadId = (string) Str::uuid();
++    $oldReadId = (string) Str::uuid();
++
++    DB::table('notifications')->insert([
++        [
++            'id' => $oldUnreadId,
++            'type' => NewChapterPublished::class,
++            'notifiable_type' => User::class,
++            'notifiable_id' => $user->id,
++            'data' => json_encode(['story_id' => 1, 'chapter_id' => 1]),
++            'read_at' => null,
++            'created_at' => now()->subDays(400),
++            'updated_at' => now()->subDays(400),
++        ],
++        [
++            'id' => $recentUnreadId,
++            'type' => NewChapterPublished::class,
++            'notifiable_type' => User::class,
++            'notifiable_id' => $user->id,
++            'data' => json_encode(['story_id' => 1, 'chapter_id' => 1]),
++            'read_at' => null,
++            'created_at' => now()->subDays(10),
++            'updated_at' => now()->subDays(10),
++        ],
++        [
++            'id' => $oldReadId,
++            'type' => NewChapterPublished::class,
++            'notifiable_type' => User::class,
++            'notifiable_id' => $user->id,
++            'data' => json_encode(['story_id' => 1, 'chapter_id' => 1]),
++            'read_at' => now()->subDays(100),
++            'created_at' => now()->subDays(100),
++            'updated_at' => now()->subDays(100),
++        ],
++    ]);
++
++    // Chạy đúng lịch 03:00 để task prune tới hạn (C5).
++    $this->travelTo(now()->setTime(3, 0));
++    Artisan::call('schedule:run');
++
++    expect(DB::table('notifications')->where('id', $oldUnreadId)->exists())->toBeFalse()
++        ->and(DB::table('notifications')->where('id', $recentUnreadId)->exists())->toBeTrue()
++        ->and(DB::table('notifications')->where('id', $oldReadId)->exists())->toBeFalse();
++});
++
++test('very long titles produce slugs within 255 characters', function () {
++    $user = User::factory()->create();
++    $category = Category::factory()->create();
++    $title = str_repeat('a', 254);
++
++    $payload = [
++        'title' => $title,
++        'description' => 'Mô tả truyện.',
++        'status' => 'ongoing',
++        'categories' => [$category->id],
++        'tags' => [],
++    ];
++
++    $this->actingAs($user)
++        ->post(route('writer.stories.store'), $payload)
++        ->assertRedirect(route('writer.stories.index'));
++
++    $first = Story::query()->where('title', $title)->firstOrFail();
++    expect(mb_strlen($first->slug))->toBeLessThanOrEqual(255);
++
++    // Đăng lần hai cùng tiêu đề: slug trùng phải thêm hậu tố mà vẫn
++    // không vượt 255 ký tự (V3).
++    $this->actingAs($user)
++        ->post(route('writer.stories.store'), $payload)
++        ->assertRedirect(route('writer.stories.index'));
++
++    $stories = Story::query()->where('title', $title)->orderBy('id')->get();
++
++    expect($stories)->toHaveCount(2)
++        ->and(mb_strlen($stories[1]->slug))->toBeLessThanOrEqual(255)
++        ->and($stories[1]->slug)->not->toBe($stories[0]->slug);
++});
++
++test('story search scope has been removed', function () {
++    expect(method_exists(Story::class, 'scopeSearch'))->toBeFalse();
++});
++
++test('toggling publish twice returns the story to its original state', function () {
++    $adminRole = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
++    $admin = User::factory()->create(['role_id' => $adminRole->id, 'status' => true]);
++    $story = Story::factory()->create(['status_publish' => true]);
++
++    $this->actingAs($admin)
++        ->patch(route('admin.stories.toggle-publish', $story))
++        ->assertRedirect();
++
++    expect($story->fresh()->status_publish)->toBeFalse();
++
++    $this->actingAs($admin)
++        ->patch(route('admin.stories.toggle-publish', $story))
++        ->assertRedirect();
++
++    expect($story->fresh()->status_publish)->toBeTrue();
++});
++
++test('admin routes are throttled', function () {
++    $adminRoutes = collect(Route::getRoutes()->getRoutes())
++        ->filter(fn ($route) => str_starts_with((string) $route->getName(), 'admin.'));
++
++    expect($adminRoutes)->not->toBeEmpty();
++
++    foreach ($adminRoutes as $route) {
++        expect($route->gatherMiddleware())->toContain('throttle:60,1');
++    }
++});
+-- 
+2.43.0
+
+
+From 7dca7d7d5fe093c927741611ab85eb8c2eacdfd8 Mon Sep 17 00:00:00 2001
+From: Nqn7749 <184545265+Nqn7749@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 11:31:33 +0000
+Subject: [PATCH 2/4] =?UTF-8?q?fix:=20round=206=20fix1=20=E2=80=94=20throt?=
+ =?UTF-8?q?tle=20double-count,=20canonical=20params,=20page=20normalize,?=
+ =?UTF-8?q?=20two-device=20test?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../Controllers/Auth/PasswordController.php   |  5 +++
+ app/Http/Controllers/SearchController.php     |  6 ++++
+ app/Providers/AppServiceProvider.php          | 14 ++++++++
+ bootstrap/app.php                             | 10 +++---
+ resources/views/layouts/public.blade.php      |  7 ++--
+ tests/Feature/Round6AuthTest.php              | 33 +++++++++++++------
+ 6 files changed, 59 insertions(+), 16 deletions(-)
+
+diff --git a/app/Http/Controllers/Auth/PasswordController.php b/app/Http/Controllers/Auth/PasswordController.php
+index 9bde3c9..c0691ae 100644
+--- a/app/Http/Controllers/Auth/PasswordController.php
++++ b/app/Http/Controllers/Auth/PasswordController.php
+@@ -31,6 +31,11 @@ public function update(Request $request): RedirectResponse
+         // xuất ở request tiếp theo; session hiện tại được giữ lại.
+         Auth::logoutOtherDevices($validated['password']);
+ 
++        // Đồng bộ hash mật khẩu mới vào session hiện tại để
++        // AuthenticateSession không đăng xuất luôn thiết bị này ở
++        // request tiếp theo (round 6 fix1).
++        $request->session()->put('password_hash', $request->user()->getAuthPassword());
++
+         return back()->with('status', 'password-updated');
+     }
+ }
+diff --git a/app/Http/Controllers/SearchController.php b/app/Http/Controllers/SearchController.php
+index e985d07..c5bd2b6 100644
+--- a/app/Http/Controllers/SearchController.php
++++ b/app/Http/Controllers/SearchController.php
+@@ -125,6 +125,12 @@ public function index(Request $request)
+         $rawPage = $request->query('page', 1);
+         $page = is_numeric($rawPage) ? min(1000, max(1, (int) $rawPage)) : 1;
+ 
++        // Đưa page đã normalize vào lại request để canonical và og:url
++        // (đều dựng từ query string) dùng page=1 thay vì page=abc, nếu
++        // không 2 URL ?page=abc và ?page=1 trả cùng nội dung nhưng khác
++        // canonical — sai mục đích của canonical (C7).
++        $request->merge(['page' => $page]);
++
+         $cacheKey = 'search:'.md5(json_encode([
+             'q' => $keyword,
+             'category' => $categorySlug,
+diff --git a/app/Providers/AppServiceProvider.php b/app/Providers/AppServiceProvider.php
+index db77502..012409f 100644
+--- a/app/Providers/AppServiceProvider.php
++++ b/app/Providers/AppServiceProvider.php
+@@ -8,8 +8,11 @@
+ use App\Observers\CategoryObserver;
+ use App\Observers\ChapterObserver;
+ use App\Observers\StoryObserver;
++use Illuminate\Cache\RateLimiting\Limit;
++use Illuminate\Http\Request;
+ use Illuminate\Pagination\Paginator;
+ use Illuminate\Support\Facades\Cache;
++use Illuminate\Support\Facades\RateLimiter;
+ use Illuminate\Support\Facades\View;
+ use Illuminate\Support\ServiceProvider;
+ use Illuminate\Validation\Rules\Password;
+@@ -30,6 +33,17 @@ public function boot(): void
+             return Password::min(12)->letters()->numbers()->mixedCase();
+         });
+ 
++        // Throttle toàn cục cho nhóm web (M2): 600 request/phút/IP.
++        // PHẢI dùng limiter đặt tên với ->by(ip) thay vì 'throttle:600,1':
++        // ThrottleRequests tính key từ signature của request (method +
++        // path + IP) mà không gồm giới hạn, nên throttle số và throttle
++        // riêng của từng route (login 10/phút, tìm kiếm 30/phút...)
++        // dùng chung một key — mỗi request bị đếm 2 lần và ngân sách
++        // của route bị cạn nhanh gấp đôi (round 6 fix1: 9 test đỏ vì
++        // lỗi này). Limiter đặt tên có key riêng (IP + signature)
++        // nên hai ngân sách đếm độc lập với nhau.
++        RateLimiter::for('web-global', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
++
+         Paginator::useBootstrapFive();
+ 
+         // Giới hạn số trang tối đa cho mọi paginate(): ?page=999999 bắt
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index a60c54b..4650b7a 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -43,10 +43,12 @@
+         ]);
+ 
+         $middleware->web(append: [
+-            // Chặn hammer toàn cục: 600 request/phút cho mọi route web —
+-            // đủ rộng để người dùng thường không bao giờ chạm, chỉ chặn
+-            // bot quét (M2). Đặt đầu để request rác bị chặn sớm.
+-            'throttle:600,1',
++            // Chặn hammer toàn cục: 600 request/phút/IP cho mọi route web
++            // (M2) — đủ rộng để người dùng thường không bao giờ chạm, chỉ
++            // chặn bot quét. Dùng limiter đặt tên 'web-global' (định nghĩa
++            // ở AppServiceProvider) để key của nó không trùng với throttle
++            // riêng của từng route (xem ghi chú ở đó).
++            'throttle:web-global',
+             EnsureUserIsActive::class,
+             // Vô hiệu session khác khi đổi mật khẩu: logoutOtherDevices
+             // chỉ hash lại mật khẩu, chính middleware này mới so hash
+diff --git a/resources/views/layouts/public.blade.php b/resources/views/layouts/public.blade.php
+index 02738e5..4d4078e 100644
+--- a/resources/views/layouts/public.blade.php
++++ b/resources/views/layouts/public.blade.php
+@@ -23,13 +23,16 @@
+          không chứa q[0]=x. --}}
+     @php
+         $canonicalParams = match (true) {
+-            request()->routeIs('search', 'stories.index') => ['q', 'category', 'status', 'sort', 'period', 'page'],
++            request()->routeIs('search', 'stories.index') => ['q', 'category', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
+             request()->routeIs('home') => ['recent', 'page'],
+             request()->routeIs('stories.show') => ['chapter_page', 'comment_page', 'page'],
+             request()->routeIs('chapters.show') => ['comment_page', 'page'],
+             default => ['page'],
+         };
+-        $canonicalQuery = collect(request()->query())->only($canonicalParams)->filter(fn ($value) => ! is_array($value) && $value !== '' && $value !== null)->all();
++        // Normalize số trang theo đúng luật của Paginator (?page=abc → 1,
++        // ?page=1001 → 1000) để canonical của ?page=abc và ?page=1 là
++        // một, không tạo URL chuẩn trùng nhau (C7).
++        $canonicalQuery = collect(request()->query())->only($canonicalParams)->map(fn ($value, $key) => str_ends_with((string) $key, '_page') || $key === 'page' ? (is_numeric($value) ? min(1000, max(1, (int) $value)) : 1) : $value)->filter(fn ($value) => ! is_array($value) && $value !== '' && $value !== null)->all();
+     @endphp
+     @php($canonicalUrl = url()->current().($canonicalQuery ? '?'.http_build_query($canonicalQuery) : ''))
+     <link rel="canonical" href="{{ $canonicalUrl }}">
+diff --git a/tests/Feature/Round6AuthTest.php b/tests/Feature/Round6AuthTest.php
+index 41b55ea..90048e7 100644
+--- a/tests/Feature/Round6AuthTest.php
++++ b/tests/Feature/Round6AuthTest.php
+@@ -20,17 +20,30 @@
+     ])->assertRedirect(route('home', absolute: false));
+     $deviceAId = session()->getId();
+ 
+-    // Thiết bị B: bắt đầu từ một session id hoàn toàn mới rồi đăng nhập
+-    // bằng cùng tài khoản. withCookie nhận session id thô, framework
+-    // sẽ tự mã hóa cookie khi gửi request.
+-    $this->withCookie(config('session.cookie'), (string) Str::uuid())
+-        ->post('/login', [
+-            'email' => $user->email,
+-            'password' => 'Password1234',
+-        ])->assertRedirect(route('home', absolute: false));
+-    $deviceBId = session()->getId();
++    // Thiết bị B: giả lập một thiết bị khác đang đăng nhập bằng cách
++    // chèn thẳng một session row (đăng nhập thật bằng withCookie +
++    // session id tự tạo không ổn định: redirect sau login đi theo
++    // url.intended nên đích redirect thay đổi theo session). Payload
++    // phải đúng dạng session thật: key auth của guard + hash mật khẩu
++    // lúc đăng nhập để AuthenticateSession kiểm tra được.
++    $deviceBId = (string) Str::uuid();
++
++    DB::table('sessions')->insert([
++        'id' => $deviceBId,
++        'user_id' => $user->id,
++        'ip_address' => '127.0.0.1',
++        'user_agent' => 'test',
++        'payload' => base64_encode(serialize([
++            '_token' => Str::random(40),
++            'password_hash' => $user->getAuthPassword(),
++            auth('web')->getName() => $user->id,
++        ])),
++        'last_activity' => now()->timestamp,
++    ]);
+ 
+-    expect($deviceBId)->not->toBe($deviceAId);
++    // Thiết bị B đang dùng được trước khi đổi mật khẩu.
++    $this->withCookie(config('session.cookie'), $deviceBId)
++        ->get('/profile')->assertOk();
+ 
+     // Thiết bị A đổi mật khẩu.
+     $this->withCookie(config('session.cookie'), $deviceAId)
+-- 
+2.43.0
+
+
+From bd9347c40374a7f041fbf77385b81e3516d31b94 Mon Sep 17 00:00:00 2001
+From: Nqn7749 <184545265+Nqn7749@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 11:44:03 +0000
+Subject: [PATCH 3/4] =?UTF-8?q?fix:=20round=206=20fix2=20=E2=80=94=20remov?=
+ =?UTF-8?q?e=20page=20merge=20breaking=20og:url,=20robust=20two-device=20s?=
+ =?UTF-8?q?ession=20test?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ app/Http/Controllers/SearchController.php |  6 ------
+ tests/Feature/Round6AuthTest.php          | 21 +++++++++++++++++----
+ 2 files changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/app/Http/Controllers/SearchController.php b/app/Http/Controllers/SearchController.php
+index c5bd2b6..e985d07 100644
+--- a/app/Http/Controllers/SearchController.php
++++ b/app/Http/Controllers/SearchController.php
+@@ -125,12 +125,6 @@ public function index(Request $request)
+         $rawPage = $request->query('page', 1);
+         $page = is_numeric($rawPage) ? min(1000, max(1, (int) $rawPage)) : 1;
+ 
+-        // Đưa page đã normalize vào lại request để canonical và og:url
+-        // (đều dựng từ query string) dùng page=1 thay vì page=abc, nếu
+-        // không 2 URL ?page=abc và ?page=1 trả cùng nội dung nhưng khác
+-        // canonical — sai mục đích của canonical (C7).
+-        $request->merge(['page' => $page]);
+-
+         $cacheKey = 'search:'.md5(json_encode([
+             'q' => $keyword,
+             'category' => $categorySlug,
+diff --git a/tests/Feature/Round6AuthTest.php b/tests/Feature/Round6AuthTest.php
+index 90048e7..f99764a 100644
+--- a/tests/Feature/Round6AuthTest.php
++++ b/tests/Feature/Round6AuthTest.php
+@@ -13,6 +13,15 @@
+ 
+     $user = User::factory()->create();
+ 
++    // Cookie session phải gửi đúng dạng đã mã hóa: withCookie không
++    // đáng tin để đổi session giữa hai thiết bị trong cùng một test
++    // (guard giữ user đã resolve + cookie jar của test client), nên
++    // tự mã hóa session id rồi gửi bằng withUnencryptedCookie; kèm
++    // forgetGuards để guard đọc lại user từ đúng session row của
++    // thiết bị đó (round 6 fix2).
++    $cookieFor = fn (string $id) => app('encrypter')->encrypt($id, false);
++    $sessionCookie = config('session.cookie');
++
+     // Thiết bị A đăng nhập trong test client.
+     $this->post('/login', [
+         'email' => $user->email,
+@@ -42,11 +51,13 @@
+     ]);
+ 
+     // Thiết bị B đang dùng được trước khi đổi mật khẩu.
+-    $this->withCookie(config('session.cookie'), $deviceBId)
++    auth()->forgetGuards();
++    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceBId))
+         ->get('/profile')->assertOk();
+ 
+     // Thiết bị A đổi mật khẩu.
+-    $this->withCookie(config('session.cookie'), $deviceAId)
++    auth()->forgetGuards();
++    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceAId))
+         ->put('/password', [
+             'current_password' => 'Password1234',
+             'password' => 'NewPassword1234',
+@@ -56,12 +67,14 @@
+     $this->assertAuthenticatedAs($user);
+ 
+     // Thiết bị A vẫn dùng được.
+-    $this->withCookie(config('session.cookie'), $deviceAId)
++    auth()->forgetGuards();
++    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceAId))
+         ->get('/profile')->assertOk();
+ 
+     // Thiết bị B bị đăng xuất: hash mật khẩu trong session cũ không
+     // còn khớp sau khi đổi mật khẩu (AuthenticateSession).
+-    $this->withCookie(config('session.cookie'), $deviceBId)
++    auth()->forgetGuards();
++    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceBId))
+         ->get('/profile')->assertRedirect(route('login'));
+ });
+ 
+-- 
+2.43.0
+
+
+From 0b13d1ac6504e73431eefb013990dac00e08a630 Mon Sep 17 00:00:00 2001
+From: Nqn7749 <184545265+Nqn7749@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 11:53:43 +0000
+Subject: [PATCH 4/4] =?UTF-8?q?fix:=20round=206=20fix3=20=E2=80=94=20corre?=
+ =?UTF-8?q?ct=20password=5Fhash=5Fweb=20key=20and=20withCookie=20session?=
+ =?UTF-8?q?=20switching?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .../Controllers/Auth/PasswordController.php   |  5 ---
+ tests/Feature/Round6AuthTest.php              | 38 ++++++++++---------
+ 2 files changed, 21 insertions(+), 22 deletions(-)
+
+diff --git a/app/Http/Controllers/Auth/PasswordController.php b/app/Http/Controllers/Auth/PasswordController.php
+index c0691ae..9bde3c9 100644
+--- a/app/Http/Controllers/Auth/PasswordController.php
++++ b/app/Http/Controllers/Auth/PasswordController.php
+@@ -31,11 +31,6 @@ public function update(Request $request): RedirectResponse
+         // xuất ở request tiếp theo; session hiện tại được giữ lại.
+         Auth::logoutOtherDevices($validated['password']);
+ 
+-        // Đồng bộ hash mật khẩu mới vào session hiện tại để
+-        // AuthenticateSession không đăng xuất luôn thiết bị này ở
+-        // request tiếp theo (round 6 fix1).
+-        $request->session()->put('password_hash', $request->user()->getAuthPassword());
+-
+         return back()->with('status', 'password-updated');
+     }
+ }
+diff --git a/tests/Feature/Round6AuthTest.php b/tests/Feature/Round6AuthTest.php
+index f99764a..67d0d73 100644
+--- a/tests/Feature/Round6AuthTest.php
++++ b/tests/Feature/Round6AuthTest.php
+@@ -4,6 +4,7 @@
+ use App\Models\User;
+ use Illuminate\Auth\Notifications\ResetPassword;
+ use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Hash;
+ use Illuminate\Support\Facades\Notification;
+ use Illuminate\Support\Facades\RateLimiter;
+ use Illuminate\Support\Str;
+@@ -13,13 +14,13 @@
+ 
+     $user = User::factory()->create();
+ 
+-    // Cookie session phải gửi đúng dạng đã mã hóa: withCookie không
+-    // đáng tin để đổi session giữa hai thiết bị trong cùng một test
+-    // (guard giữ user đã resolve + cookie jar của test client), nên
+-    // tự mã hóa session id rồi gửi bằng withUnencryptedCookie; kèm
+-    // forgetGuards để guard đọc lại user từ đúng session row của
+-    // thiết bị đó (round 6 fix2).
+-    $cookieFor = fn (string $id) => app('encrypter')->encrypt($id, false);
++    // Gửi session id bằng withCookie: test client tự mã hóa kèm
++    // CookieValuePrefix nên app giải mã được. Tự mã hóa rồi gửi bằng
++    // withUnencryptedCookie sẽ thiếu prefix, EncryptCookies bỏ cookie
++    // và request rơi về session cũ còn trong store — B không bao giờ
++    // dùng đúng session row của mình (round 6 fix2 sai ở đây).
++    // Kèm forgetGuards trước mỗi lần đổi thiết bị để guard đọc lại
++    // user từ đúng session row của thiết bị đó.
+     $sessionCookie = config('session.cookie');
+ 
+     // Thiết bị A đăng nhập trong test client.
+@@ -30,11 +31,10 @@
+     $deviceAId = session()->getId();
+ 
+     // Thiết bị B: giả lập một thiết bị khác đang đăng nhập bằng cách
+-    // chèn thẳng một session row (đăng nhập thật bằng withCookie +
+-    // session id tự tạo không ổn định: redirect sau login đi theo
+-    // url.intended nên đích redirect thay đổi theo session). Payload
+-    // phải đúng dạng session thật: key auth của guard + hash mật khẩu
+-    // lúc đăng nhập để AuthenticateSession kiểm tra được.
++    // chèn thẳng một session row đúng dạng session thật sau khi login:
++    // key auth của guard + password_hash_web là HMAC của hash mật khẩu
++    // lúc đăng nhập — đúng key mà AuthenticateSession đọc
++    // (xem SessionGuard::login).
+     $deviceBId = (string) Str::uuid();
+ 
+     DB::table('sessions')->insert([
+@@ -44,7 +44,7 @@
+         'user_agent' => 'test',
+         'payload' => base64_encode(serialize([
+             '_token' => Str::random(40),
+-            'password_hash' => $user->getAuthPassword(),
++            'password_hash_web' => auth('web')->hashPasswordForCookie($user->getAuthPassword()),
+             auth('web')->getName() => $user->id,
+         ])),
+         'last_activity' => now()->timestamp,
+@@ -52,29 +52,33 @@
+ 
+     // Thiết bị B đang dùng được trước khi đổi mật khẩu.
+     auth()->forgetGuards();
+-    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceBId))
++    $this->withCookie($sessionCookie, $deviceBId)
+         ->get('/profile')->assertOk();
+ 
+     // Thiết bị A đổi mật khẩu.
+     auth()->forgetGuards();
+-    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceAId))
++    $this->withCookie($sessionCookie, $deviceAId)
+         ->put('/password', [
+             'current_password' => 'Password1234',
+             'password' => 'NewPassword1234',
+             'password_confirmation' => 'NewPassword1234',
+         ])->assertSessionHasNoErrors();
+ 
++    // Mật khẩu phải thực sự đổi (khẳng định này để test không rỗng
++    // nếu PUT bị redirect mà không báo lỗi ở bag mặc định).
++    $this->assertTrue(Hash::check('NewPassword1234', $user->fresh()->password));
++
+     $this->assertAuthenticatedAs($user);
+ 
+     // Thiết bị A vẫn dùng được.
+     auth()->forgetGuards();
+-    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceAId))
++    $this->withCookie($sessionCookie, $deviceAId)
+         ->get('/profile')->assertOk();
+ 
+     // Thiết bị B bị đăng xuất: hash mật khẩu trong session cũ không
+     // còn khớp sau khi đổi mật khẩu (AuthenticateSession).
+     auth()->forgetGuards();
+-    $this->withUnencryptedCookie($sessionCookie, $cookieFor($deviceBId))
++    $this->withCookie($sessionCookie, $deviceBId)
+         ->get('/profile')->assertRedirect(route('login'));
+ });
+ 
+-- 
+2.43.0
+

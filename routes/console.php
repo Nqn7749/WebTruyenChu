@@ -15,10 +15,18 @@ Schedule::command('stories:delete-without-chapters')
 
 Schedule::call(function () {
     // Thông báo đã đọc quá 90 ngày thì xóa: bảng notifications không
-    // giới hạn sẽ phình vô hạn (P-M2). Thông báo chưa đọc không xóa
-    // để người dùng vẫn xem được.
+    // giới hạn sẽ phình vô hạn (P-M2).
     DB::table('notifications')
         ->whereNotNull('read_at')
         ->where('created_at', '<', now()->subDays(90))
         ->delete();
-})->dailyAt('03:00')->name('notifications:prune-read');
+
+    // Thông báo chưa đọc quá 365 ngày cũng xóa: giữ lại 1 năm để người
+    // dùng còn xem lại được, quá hạn đó thì coi như không còn giá trị
+    // (C5). Đây là quyết định sản phẩm: tài khoản không đăng nhập trong
+    // 1 năm sẽ mất các thông báo cũ chưa đọc.
+    DB::table('notifications')
+        ->whereNull('read_at')
+        ->where('created_at', '<', now()->subDays(365))
+        ->delete();
+})->dailyAt('03:00')->name('notifications:prune');

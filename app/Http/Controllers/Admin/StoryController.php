@@ -9,6 +9,7 @@ use App\Services\AdminActivityLogger;
 use App\Services\HomeCacheService;
 use App\Services\StoryDeletionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class StoryController extends Controller
@@ -31,9 +32,19 @@ class StoryController extends Controller
      */
     public function togglePublish(Request $request, Story $story, AdminActivityLogger $logger)
     {
-        $published = ! $story->status_publish;
+        // Khóa dòng truyện rồi mới đọc/sửa trong một transaction: hai lần
+        // bấm đồng thời không còn đọc cùng status_publish cũ rồi cho kết
+        // quả cuối không xác định (F6/W5). Dispatch job + ghi log nằm
+        // sau khi transaction commit thành công.
+        $published = DB::transaction(function () use ($story) {
+            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
 
-        $story->forceFill(['status_publish' => $published])->save();
+            $published = ! $lockedStory->status_publish;
+
+            $lockedStory->forceFill(['status_publish' => $published])->save();
+
+            return $published;
+        });
 
         if ($published) {
             // Các chương đã công khai trong lúc truyện bị gỡ chưa từng gửi
@@ -88,9 +99,17 @@ class StoryController extends Controller
             'is_recommended' => 'Đề cử',
         ];
 
-        $enabled = ! $story->{$flag};
+        // Như togglePublish: khóa dòng rồi mới đọc/sửa trong transaction
+        // để hai lần bấm đồng thời không đọc cùng giá trị cũ (F6/W5).
+        $enabled = DB::transaction(function () use ($story, $flag) {
+            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
 
-        $story->forceFill([$flag => $enabled])->save();
+            $enabled = ! $lockedStory->{$flag};
+
+            $lockedStory->forceFill([$flag => $enabled])->save();
+
+            return $enabled;
+        });
 
         app(HomeCacheService::class)->invalidate();
 
@@ -120,5 +139,32 @@ class StoryController extends Controller
         $logger->record($request, 'story.deleted', $story, 'Xóa truyện "'.$story->title.'": '.$validated['deletion_reason']);
 
         return redirect()->route('admin.stories.index')->with('success', 'Đã xóa truyện và lưu lý do xóa.');
+    }
+
+    /**
+     * Xóa vĩnh viễn truyện đã xóa mềm (F11): trước đây không có
+     * controller nào gọi StoryDeletionService::forceDelete() nên việc
+     * dọn notification ở đó là dead code. Route model binding loại
+     * truyện đã xóa mềm nên phải tra bằng withTrashed() thủ công.
+     * Chưa có UI: route đã có sẵn để nối nút xóa vĩnh viễn sau.
+     */
+    public function forceDestroy(Request $request, int $story, StoryDeletionService $deletion, AdminActivityLogger $logger)
+    {
+        $validated = $request->validate([
+            'deletion_reason' => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'deletion_reason.required' => 'Vui lòng nhập lý do xóa truyện.',
+            'deletion_reason.min' => 'Lý do xóa phải có ít nhất 10 ký tự.',
+            'deletion_reason.max' => 'Lý do xóa không được vượt quá 1000 ký tự.',
+        ]);
+
+        $trashedStory = Story::query()->withTrashed()->findOrFail($story);
+
+        $deleted = $deletion->forceDelete($trashedStory, $validated['deletion_reason'], $request->user()->id);
+        abort_unless($deleted, 404);
+
+        $logger->record($request, 'story.force-deleted', $trashedStory, 'Xóa vĩnh viễn truyện "'.$trashedStory->title.'": '.$validated['deletion_reason']);
+
+        return redirect()->route('admin.stories.index')->with('success', 'Đã xóa vĩnh viễn truyện.');
     }
 }

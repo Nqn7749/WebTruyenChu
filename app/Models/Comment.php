@@ -65,7 +65,8 @@ class Comment extends Model
 
     /**
      * Chỉ các comment đang hiển thị trên giao diện: chưa ẩn, reply của
-     * comment cha chưa ẩn/chưa xóa, và không thuộc chương đã xóa mềm.
+     * comment cha chưa ẩn/chưa xóa, và không thuộc chương đã xóa mềm
+     * hoặc đã gỡ công khai (trang chương 404 khi status = false).
      * Mọi chỗ đếm comment (StoryStatsService::refreshStories,
      * refreshChapterComments) và mọi chỗ tăng/giảm tay
      * (StoryStatsService::countedCommentAmount) phải dùng chung định
@@ -86,9 +87,11 @@ class Comment extends Model
             ->where(function (Builder $query) {
                 $query->whereNull('chapter_id')
                     // chapter() có withTrashed nên phải loại chương đã
-                    // xóa mềm tay ở đây.
+                    // xóa mềm tay ở đây, và loại luôn chương đã gỡ
+                    // công khai (F10).
                     ->orWhereHas('chapter', fn (Builder $chapter) => $chapter
-                        ->whereNull('deleted_at'));
+                        ->whereNull('deleted_at')
+                        ->where('status', true));
             });
     }
 }
