@@ -28,6 +28,27 @@ test('new users can register without email verification', function () {
     $response->assertRedirect(route('home', absolute: false));
 });
 
+test('successful registration regenerates the session identifier', function () {
+    $this->withSession(['pre_register_marker' => 'present']);
+
+    $originalSessionId = session()->getId();
+
+    $response = $this->post('/register', [
+        'name' => 'Test User',
+        'username' => 'test-user',
+        'email' => 'test@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ]);
+
+    $user = User::where('email', 'test@example.com')->firstOrFail();
+
+    $response->assertRedirect(route('home', absolute: false));
+    expect(session()->getId())->not->toBe($originalSessionId);
+    expect(session()->get('pre_register_marker'))->toBe('present');
+    $this->assertAuthenticatedAs($user);
+});
+
 test('users without verified email can access authenticated pages but not the writer area', function () {
     $user = User::factory()->unverified()->create();
 

@@ -113,7 +113,19 @@ class ChapterController extends Controller
         DB::transaction(function () use ($chapter, $story, $stats) {
             $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
             $lockedChapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
+
+            // Comment của chương này không còn xem được ở đâu sau khi
+            // xóa mềm chương nên phải trừ khỏi comment_count của truyện
+            // (C-M2); đếm lại qua refreshStories cũng loại chúng, đây
+            // là lưới an toàn.
+            $visibleComments = $lockedChapter->comments()->visible()->count();
+
             $lockedChapter->delete();
+
+            if ($visibleComments > 0) {
+                StoryStatsService::decrementCommentCount('stories', $lockedStory->id, $visibleComments);
+            }
+
             $stats->refreshChapterStats($lockedStory);
         });
 

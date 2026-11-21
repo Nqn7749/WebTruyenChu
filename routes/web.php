@@ -121,7 +121,7 @@ Route::middleware('auth')->group(function () {
         ->name('ratings.store');
 
     Route::post('/truyen/{story:slug}/binh-luan', [CommentController::class, 'store'])
-        ->middleware('throttle:20,1')
+        ->middleware('throttle:10,1')
         ->name('comments.store');
     Route::delete('/binh-luan/{comment}', [CommentController::class, 'destroy'])
         ->middleware('throttle:20,1')
@@ -137,6 +137,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->middleware('throttle:30,1')->name('notifications.mark-read');
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->middleware('throttle:30,1')->name('notifications.mark-all-read');
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->middleware('throttle:30,1')->name('notifications.destroy');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');

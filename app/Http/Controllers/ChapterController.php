@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chapter;
+use App\Models\Comment;
 use App\Models\ReadingHistory;
 use App\Models\Story;
 use Illuminate\Http\JsonResponse;
@@ -98,19 +99,26 @@ class ChapterController extends Controller
             ->where('chapter_id', $chapter->id)
             ->whereNull('parent_id')
             ->where('is_hidden', false)
-            ->with([
-                'user',
-                'chapter',
-                'replies' => fn ($q) => $q
-                    ->where('is_hidden', false)
-                    // Giới hạn reply mỗi comment: xem NM-3 ở StoryController.
-                    ->take(20)
-                    ->with('user'),
-            ])
+            ->with(['user', 'chapter'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
+
+        // Reply chỉ load tối đa 20 cho MỖI comment cha (xem P-M8 ở
+        // StoryController@show).
+        $comments->getCollection()->each(function (Comment $comment) {
+            $comment->setRelation(
+                'replies',
+                $comment->replies()
+                    ->where('is_hidden', false)
+                    ->with('user')
+                    ->orderBy('created_at')
+                    ->orderBy('id')
+                    ->take(20)
+                    ->get()
+            );
+        });
 
         return view('chapters.show', compact(
             'story',

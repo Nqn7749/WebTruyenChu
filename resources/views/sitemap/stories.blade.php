@@ -3,7 +3,7 @@
     @foreach ($stories as $story)
         <url>
             <loc>{{ route('stories.show', $story) }}</loc>
-            <lastmod>{{ $story->updated_at->toAtomString() }}</lastmod>
+            <lastmod>{{ $story->sitemapLastmod()->toAtomString() }}</lastmod>
             <changefreq>daily</changefreq>
             <priority>0.8</priority>
         </url>

@@ -32,28 +32,35 @@ class CommentController extends Controller
             $wasHidden = (bool) $lockedComment->is_hidden;
             $isHidden = ! $wasHidden;
 
+            // Số đếm chỉ đổi đúng phần đóng góp hiển thị của comment này
+            // trước và sau khi đổi trạng thái (xem Admin
+            // CommentController@toggleHidden, C-L2).
+            $amountBefore = StoryStatsService::countedCommentAmount($lockedComment);
+
             DB::table('comments')
                 ->where('id', $lockedComment->id)
                 ->update(['is_hidden' => $isHidden]);
 
-            // Ẩn/hiện comment cha cũng ẩn/hiện các reply của nó trên giao
-            // diện nên số đếm phải đổi theo cả reply (N-L3), và không
-            // để âm khi số đếm đã lệch trước đó (NM-4).
-            $amount = 1 + $lockedComment->replies()->where('is_hidden', false)->count();
+            // Đồng bộ model trong bộ nhớ để tính số đếm sau khi đổi.
+            $lockedComment->is_hidden = $isHidden;
+            $amountAfter = StoryStatsService::countedCommentAmount($lockedComment);
+            $delta = $amountAfter - $amountBefore;
 
-            if ($lockedComment->story) {
-                if ($isHidden) {
-                    StoryStatsService::decrementCommentCount('stories', $lockedComment->story_id, $amount);
-                } else {
-                    DB::table('stories')->where('id', $lockedComment->story_id)->increment('comment_count', $amount);
+            if ($delta !== 0) {
+                if ($lockedComment->story) {
+                    if ($delta < 0) {
+                        StoryStatsService::decrementCommentCount('stories', $lockedComment->story_id, -$delta);
+                    } else {
+                        DB::table('stories')->where('id', $lockedComment->story_id)->increment('comment_count', $delta);
+                    }
                 }
-            }
 
-            if ($lockedComment->chapter_id && $lockedComment->chapter) {
-                if ($isHidden) {
-                    StoryStatsService::decrementCommentCount('chapters', $lockedComment->chapter_id, $amount);
-                } else {
-                    DB::table('chapters')->where('id', $lockedComment->chapter_id)->increment('comment_count', $amount);
+                if ($lockedComment->chapter_id && $lockedComment->chapter) {
+                    if ($delta < 0) {
+                        StoryStatsService::decrementCommentCount('chapters', $lockedComment->chapter_id, -$delta);
+                    } else {
+                        DB::table('chapters')->where('id', $lockedComment->chapter_id)->increment('comment_count', $delta);
+                    }
                 }
             }
         });

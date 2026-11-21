@@ -29,7 +29,12 @@ class SitemapController extends Controller
             return view('sitemap.index', [
                 'totalStoryPages' => $totalStoryPages,
                 'totalChapterPages' => $totalChapterPages,
-                'lastStoryUpdate' => Story::published()->max('updated_at'),
+                // lastmod của truyện là lần cập nhật nội dung gần nhất:
+                // hoặc sửa truyện, hoặc đăng chương mới (S-L1).
+                'lastStoryUpdate' => max(
+                    Story::published()->max('updated_at'),
+                    Story::published()->max('last_chapter_at')
+                ),
                 'lastChapterUpdate' => Chapter::query()
                     ->where('status', true)
                     ->whereHas('story', fn ($query) => $query->published())
@@ -46,11 +51,17 @@ class SitemapController extends Controller
         abort_if($page < 1, 404);
 
         $xml = Cache::remember($this->sitemapCache->key("stories:{$page}"), now()->addHour(), function () use ($page) {
+            // Chặn page quá lớn trước khi chạy skip(): OFFSET khổng lồ
+            // bắt DB quét cả bảng (P-M4). COUNT rẻ hơn nhiều và trang
+            // 404 không được cache nên lần sau vẫn kiểm tra lại.
+            $totalPages = (int) ceil(Story::published()->count() / self::STORIES_PER_PAGE);
+            abort_if($page > max($totalPages, 1), 404);
+
             $stories = Story::published()
                 ->orderBy('id')
                 ->skip(($page - 1) * self::STORIES_PER_PAGE)
                 ->take(self::STORIES_PER_PAGE)
-                ->get(['slug', 'updated_at']);
+                ->get(['slug', 'updated_at', 'last_chapter_at']);
 
             abort_if($stories->isEmpty(), 404);
 
@@ -65,6 +76,13 @@ class SitemapController extends Controller
         abort_if($page < 1, 404);
 
         $xml = Cache::remember($this->sitemapCache->key("chapters:{$page}"), now()->addHour(), function () use ($page) {
+            // Chặn page quá lớn trước khi chạy skip() (xem stories(), P-M4).
+            $totalPages = (int) ceil(Chapter::query()
+                ->where('status', true)
+                ->whereHas('story', fn ($query) => $query->published())
+                ->count() / self::STORIES_PER_PAGE);
+            abort_if($page > max($totalPages, 1), 404);
+
             $chapters = Chapter::query()
                 ->where('status', true)
                 ->whereHas('story', fn ($query) => $query->published())

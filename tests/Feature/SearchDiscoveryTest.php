@@ -2,6 +2,24 @@
 
 use App\Models\Category;
 use App\Models\Story;
+use Illuminate\Support\Facades\DB;
+
+test('repeated identical searches are served from cache', function () {
+    Story::factory()->create(['title' => 'Kiếm hiệp giang hồ', 'status_publish' => true]);
+
+    $this->get(route('search', ['q' => 'kiem']))->assertOk();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    $this->get(route('search', ['q' => 'kiem']))->assertOk();
+
+    $storyQueries = collect(DB::getQueryLog())
+        ->filter(fn ($entry) => str_contains($entry['query'], 'stories'))
+        ->all();
+
+    expect($storyQueries)->toBeEmpty();
+});
 
 test('search finds published stories by title author category and tag', function () {
     $category = Category::factory()->create(['name' => 'Kiếm hiệp']);

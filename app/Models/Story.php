@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class Story extends Model
 {
@@ -174,8 +175,29 @@ class Story extends Model
 
     public function incrementViews(): void
     {
+        // Tăng view không phải cập nhật nội dung: đóng băng updated_at
+        // để sitemap không tưởng truyện mới cập nhật (S-M1). Đặt ở đây
+        // thay vì từng nơi gọi để mọi đường tăng view đều được hưởng.
+        $this->timestamps = false;
         $this->increment('views', 1, ['last_view_at' => now()]);
+        $this->timestamps = true;
+    }
 
+    /**
+     * Thời điểm cập nhật nội dung gần nhất của truyện cho sitemap: hoặc
+     * sửa truyện, hoặc đăng chương mới (S-L1). Chương mới không đổi
+     * updated_at của truyện (refreshChapterStats đóng băng timestamps)
+     * nên chỉ dùng updated_at sẽ làm lastmod đứng yên.
+     */
+    public function sitemapLastmod(): Carbon
+    {
+        $lastmod = $this->updated_at;
+
+        if ($this->last_chapter_at && $this->last_chapter_at->greaterThan($lastmod)) {
+            $lastmod = $this->last_chapter_at;
+        }
+
+        return $lastmod;
     }
 
     public function isFavoritedBy(?User $user): bool

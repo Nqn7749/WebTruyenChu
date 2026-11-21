@@ -44,21 +44,28 @@ class StoryController extends Controller
             ->whereNull('chapter_id')
             ->whereNull('parent_id')
             ->where('is_hidden', false)
-            ->with([
-                'user',
-                'chapter',
-                'replies' => fn ($q) => $q
-                    ->where('is_hidden', false)
-                    // Giới hạn reply mỗi comment: comment gốc chỉ phân trang
-                    // 10/trang nhưng reply load toàn bộ, một comment viral
-                    // vài nghìn reply sẽ làm nặng DB và bộ nhớ (NM-3).
-                    ->take(20)
-                    ->with('user'),
-            ])
+            ->with(['user', 'chapter'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(10, ['*'], 'comment_page')
             ->withQueryString();
+
+        // Reply chỉ load tối đa 20 cho MỖI comment cha: take(20) trong
+        // with() áp cho toàn bộ query eager-load nên comment cha đầu
+        // tiên có 20+ reply sẽ chiếm hết quota, các cha sau hiện 0 reply
+        // (P-M8). Tối đa 10 query nhỏ (mỗi cha một query) cho một trang.
+        $comments->getCollection()->each(function (Comment $comment) {
+            $comment->setRelation(
+                'replies',
+                $comment->replies()
+                    ->where('is_hidden', false)
+                    ->with('user')
+                    ->orderBy('created_at')
+                    ->orderBy('id')
+                    ->take(20)
+                    ->get()
+            );
+        });
 
         $userRating = Auth::check()
             ? $story->ratings()
