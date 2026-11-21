@@ -25,10 +25,16 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // App chạy sau load balancer (xem docs/production-readiness.md):
-        // tin X-Forwarded-For để request()->ip() ra IP thật của visitor
-        // (đếm view và throttle login đều dựa vào IP).
-        $middleware->trustProxies(at: '*');
+        // KHÔNG tin proxy nào theo mặc định: site chưa deploy, chưa biết
+        // production có load balancer/proxy hay không. trustProxies('*')
+        // tin X-Forwarded-For từ bất cứ ai nên ai cũng giả được IP, qua
+        // mặt throttle login/tìm kiếm và thổi view (NL-9). Khi deploy,
+        // nếu sau load balancer/proxy thì thêm lại với đúng IP của nó,
+        // vd trustProxies(at: ['123.45.67.89']); nếu chạy trực tiếp
+        // (Nginx -> PHP-FPM, không proxy) thì để nguyên như này.
+        // Lưu ý: nếu deploy sau proxy mà quên thêm lại, request()->ip()
+        // sẽ ra IP của proxy cho mọi user nên throttle login/view đếm
+        // chung — test đăng nhập sẽ thấy 429 ngay, kiểm tra lúc deploy.
 
         //
         $middleware->alias([
