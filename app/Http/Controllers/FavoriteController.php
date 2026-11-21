@@ -22,9 +22,7 @@ class FavoriteController extends Controller
 
         DB::transaction(function () use ($story, $userId, &$flash) {
 
-            $lockedStory = Story::whereKey($story->id)
-                ->lockForUpdate()
-                ->first();
+            $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
 
             abort_unless($lockedStory->status_publish, 404);
 
@@ -97,18 +95,26 @@ class FavoriteController extends Controller
         // Tác giả không tự yêu thích truyện của mình (xem toggle()).
         abort_if($story->user_id === Auth::id(), 403);
 
-        $favorite = Auth::user()
-            ->favorites()
-            ->where('story_id', $story->id)
-            ->firstOrFail();
+        // Khóa dòng favorite rồi mới đọc/ghi trong transaction: hai lần
+        // bấm đồng thời không còn cùng đọc một giá trị rồi cùng ghi
+        // ngược ý user (F12/W2).
+        $notify = DB::transaction(function () use ($story) {
+            $favorite = Auth::user()
+                ->favorites()
+                ->where('story_id', $story->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $favorite->update([
-            'notify_new_chapter' => ! $favorite->notify_new_chapter,
-        ]);
+            $favorite->update([
+                'notify_new_chapter' => ! $favorite->notify_new_chapter,
+            ]);
+
+            return (bool) $favorite->notify_new_chapter;
+        });
 
         return response()->json([
             'success' => true,
-            'notify_new_chapter' => (bool) $favorite->notify_new_chapter,
+            'notify_new_chapter' => $notify,
 
         ]);
     }

@@ -3,7 +3,7 @@
 use App\Models\Story;
 use Illuminate\Support\Facades\DB;
 
-test('mysql full-text scope searches indexed story columns and exposes its index to the query planner', function () {
+test('mysql full-text index matches indexed story columns and exposes its index to the query planner', function () {
     if (DB::connection()->getDriverName() !== 'mysql') {
         $this->markTestSkipped('MySQL-specific FULLTEXT verification.');
     }
@@ -20,7 +20,9 @@ test('mysql full-text scope searches indexed story columns and exposes its index
     $connection->commit();
     $connection->beginTransaction();
 
-    $results = Story::search('Ember')->pluck('id');
+    // scopeSearch đã bị xóa (V6, giữ semantics OR cũ): gọi thẳng
+    // whereFullText natural-language mode để kiểm chứng index.
+    $results = Story::query()->whereFullText(['title', 'description'], 'Ember')->pluck('id');
 
     expect($results)->toContain($match->id);
 

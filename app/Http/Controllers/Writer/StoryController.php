@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateStoryRequest;
 use App\Models\Category;
 use App\Models\Story;
 use App\Models\Tag;
+use App\Services\HomeCacheService;
 use App\Services\StoryDeletionService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,11 @@ class StoryController extends Controller
                         ])->save();
                         $story->categories()->sync($categoryIds);
                         $story->tags()->sync($tagIds);
+
+                        // sync() pivot không kích hoạt observer của Story
+                        // nên cache trang chủ không tự làm mới: đổi chỉ
+                        // thể loại/tag cũng phải invalidate tay (W1).
+                        app(HomeCacheService::class)->invalidate();
                     });
 
                     break;
@@ -85,7 +91,9 @@ class StoryController extends Controller
                     }
 
                     // Slug vừa bị người khác chiếm trước, tạo slug mới rồi thử lại.
-                    $data['slug'] = $this->uniqueSlug($data['title']).'-'.Str::lower(Str::random(6));
+                    // Hậu tố ngẫu nhiên dài 7 ký tự nên cắt slug còn tối
+                    // đa 248 ký tự để tổng không vượt 255 (V3).
+                    $data['slug'] = mb_substr($this->uniqueSlug($data['title']), 0, 248).'-'.Str::lower(Str::random(6));
                 }
             } while ($attempts < 3);
         } catch (Throwable $exception) {
@@ -141,6 +149,10 @@ class StoryController extends Controller
                 $lockedStory->update($data);
                 $lockedStory->categories()->sync($categoryIds);
                 $lockedStory->tags()->sync($tagIds);
+
+                // sync() pivot không kích hoạt observer của Story nên
+                // cache trang chủ không tự làm mới (xem store(), W1).
+                app(HomeCacheService::class)->invalidate();
             });
         } catch (Throwable $exception) {
             if ($newCover) {
@@ -178,13 +190,17 @@ class StoryController extends Controller
 
     private function uniqueSlug(string $title, ?int $ignoreId = null): string
     {
-        $base = Str::slug($title) ?: 'truyen';
+        // Cột slug là varchar(255): cắt base còn tối đa 250 ký tự rồi
+        // mới thêm hậu tố trùng, để slug cuối cùng không bao giờ vượt
+        // 255 ký tự rồi lỗi 22001 (V3).
+        $base = mb_substr(Str::slug($title) ?: 'truyen', 0, 250);
         $slug = $base;
         $suffix = 1;
 
         while (Story::withTrashed()->where('slug', $slug)
             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))->exists()) {
-            $slug = $base.'-'.$suffix++;
+            $suffixText = '-'.$suffix++;
+            $slug = mb_substr($base, 0, 255 - mb_strlen($suffixText)).$suffixText;
         }
 
         return $slug;

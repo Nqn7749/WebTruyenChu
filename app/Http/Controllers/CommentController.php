@@ -10,6 +10,7 @@ use App\Services\StoryStatsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CommentController extends Controller
@@ -79,54 +80,95 @@ class CommentController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Chống spam: cùng một truyện, một user không bình luận 2 lần trong
-        | 30 giây và không gửi 2 lần cùng một nội dung liên tiếp (P-M6).
+        | Chống spam: một user không bình luận 2 lần trong 30 giây (tính
+        | theo user, không phân biệt truyện để đổi truyện khác không còn
+        | bypass được — C2) và không gửi trùng nội dung trong 10 phút
+        | gần nhất (P-M6). Khóa theo user trong suốt quá trình
+        | kiểm tra + tạo bình luận để hai request đăng cùng lúc không
+        | cùng đọc được dữ liệu cũ rồi cùng insert (F4) — khóa theo
+        | user (không theo truyện) vì cooldown 30 giây đã tính toàn
+        | cục theo user (C2).
         |--------------------------------------------------------------------------
         */
 
-        $latest = Comment::query()
-            ->where('user_id', Auth::id())
-            ->where('story_id', $story->id)
-            ->latest('id')
-            ->first();
+        $lock = Cache::lock('comment-post-'.Auth::id(), 10);
 
-        if ($latest) {
-            abort_if($latest->created_at->gt(now()->subSeconds(30)), 429, 'Bạn đang bình luận quá nhanh, thử lại sau ít giây.');
+        abort_unless($lock->acquire(), 429, 'Bạn đang gửi bình luận, thử lại sau ít giây.');
 
-            abort_if($latest->content === $data['content'], 422, 'Bạn vừa gửi bình luận giống hệt nội dung này.');
-        }
+        try {
+            $latest = Comment::query()
+                ->where('user_id', Auth::id())
+                ->latest('id')
+                ->first();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create comment
-        |--------------------------------------------------------------------------
-        */
+            abort_if($latest && $latest->created_at->gt(now()->subSeconds(30)), 429, 'Bạn đang bình luận quá nhanh, thử lại sau ít giây.');
 
-        $comment = DB::transaction(function () use ($data, $story) {
+            // So trùng sau khi chuẩn hóa (trim, gộp khoảng trắng, hạ
+            // chữ hoa): sửa khoảng trắng/hoa-thường không còn qua mặt
+            // được, và so với mọi bình luận trong 10 phút gần nhất chứ
+            // không chỉ bình luận mới nhất (C1).
+            $normalized = $this->normalizeCommentContent($data['content']);
 
-            // user_id không nằm trong $fillable của Comment nên không
-            // đưa vào create(): gán trực tiếp rồi save một lần. Trước
-            // đây create() insert trước khi user_id được gán nên cột
-            // user_id NOT NULL bị lỗi ngay ở câu INSERT (fix1).
-            $comment = new Comment($data);
-            $comment->user_id = Auth::id();
-            $comment->save();
+            $recent = Comment::query()
+                ->where('user_id', Auth::id())
+                ->where('story_id', $story->id)
+                ->where('created_at', '>=', now()->subMinutes(10))
+                ->latest('id')
+                ->take(20)
+                ->get(['content']);
 
-            // Tăng số comment của story/chương. Bình luận mới không phải
-            // cập nhật nội dung nên đóng băng updated_at để sitemap
-            // không tưởng truyện mới cập nhật (S-M1).
-            $story->timestamps = false;
-            $story->increment('comment_count');
-            $story->timestamps = true;
-
-            if ($comment->chapter_id) {
-                $comment->chapter->timestamps = false;
-                $comment->chapter->increment('comment_count');
-                $comment->chapter->timestamps = true;
+            foreach ($recent as $comment) {
+                abort_if($this->normalizeCommentContent($comment->content) === $normalized, 422, 'Bạn vừa gửi bình luận giống hệt nội dung này.');
             }
 
-            return $comment;
-        });
+            /*
+            |--------------------------------------------------------------------------
+            | Create comment
+            |--------------------------------------------------------------------------
+            */
+
+            $comment = DB::transaction(function () use ($data, $story) {
+
+                // Chương được validate TRƯỚC transaction, nhưng có thể
+                // bị xóa mềm ngay sau đó (F5): đọc lại trong transaction,
+                // khóa dòng, kiểm tra lại trạng thái trước khi insert.
+                if (! empty($data['chapter_id'])) {
+                    $chapter = Chapter::query()
+                        ->lockForUpdate()
+                        ->findOrFail($data['chapter_id']);
+
+                    abort_unless(
+                        $chapter->story_id === $story->id && $chapter->status,
+                        404
+                    );
+                }
+
+                // user_id không nằm trong $fillable của Comment nên không
+                // đưa vào create(): gán trực tiếp rồi save một lần. Trước
+                // đây create() insert trước khi user_id được gán nên cột
+                // user_id NOT NULL bị lỗi ngay ở câu INSERT (fix1).
+                $comment = new Comment($data);
+                $comment->user_id = Auth::id();
+                $comment->save();
+
+                // Tăng số comment của story/chương. Bình luận mới không phải
+                // cập nhật nội dung nên đóng băng updated_at để sitemap
+                // không tưởng truyện mới cập nhật (S-M1).
+                $story->timestamps = false;
+                $story->increment('comment_count');
+                $story->timestamps = true;
+
+                if ($comment->chapter_id) {
+                    $comment->chapter->timestamps = false;
+                    $comment->chapter->increment('comment_count');
+                    $comment->chapter->timestamps = true;
+                }
+
+                return $comment;
+            });
+        } finally {
+            $lock->release();
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -150,6 +192,17 @@ class CommentController extends Controller
             'message' => 'Đã gửi bình luận.',
             'html' => view('components.comment', ['comment' => $comment])->render(),
         ]);
+    }
+
+    /**
+     * Chuẩn hóa nội dung bình luận để so trùng: bỏ khoảng trắng đầu/
+     * cuối, gộp khoảng trắng thừa thành một, hạ chữ hoa (C1).
+     */
+    private function normalizeCommentContent(string $content): string
+    {
+        $collapsed = trim((string) preg_replace('/\s+/u', ' ', $content));
+
+        return mb_strtolower($collapsed);
     }
 
     /**

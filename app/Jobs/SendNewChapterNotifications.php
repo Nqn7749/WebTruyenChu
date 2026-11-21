@@ -34,21 +34,25 @@ class SendNewChapterNotifications implements ShouldQueue
      */
     public int $timeout = 900;
 
+    /**
+     * @param  int  $waitSeconds  thời gian tối đa chờ lock của chương
+     */
     public function __construct(
-        public int $chapterId
+        public int $chapterId,
+        public int $waitSeconds = 60
     ) {}
 
     public function handle(): void
     {
-        if (! self::notifyChapter($this->chapterId)) {
+        if (! self::notifyChapter($this->chapterId, $this->waitSeconds)) {
             // Không lấy được lock trong thời gian chờ: một job khác đang
-            // gửi cho chương này. Đưa job trở lại hàng đợi sau 60 giây
-            // mà không tốn lượt tries (thay vì fail rồi retry) — thông
-            // báo không bị mất (J-M3). Khi chạy trực tiếp (test, console)
-            // không có job để release nên chỉ bỏ qua.
-            if ($this->job !== null) {
-                $this->release(60);
-            }
+            // gửi cho chương này. Dispatch job mới chạy sau 60 giây thay
+            // vì release(): release() vẫn tốn một lượt tries nên job kẹt
+            // lock có thể cạn tries rồi rơi vào failed_jobs, mất thông
+            // báo (C1). Job mới có tries mới; vòng lặp hữu hạn vì lock
+            // tối đa 1200s rồi hết hạn, và chương/truyện không còn công
+            // khai thì notifyChapter trả true nên không dispatch nữa.
+            self::dispatch($this->chapterId, $this->waitSeconds)->delay(now()->addSeconds(60));
         }
     }
 

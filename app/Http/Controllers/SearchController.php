@@ -18,6 +18,13 @@ class SearchController extends Controller
 
     public function index(Request $request)
     {
+        // Query param q dạng array (?q[]=x) làm validate rớt rồi
+        // redirect 302 về trang trước, refresh lại sẽ lặp (V1): chuẩn
+        // hóa về null ngay từ đầu, coi array như không có từ khóa.
+        if (is_array($request->query('q'))) {
+            $request->merge(['q' => null]);
+        }
+
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:100'],
@@ -111,13 +118,20 @@ class SearchController extends Controller
         // kiếm đắt (FULLTEXT OR LIKE + whereHas) mà bot hoặc người dùng
         // bấm lại liên tục sẽ quét bảng nhiều lần (P-M1). Truyện mới
         // đăng có thể chậm xuất hiện trong tìm kiếm tối đa 60 giây.
+        // Normalize page theo đúng luật của Paginator::currentPageResolver
+        // (xem AppServiceProvider) rồi mới đưa vào key cache, để
+        // ?page=abc, ?page=1, ?page=1001 không tạo nhiều entry cache
+        // trùng nhau cho cùng một kết quả (C7).
+        $rawPage = $request->query('page', 1);
+        $page = is_numeric($rawPage) ? min(1000, max(1, (int) $rawPage)) : 1;
+
         $cacheKey = 'search:'.md5(json_encode([
             'q' => $keyword,
             'category' => $categorySlug,
             'status' => $status,
             'sort' => $sort,
             'period' => $period,
-            'page' => $request->query('page', 1),
+            'page' => $page,
         ]));
 
         $stories = Cache::remember($cacheKey, now()->addSeconds(60), function () use ($query) {

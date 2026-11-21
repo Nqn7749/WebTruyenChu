@@ -122,6 +122,29 @@ class ChapterController extends Controller
             ->with('success', 'Xóa chương thành công.');
     }
 
+    /**
+     * Xóa vĩnh viễn chương đã xóa mềm (F11): ChapterObserver::forceDeleted
+     * dọn notification của chương. Route model binding loại chương đã
+     * xóa mềm nên phải tra bằng withTrashed() thủ công. Chưa có UI: route
+     * đã có sẵn để nối nút xóa vĩnh viễn sau.
+     */
+    public function forceDestroy(int $story, int $chapter, StoryStatsService $stats)
+    {
+        $ownerStory = Story::query()->withTrashed()->findOrFail($story);
+        $trashedChapter = Chapter::query()->withTrashed()->findOrFail($chapter);
+        abort_unless($trashedChapter->story_id === $ownerStory->id, 404);
+
+        DB::transaction(function () use ($trashedChapter, $ownerStory, $stats) {
+            $chapter = Chapter::query()->withTrashed()->lockForUpdate()->findOrFail($trashedChapter->id);
+            $chapter->forceDelete();
+            $stats->refreshChapterStats($ownerStory);
+        });
+
+        return redirect()
+            ->route('admin.stories.chapters.index', $ownerStory)
+            ->with('success', 'Đã xóa vĩnh viễn chương.');
+    }
+
     private function assertChapterNumberAvailable(Story $story, int $number, ?int $ignoreChapterId = null): void
     {
         $exists = $story->chapters()
@@ -153,7 +176,11 @@ class ChapterController extends Controller
             $slug = 'chuong-'.$slug;
         }
 
-        $original = $slug;
+        // Cột slug là varchar(255): cắt base còn tối đa 250 ký tự rồi
+        // mới thêm hậu tố trùng, để slug cuối cùng không bao giờ vượt
+        // 255 ký tự rồi lỗi 22001 (V3).
+        $original = mb_substr($slug, 0, 250);
+        $slug = $original;
         $i = 1;
 
         while (
@@ -163,8 +190,9 @@ class ChapterController extends Controller
                 ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
                 ->exists()
         ) {
-            $slug = "{$original}-{$i}";
+            $suffixText = "-{$i}";
             $i++;
+            $slug = mb_substr($original, 0, 255 - mb_strlen($suffixText)).$suffixText;
         }
 
         return $slug;

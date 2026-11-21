@@ -35,8 +35,8 @@ test('NM-2: registration rejects a name longer than the 100 character column', f
         'name' => str_repeat('A', 101),
         'username' => 'nguoidung',
         'email' => 'nguoidung@example.com',
-        'password' => 'password123',
-        'password_confirmation' => 'password123',
+        'password' => 'Password1234',
+        'password_confirmation' => 'Password1234',
     ])->assertSessionHasErrors('name');
 
     expect(User::query()->where('email', 'nguoidung@example.com')->exists())->toBeFalse();

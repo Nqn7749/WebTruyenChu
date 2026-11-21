@@ -9,6 +9,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
@@ -35,7 +36,7 @@ class RegisteredUserController extends Controller
         $request->validate([
             // Cột users.name là varchar(100): max:255 cho qua rồi MySQL
             // báo 500 (NM-2).
-            'name' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
             'username' => [
                 'required',
                 'string',
@@ -47,17 +48,26 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $userRoleId = Role::where('slug', 'user')->value('id');
+        // Tạo user và gán role trong cùng một transaction: trước đây
+        // User::create rồi forceFill()->save() là 2 lần ghi rời, nếu
+        // lần save thứ 2 lỗi thì user tồn tại mà không có role (R2).
+        // Role 'user' chưa tồn tại (chưa chạy seeder) thì tạo luôn
+        // thay vì tạo user với role_id null âm thầm (R1).
+        $user = DB::transaction(function () use ($request) {
+            $role = Role::firstOrCreate(['slug' => 'user'], ['name' => 'User']);
 
-        $user = User::create([
-            'username' => $request->username,
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+            $user = User::create([
+                'username' => $request->username,
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
 
-        // role_id không nằm trong $fillable của User nên gán riêng ở đây.
-        $user->forceFill(['role_id' => $userRoleId])->save();
+            // role_id không nằm trong $fillable của User nên gán riêng ở đây.
+            $user->forceFill(['role_id' => $role->id])->save();
+
+            return $user;
+        });
 
         event(new Registered($user));
 

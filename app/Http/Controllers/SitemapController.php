@@ -114,7 +114,15 @@ class SitemapController extends Controller
     public function staticPages(): Response
     {
         $xml = Cache::remember($this->sitemapCache->key('static'), now()->addHour(), function () {
-            return view('sitemap.static')->render();
+            // Trang tĩnh (home, tìm kiếm, danh sách truyện) thay đổi khi
+            // có truyện mới/cập nhật nên lastmod là lần cập nhật truyện
+            // mới nhất, giống sitemap index (C8).
+            $lastStoryUpdate = max(
+                Story::published()->max('updated_at'),
+                Story::published()->max('last_chapter_at')
+            );
+
+            return view('sitemap.static', compact('lastStoryUpdate'))->render();
         });
 
         return response($xml, 200)->header('Content-Type', 'application/xml');

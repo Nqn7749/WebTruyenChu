@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -47,6 +48,13 @@ class NewPasswordController extends Controller
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                // Reset mật khẩu lúc user chưa đăng nhập nên không dùng
+                // logoutOtherDevices được (cần user đang đăng nhập):
+                // xóa thẳng toàn bộ session của user trong bảng sessions
+                // để mọi thiết bị đang đăng nhập đều phải đăng nhập lại
+                // bằng mật khẩu mới.
+                DB::table('sessions')->where('user_id', $user->id)->delete();
 
                 event(new PasswordReset($user));
             }

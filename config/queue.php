@@ -52,7 +52,10 @@ return [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
             'queue' => env('BEANSTALKD_QUEUE', 'default'),
-            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
+            // Như kết nối database: job gửi thông báo có $timeout tới
+            // 1500s nên retry_after phải lớn hơn để queue không release
+            // rồi chạy trùng job đang chạy (C2).
+            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 1800),
             'block_for' => 0,
             'after_commit' => false,
         ],
@@ -72,7 +75,10 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Như kết nối database: job gửi thông báo có $timeout tới
+            // 1500s nên retry_after phải lớn hơn để queue không release
+            // rồi chạy trùng job đang chạy (C2).
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 1800),
             'block_for' => null,
             'after_commit' => false,
         ],
