@@ -75,7 +75,7 @@ Route::get('/dashboard', function () {
 // mới được đăng truyện/chương và quản lý bình luận (ẩn/hiện), để hạn chế
 // tài khoản rác. Các tương tác công khai (bình luận, đánh giá, yêu thích,
 // báo cáo) cố tình không yêu cầu xác minh email.
-Route::middleware(['auth'])->prefix('sang-tac')->name('writer.')->group(function () { //Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
+Route::middleware(['auth'])->prefix('sang-tac')->name('writer.')->group(function () { // Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
 
     Route::get('/', WriterDashboardController::class)->name('dashboard');
     Route::get('/binh-luan', [WriterCommentController::class, 'index'])->name('comments.index');
