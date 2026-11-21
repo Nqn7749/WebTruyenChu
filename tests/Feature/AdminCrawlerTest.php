@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Queue;
 function crawlerAdmin(): User
 {
     $role = Role::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
+
     return User::factory()->create([
         'role_id' => $role->id,
         'status' => true,
