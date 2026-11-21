@@ -22,6 +22,7 @@ class RunCrawlerSource implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+
     public int $timeout = 180;
 
     public function __construct(public int $runId) {}
@@ -31,7 +32,7 @@ class RunCrawlerSource implements ShouldQueue
         $run = CrawlerRun::with('source')->findOrFail($this->runId);
         $source = $run->source;
 
-        if (! $source->enabled || ! $source->permission_confirmed) {
+        if (!$source->enabled || ! $source->permission_confirmed) {
             $run->update(['status' => 'cancelled', 'message' => 'Nguồn chưa bật hoặc chưa xác nhận quyền sử dụng.', 'finished_at' => now()]);
             return;
         }
@@ -135,7 +136,7 @@ class RunCrawlerSource implements ShouldQueue
             ->withOptions(['allow_redirects' => false])
             ->get($url);
 
-        if (! $response->successful()) {
+        if (!$response->successful()) {
             throw new RuntimeException('Nguồn trả về HTTP '.$response->status().'.');
         }
 
@@ -150,7 +151,7 @@ class RunCrawlerSource implements ShouldQueue
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
-        if (! $loaded) {
+        if (!$loaded) {
             throw new RuntimeException('Không thể phân tích HTML từ nguồn.');
         }
 
@@ -159,7 +160,7 @@ class RunCrawlerSource implements ShouldQueue
 
     private function nodes(\DOMXPath $document, string $expression): array
     {
-        if ($expression === '' || ! str_starts_with(trim($expression), '/')) {
+        if ($expression === '' || !str_starts_with(trim($expression), '/')) {
             throw new RuntimeException('XPath cấu hình không hợp lệ.');
         }
 
@@ -214,7 +215,7 @@ class RunCrawlerSource implements ShouldQueue
     {
         $base = parse_url($source->base_url);
         $target = parse_url($url);
-        if (! $base || ! $target || ($target['scheme'] ?? '') !== 'https'
+        if (!$base || ! $target || ($target['scheme'] ?? '') !== 'https'
             || strtolower($target['host'] ?? '') !== strtolower($base['host'] ?? '')
             || isset($target['user']) || isset($target['pass'])
             || (isset($target['port']) && $target['port'] !== 443)) {
@@ -223,7 +224,7 @@ class RunCrawlerSource implements ShouldQueue
 
         $host = $target['host'];
         $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
-        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
+        if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) {
             throw new RuntimeException('Không phân giải được máy chủ nguồn.');
         }
         if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {

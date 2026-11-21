@@ -34,7 +34,6 @@ Schedule::call(function () {
         ->delete();
 })->dailyAt('03:00')->name('notifications:prune');
 
-
 Schedule::call(function () {
     CrawlerSource::query()
         ->where('enabled', true)

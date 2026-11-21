@@ -28,18 +28,21 @@ class CrawlerSourceController extends Controller
         $data = $this->validated($request);
         $data['created_by'] = $request->user()->id;
         $source = CrawlerSource::create($data);
+
         return redirect()->route('admin.crawler.index')->with('success', 'Đã thêm nguồn crawler.');
     }
 
     public function update(Request $request, CrawlerSource $crawlerSource)
     {
         $crawlerSource->update($this->validated($request));
+
         return redirect()->route('admin.crawler.index')->with('success', 'Đã cập nhật nguồn crawler.');
     }
 
     public function destroy(CrawlerSource $crawlerSource)
     {
         $crawlerSource->delete();
+
         return back()->with('success', 'Đã xóa nguồn crawler và lịch sử liên quan.');
     }
 
@@ -83,7 +86,7 @@ class CrawlerSourceController extends Controller
 
         foreach (self::SELECTORS as $key) {
             $expression = trim($data['selectors'][$key] ?? '');
-            if ($expression !== '' && ! str_starts_with($expression, '/')) {
+            if ($expression !== '' && !str_starts_with($expression, '/')) {
                 throw ValidationException::withMessages([
                     'selectors.'.$key => 'XPath phải bắt đầu bằng dấu /.',
                 ]);
