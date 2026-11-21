@@ -46,13 +46,30 @@ class RunCrawlerSource implements ShouldQueue
             $links = $this->nodes($listing, $source->selectors['story_link'] ?? '');
             $counts['stories_found'] = min(count($links), 20);
 
+            if ($links === []) {
+                $run->update($counts + [
+                    'status' => 'failed',
+                    'message' => 'Không tìm thấy liên kết truyện. Hãy kiểm tra XPath liên kết truyện và cấu trúc HTML mà nguồn cho phép truy cập.',
+                    'finished_at' => now(),
+                ]);
+
+                return;
+            }
+
+            $storiesWithTitle = 0;
+
             foreach (array_slice($links, 0, 20) as $linkNode) {
+                if (! $linkNode instanceof \DOMElement) {
+                    throw new RuntimeException('XPath liên kết truyện phải trả về thẻ HTML <a>, không phải thuộc tính hoặc node văn bản.');
+                }
                 $externalUrl = $this->absoluteUrl($source, $linkNode->getAttribute('href'), $source->listing_url);
                 $storyPage = $this->getDocument($source, $externalUrl);
                 $title = $this->value($storyPage, $source->selectors['story_title'] ?? '');
                 if ($title === '') {
                     continue;
                 }
+
+                $storiesWithTitle++;
 
                 $item = CrawlerItem::where('crawler_source_id', $source->id)
                     ->where('external_hash', hash('sha256', $externalUrl))->first();
@@ -70,7 +87,9 @@ class RunCrawlerSource implements ShouldQueue
                         'description' => $this->value($storyPage, $source->selectors['story_description'] ?? '') ?: null,
                         'status' => 'ongoing',
                         'status_publish' => false,
-                    ])->save();
+                    ]);
+
+                    $story->save();
 
                     CrawlerItem::create([
                         'crawler_source_id' => $source->id,
@@ -85,6 +104,10 @@ class RunCrawlerSource implements ShouldQueue
                 $nextNumber = (int) $story->chapters()->withTrashed()->max('chapter_number') + 1;
 
                 foreach (array_slice($chapterLinks, 0, 50) as $chapterLink) {
+                    if (! $chapterLink instanceof \DOMElement) {
+                        throw new RuntimeException('XPath liên kết chương phải trả về thẻ HTML <a>, không phải thuộc tính hoặc node văn bản.');
+                    }
+
                     $chapterUrl = strtok($this->absoluteUrl($source, $chapterLink->getAttribute('href'), $externalUrl), '#');
                     if (DB::table('crawler_chapter_items')->where('crawler_source_id', $source->id)->where('external_hash', hash('sha256', $chapterUrl))->exists()) {
                         continue;
@@ -119,8 +142,18 @@ class RunCrawlerSource implements ShouldQueue
                 }
             }
 
+            if ($storiesWithTitle === 0) {
+                $run->update($counts + [
+                    'status' => 'failed',
+                    'message' => 'Đã tìm thấy liên kết nhưng không đọc được tên truyện. Hãy kiểm tra XPath tên truyện và quyền truy cập trang chi tiết.',
+                    'finished_at' => now(),
+                ]);
+
+                return;
+            }
+
             $source->update(['last_crawled_at' => now()]);
-            $run->update($counts + ['status' => 'completed', 'message' => 'Đã thu thập xong. Nội dung được lưu ở trạng thái nháp để quản trị viên kiểm duyệt.', 'finished_at' => now()]);
+            $run->update($counts + ['status' => 'completed', 'message' => 'Đã xử lý '.$storiesWithTitle.' trang truyện. Nội dung mới được lưu ở trạng thái nháp để quản trị viên kiểm duyệt.', 'finished_at' => now()]);
         } catch (Throwable $exception) {
             $run->update($counts + ['status' => 'failed', 'message' => Str::limit($exception->getMessage(), 1000), 'finished_at' => now()]);
             throw $exception;

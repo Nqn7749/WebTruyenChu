@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Jobs\RunCrawlerSource;
+use App\Models\CrawlerRun;
 use App\Models\CrawlerSource;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 function crawlerAdmin(): User
@@ -80,4 +82,47 @@ test('admin can queue a crawler run for an enabled authorized source', function 
         ->assertSessionHas('success');
 
     Queue::assertPushed(RunCrawlerSource::class);
+});
+
+test('crawler marks a run failed when the story link XPath returns no results', function () {
+    $payload = validCrawlerPayload();
+    $payload['base_url'] = 'https://8.8.8.8';
+    $payload['listing_url'] = 'https://8.8.8.8/stories';
+    $source = CrawlerSource::create($payload);
+    $run = CrawlerRun::create([
+        'crawler_source_id' => $source->id,
+        'status' => 'queued',
+    ]);
+
+    Http::fake([
+        'https://8.8.8.8/stories' => Http::response('<html><body><main>No stories here</main></body></html>', 200),
+    ]);
+
+    (new RunCrawlerSource($run->id))->handle();
+
+    expect($run->fresh()->status)->toBe('failed')
+        ->and($run->fresh()->stories_found)->toBe(0)
+        ->and($run->fresh()->message)->toContain('Không tìm thấy liên kết truyện');
+});
+
+test('crawler marks a run failed when story links exist but no story title is found', function () {
+    $payload = validCrawlerPayload();
+    $payload['base_url'] = 'https://8.8.8.8';
+    $payload['listing_url'] = 'https://8.8.8.8/stories';
+    $source = CrawlerSource::create($payload);
+    $run = CrawlerRun::create([
+        'crawler_source_id' => $source->id,
+        'status' => 'queued',
+    ]);
+
+    Http::fake([
+        'https://8.8.8.8/stories' => Http::response('<a class="story" href="/story/one">One</a>', 200),
+        'https://8.8.8.8/story/one' => Http::response('<html><body><p>Missing heading</p></body></html>', 200),
+    ]);
+
+    (new RunCrawlerSource($run->id))->handle();
+
+    expect($run->fresh()->status)->toBe('failed')
+        ->and($run->fresh()->stories_found)->toBe(1)
+        ->and($run->fresh()->message)->toContain('không đọc được tên truyện');
 });
