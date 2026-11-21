@@ -1,0 +1,31 @@
+# WebTruyenChu queue worker (systemd unit).
+#
+# Cài đặt:
+#   sudo cp deploy/queue-worker.service /etc/systemd/system/webtruyenchu-queue.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now webtruyenchu-queue.service
+#
+# QUAN TRỌNG — cờ --timeout của worker phải lớn hơn $timeout của job
+# (xem app/Jobs/SendNewChapterNotifications.php: $timeout 900s,
+# app/Jobs/SendBulkChapterNotifications.php: $timeout 1500s) và bằng
+# retry_after của queue (1800s, xem config/queue.php), nếu không worker
+# mặc định --timeout=60 sẽ SIGKILL job đang gửi giữa chừng, job retry
+# rồi rơi vào failed_jobs sau 3 lần thử và thông báo chương mới bị mất
+# im lặng (R7-J3). --tries=3 khớp với $tries = 3 của các job.
+#
+# Đổi User và WorkingDirectory theo máy deploy thực tế trước khi bật.
+
+[Unit]
+Description=WebTruyenChu queue worker
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/webtruyenchu
+ExecStart=/usr/bin/php artisan queue:work --timeout=1800 --tries=3
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

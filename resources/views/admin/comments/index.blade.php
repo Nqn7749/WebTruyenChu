@@ -20,8 +20,8 @@
     <tbody>
         @foreach ($comments as $comment)
             <tr>
-                <td>{{ $comment->user->name }}</td>
-                <td>{{ $comment->story->title }}</td>
+                <td>{{ $comment->user?->name ?? 'Thành viên đã xóa' }}</td>
+                <td>{{ $comment->story?->title ?? 'Truyện đã xóa' }}</td>
                 <td>{{ Str::limit($comment->content, 80) }}</td>
                 <td>
                     <span class="badge {{ $comment->is_hidden ? 'bg-secondary' : 'bg-success' }}">

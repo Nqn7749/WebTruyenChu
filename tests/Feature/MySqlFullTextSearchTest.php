@@ -100,3 +100,27 @@ test('mysql search falls back to substring matching for stopword-only keywords',
     $response->assertOk();
     $response->assertSee($match->title);
 });
+
+test('mysql full-text search matches a partial word via prefix matching', function () {
+    if (DB::connection()->getDriverName() !== 'mysql') {
+        $this->markTestSkipped('MySQL-specific FULLTEXT verification.');
+    }
+
+    $match = Story::factory()->create([
+        'title' => 'Truyện kiếm hiệp',
+        'description' => 'Một câu chuyện giang hồ.',
+        'status_publish' => true,
+    ]);
+
+    // InnoDB publishes FULLTEXT index changes at transaction commit. The
+    // Feature suite's RefreshDatabase transaction would otherwise hide the
+    // newly inserted row from MATCH ... AGAINST in this integration test.
+    $connection = DB::connection();
+    $connection->commit();
+    $connection->beginTransaction();
+
+    $response = $this->get('/tim-kiem?q='.urlencode('truy'));
+
+    $response->assertOk();
+    $response->assertSee($match->title);
+});

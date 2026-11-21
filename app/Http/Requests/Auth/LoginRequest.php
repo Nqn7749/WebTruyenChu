@@ -51,10 +51,21 @@ class LoginRequest extends FormRequest
 
             // Ghi thêm vào bucket toàn cục theo tài khoản (không gắn IP)
             // để xoay IP không bypass được ngân sách theo tài khoản.
+            // Bucket này chỉ chặn lần thử SAI: mật khẩu đúng vẫn phải
+            // đăng nhập được dù bucket đã đầy, nếu không kẻ tấn công
+            // cố tình thử sai 20 lần sẽ khóa luôn tài khoản nạn nhân
+            // (kể cả admin) — round 7.
             $globalKey = $this->globalThrottleKey();
 
             if ($globalKey !== null) {
                 RateLimiter::hit($globalKey, 3600);
+
+                // attempts() > 20 giữ đúng ranh giới cũ: lần sai thứ
+                // 20 vẫn trả auth.failed, từ lần sai thứ 21 mới báo
+                // throttle.
+                if (RateLimiter::attempts($globalKey) > 20) {
+                    $this->throwRateLimited($globalKey);
+                }
             }
 
             throw ValidationException::withMessages([
@@ -86,21 +97,19 @@ class LoginRequest extends FormRequest
     /**
      * Ensure the login request is not rate limited.
      *
+     * Chỉ kiểm tra throttle theo user+IP (5 lần/phút) trước khi thử
+     * đăng nhập. Bucket toàn cục theo tài khoản (20 lần/giờ) KHÔNG
+     * kiểm tra ở đây nữa: nó chỉ được chặn sau một lần thử SAI
+     * (xem authenticate()), để mật khẩu đúng vẫn đăng nhập được dù
+     * bucket đã đầy — nếu chặn trước như trước đây thì kẻ tấn công
+     * thử sai 20 lần là khóa luôn tài khoản nạn nhân (round 7).
+     *
      * @throws ValidationException
      */
     public function ensureIsNotRateLimited(): void
     {
         if (RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
             $this->throwRateLimited($this->throttleKey());
-        }
-
-        // Bucket toàn cục theo tài khoản (không gắn IP): 20 lần sai /
-        // 60 phút cho cùng một tài khoản bất kể IP, chặn kiểu tấn công
-        // xoay IP để bypass ngân sách theo IP (phần còn lại của P-M5).
-        $globalKey = $this->globalThrottleKey();
-
-        if ($globalKey !== null && RateLimiter::tooManyAttempts($globalKey, 20)) {
-            $this->throwRateLimited($globalKey);
         }
     }
 

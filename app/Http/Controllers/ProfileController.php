@@ -22,7 +22,15 @@ class ProfileController extends Controller
 
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        // current_password chỉ dùng để xác thực lại khi đổi email,
+        // không phải thuộc tính của User nên loại khỏi dữ liệu fill
+        // (round 7 H1). fill() vốn đã bỏ qua thuộc tính không nằm
+        // trong $fillable, nhưng loại tường minh để không phụ thuộc
+        // vào điều đó.
+        $data = $request->validated();
+        unset($data['current_password']);
+
+        $request->user()->fill($data);
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;

@@ -14,6 +14,10 @@ class ChapterObserver
         'slug',
         'status',
         'published_at',
+        // Sửa nội dung chương cũng phải làm mới sitemap: lastmod của
+        // chương lấy từ updated_at nên cache cũ sẽ giữ lastmod cũ
+        // nếu không invalidate ở đây.
+        'content',
     ];
 
     public function saved(Chapter $chapter): void

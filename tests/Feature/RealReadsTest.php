@@ -21,8 +21,18 @@ function publishedStoryWithChapter(array $storyAttributes = [], array $chapterAt
     return [$story, $chapter];
 }
 
+// Trình duyệt thật: request không có User-Agent bị coi là bot nên
+// không tính view/lượt đọc thật (R7). Các test đếm view/read phải
+// gửi UA này để giả lập trình duyệt thật.
+function realBrowserUserAgent(): string
+{
+    return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+}
+
 test('opening a chapter counts one view for the chapter and the story, reopening does not count again', function () {
     [$story, $chapter] = publishedStoryWithChapter();
+
+    $this->withHeaders(['User-Agent' => realBrowserUserAgent()]);
 
     $this->get(route('chapters.show', [$story, $chapter]))->assertOk();
 
@@ -50,6 +60,8 @@ test('a bot user agent does not count a view', function () {
 test('views are throttled per logged-in user, not per IP', function () {
     [$story, $chapter] = publishedStoryWithChapter();
 
+    $this->withHeaders(['User-Agent' => realBrowserUserAgent()]);
+
     $userA = User::factory()->create();
     $userB = User::factory()->create();
 
@@ -75,6 +87,8 @@ test('views are throttled per logged-in user, not per IP', function () {
 test('counting a view does not change the story updated_at', function () {
     [$story, $chapter] = publishedStoryWithChapter();
 
+    $this->withHeaders(['User-Agent' => realBrowserUserAgent()]);
+
     DB::table('stories')->where('id', $story->id)->update(['updated_at' => '2026-01-01 00:00:00']);
 
     $this->get(route('chapters.show', [$story, $chapter]))->assertOk();
@@ -85,6 +99,8 @@ test('counting a view does not change the story updated_at', function () {
 
 test('a real read counts once per chapter per day for a guest', function () {
     [$story, $chapter] = publishedStoryWithChapter();
+
+    $this->withHeaders(['User-Agent' => realBrowserUserAgent()]);
 
     $this->postJson(route('chapters.record-read', [$story, $chapter]))
         ->assertOk()
@@ -133,6 +149,8 @@ test('a real read returns 404 for an unpublished story or chapter', function () 
 
 test('recording a real read does not change the story updated_at', function () {
     [$story, $chapter] = publishedStoryWithChapter();
+
+    $this->withHeaders(['User-Agent' => realBrowserUserAgent()]);
 
     DB::table('stories')->where('id', $story->id)->update(['updated_at' => '2026-01-01 00:00:00']);
 

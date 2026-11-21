@@ -21,6 +21,8 @@ test('profile information can be updated', function () {
         ->patch('/profile', [
             'name' => 'Test User',
             'email' => 'test@example.com',
+            // Đổi email phải nhập lại mật khẩu hiện tại (round 7 H1).
+            'current_password' => 'Password1234',
         ]);
 
     $response

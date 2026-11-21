@@ -82,6 +82,13 @@ class ChapterController extends Controller
             $chapter->update($data);
             $stats->refreshChapterStats($story);
 
+            // Như Writer\ChapterController::update (R7): đổi trạng thái
+            // công khai làm comment của chương hiện/ẩn theo scopeVisible
+            // nên phải đếm lại comment_count của truyện.
+            if ($wasPublished !== (bool) $chapter->status) {
+                $stats->refreshStories([$story->id]);
+            }
+
             return [$story, $chapter, $wasPublished];
         });
 

@@ -1,7 +1,7 @@
 <div class="border-bottom py-3 comment-item" id="comment-{{ $comment->id }}">
     <div class="d-flex justify-content-between">
         <div>
-            <strong>{{ $comment->user->name }}</strong>
+            <strong>{{ $comment->user?->name ?? 'Thành viên đã xóa' }}</strong>
             @if ($comment->chapter)
                 <span class="badge bg-secondary ms-2">Chương {{ $comment->chapter->chapter_number }}</span>
             @else
@@ -40,7 +40,7 @@
         <div class="ms-4 border-start ps-3 mt-2">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <strong>{{ $reply->user->name }}</strong>
+                    <strong>{{ $reply->user?->name ?? 'Thành viên đã xóa' }}</strong>
                     <span class="small text-muted">{{ $reply->created_at->diffForHumans() }}</span>
                 </div>
                 @auth

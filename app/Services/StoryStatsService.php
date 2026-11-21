@@ -26,43 +26,50 @@ class StoryStatsService
     {
         $ids = collect($storyIds)->unique()->values();
 
-        foreach ($ids->chunk(100) as $chunk) {
-            $ratings = Rating::query()
-                ->whereIn('story_id', $chunk)
-                ->selectRaw('story_id, COUNT(*) as total, COALESCE(AVG(score), 0) as avg_score')
-                ->groupBy('story_id')
-                ->get()
-                ->keyBy('story_id');
+        if ($ids->isEmpty()) {
+            return;
+        }
 
-            $favorites = Favorite::query()
-                ->whereIn('story_id', $chunk)
-                ->selectRaw('story_id, COUNT(*) as total')
-                ->groupBy('story_id')
-                ->get()
-                ->keyBy('story_id');
+        DB::transaction(function () use ($ids) {
+            foreach ($ids->chunk(100) as $chunk) {
+                // Khóa dòng truyện TRƯỚC khi đếm gộp, trong cùng một
+                // transaction với aggregate + save: increment đồng thời
+                // (bình luận/đánh giá/yêu thích) phải chờ lock nên
+                // không bị bản đếm lại này ghi đè mất (F2, R7). Trước
+                // đây aggregate chạy trước rồi mới khóa nên lock không
+                // bảo vệ được khoảng giữa SELECT và save.
+                $stories = Story::withTrashed()
+                    ->whereIn('id', $chunk)
+                    ->lockForUpdate()
+                    ->get();
 
-            // Dùng cùng định nghĩa hiển thị với giao diện
-            // (Comment::scopeVisible): reply của cha đã ẩn/xóa và
-            // comment của chương đã xóa mềm hoặc đã gỡ công khai
-            // không được đếm (C-M1, F10).
-            $comments = Comment::query()
-                ->whereIn('story_id', $chunk)
-                ->visible()
-                ->selectRaw('story_id, COUNT(*) as total')
-                ->groupBy('story_id')
-                ->get()
-                ->keyBy('story_id');
+                $ratings = Rating::query()
+                    ->whereIn('story_id', $chunk)
+                    ->selectRaw('story_id, COUNT(*) as total, COALESCE(AVG(score), 0) as avg_score')
+                    ->groupBy('story_id')
+                    ->get()
+                    ->keyBy('story_id');
 
-            Story::withTrashed()
-                ->whereIn('id', $chunk)
-                // Khóa dòng truyện trong transaction của caller (xóa tài
-                // khoản) để increment đồng thời (bình luận/đánh giá/yêu
-                // thích) phải chờ, không bị bản đếm lại này ghi đè mất
-                // (F2). Ngoài transaction thì lock chỉ giữ tới hết câu
-                // lệnh nên vô hại.
-                ->lockForUpdate()
-                ->get()
-                ->each(function (Story $story) use ($ratings, $favorites, $comments) {
+                $favorites = Favorite::query()
+                    ->whereIn('story_id', $chunk)
+                    ->selectRaw('story_id, COUNT(*) as total')
+                    ->groupBy('story_id')
+                    ->get()
+                    ->keyBy('story_id');
+
+                // Dùng cùng định nghĩa hiển thị với giao diện
+                // (Comment::scopeVisible): reply của cha đã ẩn/xóa và
+                // comment của chương đã xóa mềm hoặc đã gỡ công khai
+                // không được đếm (C-M1, F10).
+                $comments = Comment::query()
+                    ->whereIn('story_id', $chunk)
+                    ->visible()
+                    ->selectRaw('story_id, COUNT(*) as total')
+                    ->groupBy('story_id')
+                    ->get()
+                    ->keyBy('story_id');
+
+                $stories->each(function (Story $story) use ($ratings, $favorites, $comments) {
                     $rating = $ratings->get($story->id);
 
                     // saveQuietly chỉ tắt event, vẫn cập nhật updated_at:
@@ -77,13 +84,12 @@ class StoryStatsService
                     ])->saveQuietly();
                     $story->timestamps = true;
                 });
-        }
+            }
+        });
 
         // saveQuietly bypasses StoryObserver nên phải invalidate tay, nếu
         // không số liệu rating/favorite/comment trên trang chủ lag tối đa 10 phút.
-        if ($ids->isNotEmpty()) {
-            app(HomeCacheService::class)->invalidate();
-        }
+        app(HomeCacheService::class)->invalidate();
     }
 
     /**
@@ -135,6 +141,13 @@ class StoryStatsService
      */
     public static function decrementCommentCount(string $table, int $id, int $amount): void
     {
+        // Trừ 0 (hoặc số âm) không đổi dòng nào nên MySQL báo 0
+        // affected rows, câu thứ hai sẽ set nhầm comment_count về 0
+        // dù số đếm đang khỏe (R7).
+        if ($amount <= 0) {
+            return;
+        }
+
         $affected = DB::table($table)
             ->where('id', $id)
             ->where('comment_count', '>=', $amount)
@@ -181,23 +194,27 @@ class StoryStatsService
     {
         $ids = collect($chapterIds)->unique()->values();
 
-        foreach ($ids->chunk(100) as $chunk) {
-            $comments = Comment::query()
-                ->whereIn('chapter_id', $chunk)
-                ->visible()
-                ->selectRaw('chapter_id, COUNT(*) as total')
-                ->groupBy('chapter_id')
-                ->get()
-                ->keyBy('chapter_id');
+        if ($ids->isEmpty()) {
+            return;
+        }
 
-            Chapter::withTrashed()
-                ->whereIn('id', $chunk)
-                // Như refreshStories (F2): khóa dòng chương trong
-                // transaction của caller để increment đồng thời không
-                // bị bản đếm lại này ghi đè mất.
-                ->lockForUpdate()
-                ->get()
-                ->each(function (Chapter $chapter) use ($comments) {
+        DB::transaction(function () use ($ids) {
+            foreach ($ids->chunk(100) as $chunk) {
+                // Khóa trước, đếm sau — như refreshStories (F2, R7).
+                $chapters = Chapter::withTrashed()
+                    ->whereIn('id', $chunk)
+                    ->lockForUpdate()
+                    ->get();
+
+                $comments = Comment::query()
+                    ->whereIn('chapter_id', $chunk)
+                    ->visible()
+                    ->selectRaw('chapter_id, COUNT(*) as total')
+                    ->groupBy('chapter_id')
+                    ->get()
+                    ->keyBy('chapter_id');
+
+                $chapters->each(function (Chapter $chapter) use ($comments) {
                     // Xem ghi chú ở refreshStories (NL-4).
                     $chapter->timestamps = false;
                     $chapter->forceFill([
@@ -205,6 +222,7 @@ class StoryStatsService
                     ])->saveQuietly();
                     $chapter->timestamps = true;
                 });
-        }
+            }
+        });
     }
 }
