@@ -25,7 +25,9 @@ class CrawlerSourceController extends Controller
 
     public function store(Request $request)
     {
-        $source = CrawlerSource::create($this->validated($request));
+        $data = $this->validated($request);
+        $data['created_by'] = $request->user()->id;
+        $source = CrawlerSource::create($data);
         return redirect()->route('admin.crawler.index')->with('success', 'Đã thêm nguồn crawler.');
     }
 

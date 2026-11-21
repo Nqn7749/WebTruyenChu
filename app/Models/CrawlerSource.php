@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class CrawlerSource extends Model
 {
     protected $fillable = [
-        'name', 'base_url', 'listing_url', 'selectors',
+        'name', 'created_by', 'base_url', 'listing_url', 'selectors',
         'permission_confirmed', 'enabled',
     ];
 

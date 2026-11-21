@@ -61,7 +61,7 @@ class RunCrawlerSource implements ShouldQueue
                     $slug = (Str::slug($title) ?: 'truyen').'-'.Str::lower(Str::random(7));
                     $story = new Story;
                     $story->forceFill([
-                        'user_id' => $run->started_by,
+                        'user_id' => $run->started_by ?? $source->created_by,
                         'title' => Str::limit($title, 255, ''),
                         'slug' => $slug,
                         'author_name' => $this->value($storyPage, $source->selectors['story_author'] ?? '') ?: null,

@@ -10,6 +10,7 @@ return new class extends Migration {
         Schema::create('crawler_sources', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('base_url', 2048);
             $table->string('listing_url', 2048);
             $table->json('selectors');
