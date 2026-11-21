@@ -35,7 +35,7 @@ test('changing password logs out other sessions but keeps the current one', func
     // key auth của guard + password_hash_web là HMAC của hash mật khẩu
     // lúc đăng nhập — đúng key mà AuthenticateSession đọc
     // (xem SessionGuard::login).
-    $deviceBId = (string) Str::uuid();
+    $deviceBId = Str::random(40);
 
     DB::table('sessions')->insert([
         'id' => $deviceBId,
