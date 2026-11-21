@@ -63,6 +63,11 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
+        // Tạo lại session id sau khi đăng nhập: nếu không, kẻ tấn công
+        // gài sẵn session id cho nạn nhân (session fixation) rồi chờ nạn
+        // nhân đăng ký/đăng nhập là chiếm luôn phiên đã xác thực (M5).
+        $request->session()->regenerate();
+
         return redirect(route('home', absolute: false));
     }
 }

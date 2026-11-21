@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -93,6 +94,22 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        $login = (string) $this->string('email');
+
+        // Cùng một tài khoản đăng nhập bằng email hay username đều chung
+        // một ngân sách 5 lần sai: trước đây mỗi cách nhập là một key
+        // riêng nên kẻ tấn công có gấp đôi số lần thử cho cùng một tài
+        // khoản (P-M5). Không tìm thấy tài khoản thì giữ nguyên key cũ
+        // để không đổi hành vi với identity chưa tồn tại.
+        $user = User::query()
+            ->where('email', $login)
+            ->orWhere('username', $login)
+            ->first(['id']);
+
+        if ($user) {
+            return 'user:'.$user->id.'|'.$this->ip();
+        }
+
+        return Str::transliterate(Str::lower($login).'|'.$this->ip());
     }
 }

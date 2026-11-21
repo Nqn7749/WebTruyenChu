@@ -57,19 +57,25 @@ class ReportController extends Controller
                     ]);
                 }
 
+                // Khóa comment để hai báo cáo xử lý đồng thời không trừ
+                // số đếm hai lần: báo cáo sau chờ xong sẽ thấy comment
+                // đã ẩn mà bỏ qua (C-L1).
+                $target = Comment::query()->lockForUpdate()->findOrFail($target->id);
+
                 if ($target->is_hidden === false) {
+                    // Chỉ trừ đúng phần đang được đếm (xem
+                    // CommentController@destroy, C-L2).
+                    $amount = StoryStatsService::countedCommentAmount($target);
+
                     // is_hidden không nằm trong $fillable của Comment nên gán riêng ở đây.
                     $target->forceFill(['is_hidden' => true])->save();
 
-                    // Ẩn comment cha cũng ẩn các reply của nó trên giao
-                    // diện nên số đếm phải trừ theo cả reply (N-L3),
-                    // và không để âm (NM-4).
-                    $amount = 1 + $target->replies()->where('is_hidden', false)->count();
+                    if ($amount > 0) {
+                        StoryStatsService::decrementCommentCount('stories', $target->story_id, $amount);
 
-                    StoryStatsService::decrementCommentCount('stories', $target->story_id, $amount);
-
-                    if ($target->chapter_id) {
-                        StoryStatsService::decrementCommentCount('chapters', $target->chapter_id, $amount);
+                        if ($target->chapter_id) {
+                            StoryStatsService::decrementCommentCount('chapters', $target->chapter_id, $amount);
+                        }
                     }
                 }
             }

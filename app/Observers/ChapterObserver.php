@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Chapter;
 use App\Services\HomeCacheService;
 use App\Services\SitemapCacheService;
+use Illuminate\Support\Facades\DB;
 
 class ChapterObserver
 {
@@ -58,5 +59,11 @@ class ChapterObserver
             app(SitemapCacheService::class)->invalidate();
             app(HomeCacheService::class)->invalidate();
         }
+
+        // Xóa vĩnh viễn chương thì thông báo về chương đó không còn mở
+        // được nữa (P-M2).
+        DB::table('notifications')
+            ->whereJsonContains('data->chapter_id', $chapter->id)
+            ->delete();
     }
 }

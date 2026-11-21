@@ -85,6 +85,12 @@ class StoryDeletionService
 
             $lockedStory->forceDelete();
 
+            // Thông báo về truyện này (kể cả thông báo chương của nó,
+            // vì payload có story_id) không còn mở được nữa (P-M2).
+            DB::table('notifications')
+                ->whereJsonContains('data->story_id', $lockedStory->id)
+                ->delete();
+
             return true;
         });
 

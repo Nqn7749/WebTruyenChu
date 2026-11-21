@@ -79,23 +79,50 @@ class CommentController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | Chống spam: cùng một truyện, một user không bình luận 2 lần trong
+        | 30 giây và không gửi 2 lần cùng một nội dung liên tiếp (P-M6).
+        |--------------------------------------------------------------------------
+        */
+
+        $latest = Comment::query()
+            ->where('user_id', Auth::id())
+            ->where('story_id', $story->id)
+            ->latest('id')
+            ->first();
+
+        if ($latest) {
+            abort_if($latest->created_at->gt(now()->subSeconds(30)), 429, 'Bạn đang bình luận quá nhanh, thử lại sau ít giây.');
+
+            abort_if($latest->content === $data['content'], 422, 'Bạn vừa gửi bình luận giống hệt nội dung này.');
+        }
+
+        /*
+        |--------------------------------------------------------------------------
         | Create comment
         |--------------------------------------------------------------------------
         */
 
         $comment = DB::transaction(function () use ($data, $story) {
 
-            $comment = Comment::create($data);
+            // user_id không nằm trong $fillable của Comment nên không
+            // đưa vào create(): gán trực tiếp rồi save một lần. Trước
+            // đây create() insert trước khi user_id được gán nên cột
+            // user_id NOT NULL bị lỗi ngay ở câu INSERT (fix1).
+            $comment = new Comment($data);
+            $comment->user_id = Auth::id();
+            $comment->save();
 
-            // user_id không nằm trong $fillable của Comment nên gán riêng ở đây.
-            $comment->forceFill(['user_id' => Auth::id()])->save();
-
-            // Tăng số comment của story.
+            // Tăng số comment của story/chương. Bình luận mới không phải
+            // cập nhật nội dung nên đóng băng updated_at để sitemap
+            // không tưởng truyện mới cập nhật (S-M1).
+            $story->timestamps = false;
             $story->increment('comment_count');
+            $story->timestamps = true;
 
-            // Tăng số comment của chapter.
             if ($comment->chapter_id) {
+                $comment->chapter->timestamps = false;
                 $comment->chapter->increment('comment_count');
+                $comment->chapter->timestamps = true;
             }
 
             return $comment;
@@ -149,26 +176,31 @@ class CommentController extends Controller
 
         DB::transaction(function () use ($comment) {
 
-            $story = $comment->story;
-            $chapter = $comment->chapter;
+            // Khóa comment để hai lần xóa đồng thời không trừ số đếm
+            // hai lần: lần thứ hai chờ xong sẽ không tìm thấy comment
+            // nữa (đã xóa mềm) mà nhận 404 thay vì trừ trùng (C-L1).
+            $locked = Comment::query()->lockForUpdate()->findOrFail($comment->id);
 
-            if (! $comment->is_hidden) {
-                // Reply chỉ có 1 cấp: xóa comment cha cũng gỡ số đếm của
-                // các reply còn hiển thị của nó, nếu không comment_count
-                // lệch dần (N-L3). Trừ có chặn ở 0 khi số đếm đã lệch
-                // trước đó (NM-4).
-                $decrement = 1 + $comment->replies()->where('is_hidden', false)->count();
+            $story = $locked->story;
+            $chapter = $locked->chapter;
 
+            // Chỉ trừ đúng phần đang được đếm: reply của cha đã ẩn/xóa
+            // hoặc comment của chương đã xóa mềm vốn không được đếm
+            // nên xóa chúng không đổi số đếm (C-L2). Trừ có chặn ở 0
+            // khi số đếm đã lệch trước đó (NM-4).
+            $amount = StoryStatsService::countedCommentAmount($locked);
+
+            if ($amount > 0) {
                 if ($story) {
-                    StoryStatsService::decrementCommentCount('stories', $story->id, $decrement);
+                    StoryStatsService::decrementCommentCount('stories', $story->id, $amount);
                 }
 
                 if ($chapter) {
-                    StoryStatsService::decrementCommentCount('chapters', $chapter->id, $decrement);
+                    StoryStatsService::decrementCommentCount('chapters', $chapter->id, $amount);
                 }
             }
 
-            $comment->delete();
+            $locked->delete();
         });
 
         return response()->json([

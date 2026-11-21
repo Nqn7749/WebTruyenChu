@@ -22,27 +22,34 @@ class CommentController extends Controller
     {
         DB::transaction(function () use ($comment, $request, $logger) {
             $locked = Comment::query()->lockForUpdate()->findOrFail($comment->id);
+
+            // Số đếm chỉ đổi đúng phần đóng góp hiển thị của comment này
+            // trước và sau khi đổi trạng thái: ẩn cha cũng ẩn các reply
+            // của nó trên giao diện nên số đếm đổi theo cả reply; reply
+            // của cha đã ẩn thì vốn không được đếm nên ẩn/hiện nó không
+            // đổi số đếm (C-L2). Trừ có chặn ở 0 khi số đếm đã lệch
+            // trước đó (NM-4).
+            $amountBefore = StoryStatsService::countedCommentAmount($locked);
             $locked->is_hidden = ! $locked->is_hidden;
             $locked->save();
+            $amountAfter = StoryStatsService::countedCommentAmount($locked);
+            $delta = $amountAfter - $amountBefore;
 
-            // Ẩn/hiện comment cha cũng ẩn/hiện các reply của nó trên giao
-            // diện (reply chỉ load qua comment cha) nên số đếm phải đổi
-            // theo cả reply, và không để âm (N-L3, NM-4).
-            $amount = 1 + $locked->replies()->where('is_hidden', false)->count();
-
-            if ($locked->story) {
-                if ($locked->is_hidden) {
-                    StoryStatsService::decrementCommentCount('stories', $locked->story_id, $amount);
-                } else {
-                    DB::table('stories')->where('id', $locked->story_id)->increment('comment_count', $amount);
+            if ($delta !== 0) {
+                if ($locked->story) {
+                    if ($delta < 0) {
+                        StoryStatsService::decrementCommentCount('stories', $locked->story_id, -$delta);
+                    } else {
+                        DB::table('stories')->where('id', $locked->story_id)->increment('comment_count', $delta);
+                    }
                 }
-            }
 
-            if ($locked->chapter_id && $locked->chapter) {
-                if ($locked->is_hidden) {
-                    StoryStatsService::decrementCommentCount('chapters', $locked->chapter_id, $amount);
-                } else {
-                    DB::table('chapters')->where('id', $locked->chapter_id)->increment('comment_count', $amount);
+                if ($locked->chapter_id && $locked->chapter) {
+                    if ($delta < 0) {
+                        StoryStatsService::decrementCommentCount('chapters', $locked->chapter_id, -$delta);
+                    } else {
+                        DB::table('chapters')->where('id', $locked->chapter_id)->increment('comment_count', $delta);
+                    }
                 }
             }
 
@@ -62,13 +69,13 @@ class CommentController extends Controller
         DB::transaction(function () use ($comment, $request, $logger) {
             $locked = Comment::query()->lockForUpdate()->findOrFail($comment->id);
 
-            if (! $locked->is_hidden) {
-                // Xem ghi chú ở CommentController@destroy (N-L3, NM-4).
-                $decrement = 1 + $locked->replies()->where('is_hidden', false)->count();
+            // Chỉ trừ đúng phần đang được đếm (xem CommentController@destroy).
+            $amount = StoryStatsService::countedCommentAmount($locked);
 
-                StoryStatsService::decrementCommentCount('stories', $locked->story_id, $decrement);
+            if ($amount > 0) {
+                StoryStatsService::decrementCommentCount('stories', $locked->story_id, $amount);
                 if ($locked->chapter_id) {
-                    StoryStatsService::decrementCommentCount('chapters', $locked->chapter_id, $decrement);
+                    StoryStatsService::decrementCommentCount('chapters', $locked->chapter_id, $amount);
                 }
             }
 

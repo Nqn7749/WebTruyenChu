@@ -54,14 +54,18 @@ class FavoriteController extends Controller
                 ];
             }
 
-            // Cập nhật lại số lượng yêu thích thực tế
+            // Cập nhật lại số lượng yêu thích thực tế. Chỉ đổi số liệu,
+            // không phải cập nhật nội dung: đóng băng updated_at để
+            // sitemap không tưởng truyện mới cập nhật (S-M1).
             $realCount = $lockedStory
                 ->favorites()
                 ->count();
 
+            $lockedStory->timestamps = false;
             $lockedStory->forceFill([
                 'favorite_count' => $realCount,
             ])->save();
+            $lockedStory->timestamps = true;
         });
 
         return back()->with('favorite_flash', $flash);

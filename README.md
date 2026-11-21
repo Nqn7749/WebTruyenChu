@@ -64,7 +64,7 @@ Chạy ứng dụng:
 
 ```bash
 php artisan serve              # http://127.0.0.1:8000
-php artisan queue:work         # gửi thông báo chương mới (NewChapterPublished)
+php artisan queue:work --timeout=1800  # gửi thông báo chương mới (NewChapterPublished)
 php artisan schedule:work      # chạy tác vụ định kỳ khi phát triển
 ```
 

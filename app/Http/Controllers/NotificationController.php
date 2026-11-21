@@ -53,6 +53,20 @@ class NotificationController extends Controller
     }
 
     /**
+     * Xóa một thông báo của người dùng hiện tại.
+     */
+    public function destroy(string $id): RedirectResponse
+    {
+        $notification = Auth::user()
+            ->notifications()
+            ->findOrFail($id);
+
+        $notification->delete();
+
+        return back()->with('success', 'Đã xóa thông báo.');
+    }
+
+    /**
      * Dữ liệu tối giản cho chuông thông báo.
      */
     public function unread(): JsonResponse

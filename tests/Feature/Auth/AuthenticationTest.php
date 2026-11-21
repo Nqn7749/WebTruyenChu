@@ -125,6 +125,55 @@ test('login throttling locks only the same normalized identity and IP after five
     }
 });
 
+test('login throttling shares one budget between email and username for the same account', function () {
+    $user = User::factory()->create([
+        'username' => 'shared-budget',
+        'email' => 'shared-budget@example.com',
+    ]);
+    $key = 'user:'.$user->id.'|127.0.0.1';
+
+    RateLimiter::clear($key);
+
+    try {
+        foreach (range(1, 3) as $attempt) {
+            $this->post('/login', [
+                'email' => 'shared-budget@example.com',
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('email');
+        }
+
+        foreach (range(1, 2) as $attempt) {
+            $this->post('/login', [
+                'email' => 'shared-budget',
+                'password' => 'wrong-password',
+            ])->assertSessionHasErrors('email');
+        }
+
+        expect(RateLimiter::tooManyAttempts($key, 5))->toBeTrue();
+
+        $this->post('/login', [
+            'email' => 'shared-budget@example.com',
+            'password' => 'password',
+        ])->assertSessionHasErrors('email');
+    } finally {
+        RateLimiter::clear($key);
+    }
+});
+
+test('login route throttle blocks password spraying across many accounts', function () {
+    foreach (range(1, 10) as $attempt) {
+        $this->post('/login', [
+            'email' => 'spray-'.$attempt.'@example.com',
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors('email');
+    }
+
+    $this->post('/login', [
+        'email' => 'spray-11@example.com',
+        'password' => 'wrong-password',
+    ])->assertStatus(429);
+});
+
 test('successful login regenerates the session identifier', function () {
     $user = User::factory()->create();
     $this->withSession(['pre_login_marker' => 'present']);

@@ -40,7 +40,11 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // Job gửi thông báo chương mới có thể chạy lâu (gửi hàng loạt
+            // cho nhiều người theo dõi): retry_after phải lớn hơn $timeout
+            // của job (1500s) để queue không release rồi chạy trùng job
+            // đang chạy (J-M2).
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1800),
             'after_commit' => false,
         ],
 

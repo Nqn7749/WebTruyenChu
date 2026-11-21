@@ -24,6 +24,19 @@ class AppServiceProvider extends ServiceProvider
     {
         Paginator::useBootstrapFive();
 
+        // Giới hạn số trang tối đa cho mọi paginate(): ?page=999999 bắt
+        // DB chạy OFFSET khổng lồ (P-M4). 1000 trang vẫn đủ cho mọi
+        // danh sách thực tế của site.
+        Paginator::currentPageResolver(function ($pageName = 'page') {
+            $value = request()->input($pageName, 1);
+
+            if (! is_numeric($value)) {
+                return 1;
+            }
+
+            return min(1000, max(1, (int) $value));
+        });
+
         View::composer('layouts.public', function ($view) {
             $navCategories = Cache::remember('nav_categories', now()->addHours(6), function () {
                 return Category::whereNull('parent_id')
