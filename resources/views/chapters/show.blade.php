@@ -451,12 +451,82 @@
 
 
     /* =========================================================
+       LƯỢT ĐỌC THẬT (REAL READ)
+       Chỉ ghi nhận khi người đọc ở lại trang đủ 15 giây VÀ cuộn
+       qua 25% nội dung chương. Bot không chạy JS nên không gọi
+       được endpoint này; khách vãng lai cũng được tính nên không
+       yêu cầu đăng nhập. Mỗi user/IP chỉ tính 1 lần/chương/24h
+       (chống trùng ở server, xem ChapterController@recordRead).
+    ========================================================= */
+
+    const realReadStartAt = Date.now();
+    let realReadSent = false;
+
+    async function maybeRecordRealRead() {
+
+        if (realReadSent) {
+            return;
+        }
+
+        // Chưa đủ 15 giây trên trang: chưa tính là đọc thật.
+        if (Date.now() - realReadStartAt < 15000) {
+            return;
+        }
+
+        // Chưa cuộn qua 25% nội dung (chương ngắn vừa 1 màn hình thì
+        // getReadingPercent() trả 100 nên vẫn tính).
+        if (getReadingPercent() < 25) {
+            return;
+        }
+
+        realReadSent = true;
+
+        try {
+
+            await fetch(
+                '{{ route('chapters.record-read', [$story, $chapter]) }}',
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN':
+                            document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        'Accept': 'application/json'
+                    },
+
+                    body: JSON.stringify({}),
+
+                    keepalive: true
+                }
+            );
+
+        } catch (error) {
+            // Không làm gián đoạn quá trình đọc
+            console.debug(
+                'Không thể ghi nhận lượt đọc thật.',
+                error
+            );
+        }
+
+    }
+
+    // Kiểm tra sau 15 giây: nếu lúc đó đã cuộn đủ 25% thì ghi luôn,
+    // nếu chưa thì lần cuộn tiếp theo sẽ ghi (xem handleScroll).
+    setTimeout(maybeRecordRealRead, 15000);
+
+
+    /* =========================================================
        SCROLL HANDLER
     ========================================================= */
 
     const handleScroll = () => {
 
         const percent = updateProgressBar();
+
+        maybeRecordRealRead();
 
         // Debounce local storage writes during rapid scrolling.
         saveLocalReadingPosition();

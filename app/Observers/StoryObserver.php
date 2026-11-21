@@ -10,6 +10,7 @@ class StoryObserver
 {
     private const IGNORED_FIELDS = [
         'views',
+        'reads_count',
         'last_view_at',
         'favorite_count',
         'rating_count',

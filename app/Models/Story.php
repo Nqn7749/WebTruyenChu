@@ -34,7 +34,7 @@ class Story extends Model
     /**
      * Các cột cache/counter KHÔNG cho mass-assign qua request thông thường.
      * Chỉ update qua increment()/decrement() hoặc forceFill() nội bộ.
-     * (views, chapter_count, comment_count, favorite_count,
+     * (views, reads_count, chapter_count, comment_count, favorite_count,
      *  rating_count, average_rating, last_chapter_at, last_view_at)
      */
     protected function casts(): array
@@ -115,11 +115,15 @@ class Story extends Model
     }
 
     /**
-     * Truyện hot: cờ is_hot = true, sắp theo views giảm dần.
+     * Truyện hot: cờ is_hot = true, sắp theo lượt đọc thật giảm dần
+     * (ở lại trang đủ 15 giây + cuộn qua 25% nội dung). Lượt xem làm
+     * tiêu chí phụ: truyện chưa có lượt đọc thật (mới triển khai) vẫn
+     * giữ thứ hạng cũ theo views thay vì rơi xuống cuối.
      */
     public function scopeHot(Builder $query): Builder
     {
         return $query->where('is_hot', true)
+            ->orderByDesc('reads_count')
             ->orderByDesc('views');
     }
 
