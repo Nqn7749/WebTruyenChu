@@ -59,7 +59,7 @@ class RunCrawlerSource implements ShouldQueue
             $storiesWithTitle = 0;
 
             foreach (array_slice($links, 0, 20) as $linkNode) {
-                if (! $linkNode instanceof \\DOMElement) {
+                if (! $linkNode instanceof \DOMElement) {
                     throw new RuntimeException('XPath liên kết truyện phải trả về thẻ HTML <a>, không phải thuộc tính hoặc node văn bản.');
                 }
                 $externalUrl = $this->absoluteUrl($source, $linkNode->getAttribute('href'), $source->listing_url);
@@ -102,7 +102,7 @@ class RunCrawlerSource implements ShouldQueue
                 $nextNumber = (int) $story->chapters()->withTrashed()->max('chapter_number') + 1;
 
                 foreach (array_slice($chapterLinks, 0, 50) as $chapterLink) {
-                    if (! $chapterLink instanceof \\DOMElement) {
+                    if (! $chapterLink instanceof \DOMElement) {
                         throw new RuntimeException('XPath liên kết chương phải trả về thẻ HTML <a>, không phải thuộc tính hoặc node văn bản.');
                     }
 
