@@ -45,7 +45,7 @@ class RunCrawlerSource implements ShouldQueue
             $counts['stories_found'] = min(count($links), 20);
 
             foreach (array_slice($links, 0, 20) as $linkNode) {
-                $externalUrl = $this->absoluteUrl($source, $linkNode->getAttribute('href'));
+                $externalUrl = $this->absoluteUrl($source, $linkNode->getAttribute('href'), $source->listing_url);
                 $storyPage = $this->getDocument($source, $externalUrl);
                 $title = $this->value($storyPage, $source->selectors['story_title'] ?? '');
                 if ($title === '') {
@@ -82,7 +82,7 @@ class RunCrawlerSource implements ShouldQueue
                 $nextNumber = (int) $story->chapters()->withTrashed()->max('chapter_number') + 1;
 
                 foreach (array_slice($chapterLinks, 0, 50) as $chapterLink) {
-                    $chapterUrl = strtok($this->absoluteUrl($source, $chapterLink->getAttribute('href')), '#');
+                    $chapterUrl = strtok($this->absoluteUrl($source, $chapterLink->getAttribute('href'), $externalUrl), '#');
                     if (DB::table('crawler_chapter_items')->where('crawler_source_id', $source->id)->where('external_key', $chapterUrl)->exists()) {
                         continue;
                     }
@@ -188,7 +188,7 @@ class RunCrawlerSource implements ShouldQueue
         return trim(preg_replace('/\s+/u', ' ', $nodes[0]->textContent) ?? '');
     }
 
-    private function absoluteUrl(CrawlerSource $source, string $href): string
+    private function absoluteUrl(CrawlerSource $source, string $href, ?string $parentUrl = null): string
     {
         if ($href === '' || str_starts_with($href, '//')) {
             throw new RuntimeException('Liên kết nguồn không hợp lệ.');
@@ -199,7 +199,9 @@ class RunCrawlerSource implements ShouldQueue
         } elseif (str_starts_with($href, '/')) {
             $url = rtrim($source->base_url, '/').$href;
         } else {
-            $url = rtrim($source->base_url, '/').'/'.$href;
+            $parentPath = $parentUrl ? (string) parse_url($parentUrl, PHP_URL_PATH) : '/';
+            $directory = str_ends_with($parentPath, '/') ? $parentPath : dirname($parentPath).'/';
+            $url = rtrim($source->base_url, '/').'/'.ltrim($directory.$href, '/');
         }
 
         $this->assertAllowedUrl($source, $url);

@@ -19,7 +19,7 @@ class CrawlerSourceController extends Controller
     public function index()
     {
         return view('admin.crawler.index', [
-            'sources' => CrawlerSource::with('runs')->withCount('items')->latest()->paginate(15),
+            'sources' => CrawlerSource::with(['runs' => fn ($query) => $query->latest()->limit(5)])->withCount('items')->latest()->paginate(15),
         ]);
     }
 

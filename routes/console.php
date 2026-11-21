@@ -30,3 +30,24 @@ Schedule::call(function () {
         ->where('created_at', '<', now()->subDays(365))
         ->delete();
 })->dailyAt('03:00')->name('notifications:prune');
+
+
+Schedule::call(function () {
+    CrawlerSource::query()
+        ->where('enabled', true)
+        ->where('permission_confirmed', true)
+        ->chunkById(50, function ($sources) {
+            foreach ($sources as $source) {
+                if ($source->runs()->whereIn('status', ['queued', 'running'])->exists()) {
+                    continue;
+                }
+
+                $run = CrawlerRun::create([
+                    'crawler_source_id' => $source->id,
+                    'status' => 'queued',
+                ]);
+
+                RunCrawlerSource::dispatch($run->id);
+            }
+        });
+})->everySixHours()->withoutOverlapping()->name('crawler:authorized-sources');
