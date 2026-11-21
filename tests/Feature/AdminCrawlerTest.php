@@ -78,5 +78,5 @@ test('admin can queue a crawler run for an enabled authorized source', function 
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    Queue::assertPushed(\App\Jobs\RunCrawlerSource::class);
+    Queue::assertPushed(RunCrawlerSource::class);
 });
