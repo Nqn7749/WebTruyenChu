@@ -19,6 +19,7 @@
             <li><a href="{{ route('admin.reports.index') }}" class="nav-link text-white">Báo cáo cộng đồng</a></li>
             <li><a href="{{ route('admin.activity-logs.index') }}" class="nav-link text-white">Nhật ký quản trị</a></li>
             <li><a href="{{ route('admin.tags.index') }}" class="nav-link text-white">Thẻ tag</a></li>
+            <li><a href="{{ route('admin.crawler.index') }}" class="nav-link text-white">Crawler nguồn truyện</a></li>
         </ul>
     </nav>
 
