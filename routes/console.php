@@ -53,4 +53,4 @@ Schedule::call(function () {
                 RunCrawlerSource::dispatch($run->id);
             }
         });
-})->everySixHours()->withoutOverlapping()->name('crawler:authorized-sources');
+})->everySixHours()->name('crawler:authorized-sources')->withoutOverlapping();
