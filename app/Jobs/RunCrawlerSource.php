@@ -53,7 +53,7 @@ class RunCrawlerSource implements ShouldQueue
                 }
 
                 $item = CrawlerItem::where('crawler_source_id', $source->id)
-                    ->where('external_key', $externalUrl)->first();
+                    ->where('external_hash', hash('sha256', $externalUrl))->first();
 
                 if ($item) {
                     $story = $item->story;
@@ -73,6 +73,7 @@ class RunCrawlerSource implements ShouldQueue
                     CrawlerItem::create([
                         'crawler_source_id' => $source->id,
                         'external_key' => $externalUrl,
+                        'external_hash' => hash('sha256', $externalUrl),
                         'story_id' => $story->id,
                     ]);
                     $counts['stories_imported']++;
@@ -83,7 +84,7 @@ class RunCrawlerSource implements ShouldQueue
 
                 foreach (array_slice($chapterLinks, 0, 50) as $chapterLink) {
                     $chapterUrl = strtok($this->absoluteUrl($source, $chapterLink->getAttribute('href'), $externalUrl), '#');
-                    if (DB::table('crawler_chapter_items')->where('crawler_source_id', $source->id)->where('external_key', $chapterUrl)->exists()) {
+                    if (DB::table('crawler_chapter_items')->where('crawler_source_id', $source->id)->where('external_hash', hash('sha256', $chapterUrl))->exists()) {
                         continue;
                     }
 
@@ -106,6 +107,7 @@ class RunCrawlerSource implements ShouldQueue
                         'crawler_source_id' => $source->id,
                         'story_id' => $story->id,
                         'external_key' => $chapterUrl,
+                        'external_hash' => hash('sha256', $chapterUrl),
                         'chapter_id' => $chapter->id,
                         'created_at' => now(),
                         'updated_at' => now(),

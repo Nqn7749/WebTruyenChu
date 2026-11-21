@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CrawlerItem extends Model
 {
-    protected $fillable = ['crawler_source_id', 'external_key', 'story_id'];
+    protected $fillable = ['crawler_source_id', 'external_key', 'external_hash', 'story_id'];
 
     public function story(): BelongsTo
     {

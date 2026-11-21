@@ -39,9 +39,10 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('crawler_source_id')->constrained()->cascadeOnDelete();
             $table->string('external_key', 2048);
+            $table->char('external_hash', 64);
             $table->foreignId('story_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
-            $table->unique(['crawler_source_id', 'external_key']);
+            $table->unique(['crawler_source_id', 'external_hash']);
             $table->unique(['crawler_source_id', 'story_id']);
         });
     }
