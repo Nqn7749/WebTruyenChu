@@ -30,7 +30,9 @@ class CreateAdminUser extends Command
         $validator = Validator::make(
             compact('name', 'username', 'email', 'password'),
             [
-                'name' => ['required', 'string', 'max:255'],
+                // Cột users.name là varchar(100): max:255 cho qua rồi MySQL
+                // báo 500 (NM-2).
+                'name' => ['required', 'string', 'max:100'],
                 'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
                 'password' => ['required', 'string', Password::min(12)->mixedCase()->numbers()->symbols()],
@@ -45,15 +47,22 @@ class CreateAdminUser extends Command
             return self::FAILURE;
         }
 
-        User::create([
-            'role_id' => $adminRole->id,
+        $user = User::create([
             'name' => $name,
             'username' => $username,
             'email' => $email,
             'password' => Hash::make($password),
+        ]);
+
+        // role_id, status và email_verified_at KHÔNG nằm trong $fillable
+        // của User nên User::create() lặng lẽ bỏ qua chúng: lệnh trước đây
+        // tạo ra tài khoản thường chưa xác minh email, không phải admin
+        // (NM-1). Gán riêng bằng forceFill(), giống RegisteredUserController.
+        $user->forceFill([
+            'role_id' => $adminRole->id,
             'status' => true,
             'email_verified_at' => now(),
-        ]);
+        ])->save();
 
         $this->info('Administrator account created successfully.');
 

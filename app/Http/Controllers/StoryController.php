@@ -49,6 +49,10 @@ class StoryController extends Controller
                 'chapter',
                 'replies' => fn ($q) => $q
                     ->where('is_hidden', false)
+                    // Giới hạn reply mỗi comment: comment gốc chỉ phân trang
+                    // 10/trang nhưng reply load toàn bộ, một comment viral
+                    // vài nghìn reply sẽ làm nặng DB và bộ nhớ (NM-3).
+                    ->take(20)
                     ->with('user'),
             ])
             ->orderByDesc('created_at')

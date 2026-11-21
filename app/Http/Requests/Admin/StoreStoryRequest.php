@@ -33,8 +33,10 @@ class StoreStoryRequest extends FormRequest
             // SVG qua, mà SVG có thể chứa script và file lưu ở disk public
             // (stored XSS khi mở trực tiếp).
             'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
-            // description là longText, meta_description là text (tối đa 65.535 ký tự):
-            // đặt max để nhập quá dài trả lỗi validation thay vì lỗi 500 của DB.
+            // description là longText, meta_description là TEXT (tối đa
+            // 65.535 byte): tiếng Việt mỗi ký tự tốn ~3 byte nên giới hạn
+            // 20.000 ký tự (~60.000 byte) để nhập quá dài trả lỗi validation
+            // thay vì lỗi 500 của DB. Cùng lỗi M12 đã sửa cho mô tả thể loại.
             'description' => ['nullable', 'string', 'max:1000000'],
             'status' => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
             'categories' => ['required', 'array', 'max:10'],
@@ -42,7 +44,7 @@ class StoreStoryRequest extends FormRequest
             'tags' => ['nullable', 'array', 'max:10'],
             'tags.*' => ['exists:tags,id'],
             'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
-            'meta_description' => ['nullable', 'string', 'max:60000'],
+            'meta_description' => ['nullable', 'string', 'max:20000'],
             'meta_keywords' => ['nullable', 'string', 'max:255'],
         ];
     }

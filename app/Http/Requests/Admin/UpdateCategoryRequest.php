@@ -14,7 +14,8 @@ class UpdateCategoryRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ admin mới được quản lý thể loại (NL-11).
+        return $this->user()?->role?->slug === 'admin';
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Story;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SearchController extends Controller
 {
@@ -38,13 +39,27 @@ class SearchController extends Controller
             $escapedKeyword = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $keyword);
             $term = '%'.$escapedKeyword.'%';
 
-            $query->where(function ($search) use ($term) {
-                $search->whereRaw("title LIKE ? ESCAPE '!'", [$term])
-                    ->orWhereRaw("author_name LIKE ? ESCAPE '!'", [$term])
-                    ->orWhereRaw("description LIKE ? ESCAPE '!'", [$term])
-                    ->orWhereHas('categories', fn ($categories) => $categories->whereRaw("name LIKE ? ESCAPE '!'", [$term]))
-                    ->orWhereHas('tags', fn ($tags) => $tags->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
-            });
+            if ($this->useFullText($keyword)) {
+                // Index FULLTEXT (title, description) đã có sẵn từ migration
+                // tạo bảng stories: dùng MATCH cho phần text, LIKE cho
+                // author_name và thể loại/tag (không nằm trong index) (M7).
+                $booleanKeyword = $this->toBooleanKeyword($keyword);
+
+                $query->where(function ($search) use ($booleanKeyword, $term) {
+                    $search->whereFullText(['title', 'description'], $booleanKeyword, ['mode' => 'boolean'])
+                        ->orWhereRaw("author_name LIKE ? ESCAPE '!'", [$term])
+                        ->orWhereHas('categories', fn ($categories) => $categories->whereRaw("name LIKE ? ESCAPE '!'", [$term]))
+                        ->orWhereHas('tags', fn ($tags) => $tags->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
+                });
+            } else {
+                $query->where(function ($search) use ($term) {
+                    $search->whereRaw("title LIKE ? ESCAPE '!'", [$term])
+                        ->orWhereRaw("author_name LIKE ? ESCAPE '!'", [$term])
+                        ->orWhereRaw("description LIKE ? ESCAPE '!'", [$term])
+                        ->orWhereHas('categories', fn ($categories) => $categories->whereRaw("name LIKE ? ESCAPE '!'", [$term]))
+                        ->orWhereHas('tags', fn ($tags) => $tags->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
+                });
+            }
 
             if ($sort === 'relevance') {
                 $prefix = $escapedKeyword.'%';
@@ -108,5 +123,31 @@ class SearchController extends Controller
             'sort',
             'period'
         ));
+    }
+
+    /**
+     * Chỉ dùng MATCH ... AGAINST khi DB có index FULLTEXT (MySQL/MariaDB)
+     * và từ khóa có ít nhất một từ đủ dài để index nhận (M7).
+     */
+    private function useFullText(string $keyword): bool
+    {
+        if (! in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            return false;
+        }
+
+        // MySQL bỏ qua từ ngắn hơn ft_min_word_len (mặc định 4) trong
+        // index FULLTEXT: từ khóa chỉ toàn từ ngắn thì MATCH trả về rỗng.
+        return preg_match('/\p{L}{4,}/u', $keyword) === 1;
+    }
+
+    /**
+     * Loại ký tự điều khiển của BOOLEAN MODE (+ - * " ( ) < > ~) để input
+     * của user không đổi nghĩa truy vấn, rồi gộp khoảng trắng.
+     */
+    private function toBooleanKeyword(string $keyword): string
+    {
+        $cleaned = (string) preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $keyword);
+
+        return trim((string) preg_replace('/\s+/u', ' ', $cleaned));
     }
 }

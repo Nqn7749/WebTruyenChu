@@ -45,6 +45,15 @@
                     @else
                         <span class="badge bg-warning text-dark">Chưa công khai</span>
                     @endif
+                    @if ($story->is_hot)
+                        <span class="badge bg-danger">Hot</span>
+                    @endif
+                    @if ($story->is_featured)
+                        <span class="badge bg-primary">Nổi bật</span>
+                    @endif
+                    @if ($story->is_recommended)
+                        <span class="badge bg-info text-dark">Đề cử</span>
+                    @endif
                 </td>
                 <td>{{ $story->chapters_count }}</td>
                 <td class="text-end">
@@ -56,6 +65,18 @@
                             {{ $story->status_publish ? 'Gỡ công khai' : 'Công khai' }}
                         </button>
                     </form>
+                    <div class="mt-2">
+                        @foreach (['is_hot' => 'Hot', 'is_featured' => 'Nổi bật', 'is_recommended' => 'Đề cử'] as $flag => $label)
+                            <form action="{{ route('admin.stories.toggle-flag', $story) }}" method="POST" class="d-inline">
+                                @csrf
+                                @method('PATCH')
+                                <input type="hidden" name="flag" value="{{ $flag }}">
+                                <button class="btn btn-sm {{ $story->{$flag} ? 'btn-secondary' : 'btn-outline-secondary' }}">
+                                    {{ $story->{$flag} ? 'Bỏ '.$label : $label }}
+                                </button>
+                            </form>
+                        @endforeach
+                    </div>
                     <form action="{{ route('admin.stories.destroy', $story) }}" method="POST" class="mt-2 text-start"
                           onsubmit="return confirm('CẢNH BÁO: Truyện sẽ bị xóa khỏi website. Bạn đã kiểm tra nội dung và nhập đúng lý do chưa?')">
                         @csrf

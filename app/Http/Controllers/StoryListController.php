@@ -37,7 +37,7 @@ class StoryListController extends Controller
             ->all();
 
         $chapterRange = $request->query('chapters');
-        if (! array_key_exists($chapterRange, self::CHAPTER_RANGES)) {
+        if (! is_string($chapterRange) || ! array_key_exists($chapterRange, self::CHAPTER_RANGES)) {
             $chapterRange = null;
         }
 

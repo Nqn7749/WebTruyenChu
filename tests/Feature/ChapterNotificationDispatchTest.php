@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\SendBulkChapterNotifications;
 use App\Jobs\SendNewChapterNotifications;
 use App\Models\Chapter;
 use App\Models\Favorite;
@@ -92,8 +93,8 @@ test('republishing a story notifies followers about already published chapters',
         ->assertRedirect();
 
     expect($story->fresh()->status_publish)->toBeTrue();
-    Queue::assertPushed(SendNewChapterNotifications::class, fn ($job) => $job->chapterId === $publishedChapter->id);
-    Queue::assertNotPushed(SendNewChapterNotifications::class, fn ($job) => $job->chapterId === $draftChapter->id);
+    Queue::assertPushed(SendBulkChapterNotifications::class, fn ($job) => $job->chapterIds === [$publishedChapter->id]);
+    Queue::assertNotPushed(SendNewChapterNotifications::class);
 });
 
 test('notification job does not resend to users who already received it', function () {

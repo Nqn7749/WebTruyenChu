@@ -18,13 +18,16 @@
     {{-- Canonical giữ lại query string phân trang/lọc (page, q, ...) để các
          trang phân trang và kết quả tìm kiếm không bị gộp thành một URL duy
          nhất. Chỉ giữ các tham số đã biết, bỏ utm_ và tham số lạ. --}}
-    @php($canonicalQuery = collect(request()->query())->only(['page', 'q', 'category', 'status', 'sort', 'period', 'recent'])->filter(fn ($value) => $value !== '' && $value !== null)->all())
-    <link rel="canonical" href="{{ url()->current() }}{{ $canonicalQuery ? '?'.http_build_query($canonicalQuery) : '' }}">
+    @php($canonicalQuery = collect(request()->query())->only(['page', 'q', 'category', 'status', 'sort', 'period', 'recent', 'chapter_page', 'comment_page', 'categories', 'chapters'])->filter(fn ($value) => $value !== '' && $value !== null)->all())
+    @php($canonicalUrl = url()->current().($canonicalQuery ? '?'.http_build_query($canonicalQuery) : ''))
+    <link rel="canonical" href="{{ $canonicalUrl }}">
 
     {{-- Open Graph (Facebook, Zalo) --}}
     <meta property="og:type" content="{{ $__env->yieldContent('og_type', 'website') }}">
     <meta property="og:site_name" content="Web Đọc Truyện Chữ">
-    <meta property="og:url" content="{{ url()->current() }}">
+    {{-- og:url phải kèm query string giống canonical, nếu không Facebook/
+         Zalo gộp mọi trang phân trang/tìm kiếm thành một URL (N-L2). --}}
+    <meta property="og:url" content="{{ $canonicalUrl }}">
     <meta property="og:title" content="{{ $__env->yieldContent('og_title', $__env->yieldContent('title', 'Web Đọc Truyện Chữ')) }}">
     <meta property="og:description" content="{{ $__env->yieldContent('og_description', $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh.')) }}">
     <meta property="og:image" content="{{ $__env->yieldContent('og_image', asset('images/no-cover.jpg')) }}">

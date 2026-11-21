@@ -15,7 +15,7 @@ Route::get('/', DashboardController::class)
     ->name('dashboard');
 
 Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-Route::patch('reports/{report}', [ReportController::class, 'update'])->name('reports.update');
+Route::patch('reports/{report}', [ReportController::class, 'update'])->middleware('throttle:30,1')->name('reports.update');
 Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
 Route::resource('categories', CategoryController::class)
@@ -29,7 +29,12 @@ Route::resource('stories', StoryController::class)
     ->only(['index', 'destroy']);
 
 Route::patch('stories/{story}/toggle-publish', [StoryController::class, 'togglePublish'])
+    ->middleware('throttle:30,1')
     ->name('stories.toggle-publish');
+
+Route::patch('stories/{story}/toggle-flag', [StoryController::class, 'toggleFlag'])
+    ->middleware('throttle:30,1')
+    ->name('stories.toggle-flag');
 
 Route::resource('stories.chapters', ChapterController::class)
     ->except(['show'])
@@ -44,4 +49,4 @@ Route::resource('comments', CommentController::class)
 Route::patch(
     'comments/{comment}/toggle-hidden',
     [CommentController::class, 'toggleHidden']
-)->name('comments.toggle-hidden');
+)->middleware('throttle:30,1')->name('comments.toggle-hidden');

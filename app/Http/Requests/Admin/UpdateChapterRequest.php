@@ -11,7 +11,21 @@ class UpdateChapterRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        // Request này dùng chung cho cả admin và writer (NL-11): admin
+        // được sửa chương bất kỳ, writer chỉ sửa chương của truyện mình.
+        $user = $this->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role?->slug === 'admin') {
+            return true;
+        }
+
+        $chapter = $this->route('chapter');
+
+        return $chapter instanceof Chapter && $chapter->story?->user_id === $user->id;
     }
 
     /**

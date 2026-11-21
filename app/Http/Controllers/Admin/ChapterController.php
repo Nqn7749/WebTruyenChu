@@ -59,7 +59,9 @@ class ChapterController extends Controller
 
     public function edit(Chapter $chapter)
     {
-        $story = $chapter->story;
+        // Story có thể đã soft-delete: belongsTo mặc định loại truyện đã
+        // xóa nên $chapter->story trả null rồi view 500 (N-L1).
+        $story = $chapter->story()->withTrashed()->firstOrFail();
 
         return view('admin.chapters.edit', compact('chapter', 'story'));
     }
@@ -72,7 +74,7 @@ class ChapterController extends Controller
         $data = $request->validated();
 
         [$story, $chapter, $wasPublished] = DB::transaction(function () use ($chapter, $data, $stats) {
-            $story = Story::query()->lockForUpdate()->findOrFail($chapter->story_id);
+            $story = Story::query()->withTrashed()->lockForUpdate()->findOrFail($chapter->story_id);
             $chapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
             $this->assertChapterNumberAvailable($story, (int) $data['chapter_number'], $chapter->id);
             $wasPublished = (bool) $chapter->status;
@@ -95,7 +97,7 @@ class ChapterController extends Controller
     public function destroy(Chapter $chapter, StoryStatsService $stats)
     {
         $story = DB::transaction(function () use ($chapter, $stats) {
-            $story = Story::query()->lockForUpdate()->findOrFail($chapter->story_id);
+            $story = Story::query()->withTrashed()->lockForUpdate()->findOrFail($chapter->story_id);
             $chapter = Chapter::query()->lockForUpdate()->findOrFail($chapter->id);
             $chapter->delete();
             $stats->refreshChapterStats($story);

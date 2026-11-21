@@ -101,6 +101,8 @@ class ChapterController extends Controller
                 'chapter',
                 'replies' => fn ($q) => $q
                     ->where('is_hidden', false)
+                    // Giới hạn reply mỗi comment: xem NM-3 ở StoryController.
+                    ->take(20)
                     ->with('user'),
             ])
             ->orderByDesc('created_at')
@@ -135,6 +137,13 @@ class ChapterController extends Controller
         }
 
         $viewedInSession[] = $chapter->id;
+
+        // Giới hạn 100 chương gần nhất: session không phình vô hạn, và
+        // chương cũ rơi khỏi danh sách sẽ được đếm lại sau khi hết 30 phút
+        // throttle (trước đây session nhớ mãi nên throttle kéo dài vô
+        // hạn) (N-L4).
+        $viewedInSession = array_slice(array_values(array_unique($viewedInSession)), -100);
+
         session(['viewed_chapters' => $viewedInSession]);
     }
 }

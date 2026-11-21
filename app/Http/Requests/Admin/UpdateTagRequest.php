@@ -13,7 +13,8 @@ class UpdateTagRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ admin mới được quản lý tag (NL-11).
+        return $this->user()?->role?->slug === 'admin';
     }
 
     /**

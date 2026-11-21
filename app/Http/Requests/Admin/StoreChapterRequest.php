@@ -11,7 +11,21 @@ class StoreChapterRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        // Request này dùng chung cho cả admin và writer (NL-11): admin
+        // được thêm chương cho truyện bất kỳ, writer chỉ cho truyện mình.
+        $user = $this->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role?->slug === 'admin') {
+            return true;
+        }
+
+        $story = $this->route('story');
+
+        return $story instanceof Story && $story->user_id === $user->id;
     }
 
     /**

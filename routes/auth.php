@@ -25,7 +25,8 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
         // Throttle theo IP (bổ sung cho giới hạn theo email|IP ở LoginRequest):
         // chặn spray mật khẩu trên nhiều tài khoản từ cùng một IP.
-        ->middleware('throttle:60,1');
+        // 60/phút trước đây vẫn cho 3.600 lần thử/giờ/IP (NL-7).
+        ->middleware('throttle:20,1');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

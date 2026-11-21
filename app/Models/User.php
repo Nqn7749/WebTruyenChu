@@ -22,13 +22,14 @@ class User extends Authenticatable implements MustVerifyEmail
      * Chỉ các trường người dùng được phép nhập. Các trường nhạy cảm
      * (role_id, status, last_login_at) KHÔNG nằm ở đây — chỉ gán qua
      * forceFill() ở đúng chỗ có thẩm quyền (đăng ký, admin).
+     * 'avatar' đã bỏ: không có chức năng upload avatar nào, trường này
+     * là dead field.
      */
     protected $fillable = [
         'username',
         'name',
         'email',
         'password',
-        'avatar',
         'phone',
     ];
 
