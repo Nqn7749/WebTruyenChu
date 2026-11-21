@@ -23,6 +23,11 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::patch('reports/{report}', [ReportController::class, 'update'])->middleware('throttle:30,1')->name('reports.update');
     Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
+    Route::get('crawler', [CrawlerSourceController::class, 'index'])->name('crawler.index');
+    Route::post('crawler', [CrawlerSourceController::class, 'store'])->middleware('throttle:10,1')->name('crawler.store');
+    Route::post('crawler/{crawlerSource}/run', [CrawlerSourceController::class, 'run'])->middleware('throttle:5,1')->name('crawler.run');
+    Route::delete('crawler/{crawlerSource}', [CrawlerSourceController::class, 'destroy'])->name('crawler.destroy');
+
     Route::resource('categories', CategoryController::class)
         ->except(['show']);
 
