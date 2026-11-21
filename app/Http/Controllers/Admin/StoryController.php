@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendNewChapterNotifications;
+use App\Jobs\SendBulkChapterNotifications;
 use App\Models\Story;
 use App\Services\AdminActivityLogger;
+use App\Services\HomeCacheService;
 use App\Services\StoryDeletionService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class StoryController extends Controller
 {
@@ -37,12 +39,12 @@ class StoryController extends Controller
             // Các chương đã công khai trong lúc truyện bị gỡ chưa từng gửi
             // thông báo: gửi bù cho từng chương đã công khai. Job tự kiểm
             // tra lại trạng thái lúc chạy và bỏ qua người đã nhận rồi (H5).
+            // Gửi theo lô 100 chương/job thay vì 1 job/chương: truyện 1000
+            // chương re-publish trước đây tạo 1000 job (N-L5).
             $story->chapters()
                 ->where('status', true)
                 ->chunkById(100, function ($chapters) {
-                    foreach ($chapters as $chapter) {
-                        SendNewChapterNotifications::dispatch($chapter->id);
-                    }
+                    SendBulkChapterNotifications::dispatch($chapters->pluck('id')->all());
                 });
         }
 
@@ -56,6 +58,50 @@ class StoryController extends Controller
         return back()->with('success', $published
             ? 'Đã công khai truyện.'
             : 'Đã gỡ truyện khỏi website.');
+    }
+
+    /**
+     * Bật/tắt một cờ hiển thị của truyện (N-M6): is_hot, is_featured,
+     * is_recommended. Ba cờ này trước đây chỉ set false lúc đăng truyện
+     * và set ngẫu nhiên trong seeder, không có chỗ nào bật lên nên mục
+     * "Truyện hot" / "Truyện đề cử" ở trang chủ luôn trống với dữ liệu thật.
+     *
+     * Làm bằng nút bật/tắt ngay trên trang quản lý thay vì hồi sinh form
+     * sửa truyện của admin: form đó là dead code (route admin.stories chỉ
+     * có index/destroy, không có edit/update) nên đưa cờ vào form sẽ
+     * không tới được tay admin. Các cờ không nằm trong $fillable nên
+     * gán bằng forceFill(), giống cách Writer/StoryController set cờ lúc
+     * tạo truyện. Đổi cờ xong làm mới cache trang chủ để mục Hot/Đề cử
+     * cập nhật ngay thay vì chờ hết 10 phút cache (M13).
+     */
+    public function toggleFlag(Request $request, Story $story, AdminActivityLogger $logger)
+    {
+        $validated = $request->validate([
+            'flag' => ['required', 'string', Rule::in(['is_hot', 'is_featured', 'is_recommended'])],
+        ]);
+
+        $flag = $validated['flag'];
+
+        $labels = [
+            'is_hot' => 'Truyện hot',
+            'is_featured' => 'Nổi bật',
+            'is_recommended' => 'Đề cử',
+        ];
+
+        $enabled = ! $story->{$flag};
+
+        $story->forceFill([$flag => $enabled])->save();
+
+        app(HomeCacheService::class)->invalidate();
+
+        $logger->record(
+            $request,
+            $enabled ? 'story.flag_enabled' : 'story.flag_disabled',
+            $story,
+            ($enabled ? 'Bật "' : 'Tắt "').$labels[$flag].'" cho truyện "'.$story->title.'"'
+        );
+
+        return back()->with('success', ($enabled ? 'Đã bật "' : 'Đã tắt "').$labels[$flag].'" cho truyện.');
     }
 
     public function destroy(Request $request, Story $story, StoryDeletionService $deletion, AdminActivityLogger $logger)

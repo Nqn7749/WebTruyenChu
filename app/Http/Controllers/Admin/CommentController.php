@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Services\AdminActivityLogger;
+use App\Services\StoryStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -24,21 +25,24 @@ class CommentController extends Controller
             $locked->is_hidden = ! $locked->is_hidden;
             $locked->save();
 
+            // Ẩn/hiện comment cha cũng ẩn/hiện các reply của nó trên giao
+            // diện (reply chỉ load qua comment cha) nên số đếm phải đổi
+            // theo cả reply, và không để âm (N-L3, NM-4).
+            $amount = 1 + $locked->replies()->where('is_hidden', false)->count();
+
             if ($locked->story) {
-                $storyQuery = DB::table('stories')->where('id', $locked->story_id);
                 if ($locked->is_hidden) {
-                    $storyQuery->where('comment_count', '>', 0)->decrement('comment_count');
+                    StoryStatsService::decrementCommentCount('stories', $locked->story_id, $amount);
                 } else {
-                    $storyQuery->increment('comment_count');
+                    DB::table('stories')->where('id', $locked->story_id)->increment('comment_count', $amount);
                 }
             }
 
             if ($locked->chapter_id && $locked->chapter) {
-                $chapterQuery = DB::table('chapters')->where('id', $locked->chapter_id);
                 if ($locked->is_hidden) {
-                    $chapterQuery->where('comment_count', '>', 0)->decrement('comment_count');
+                    StoryStatsService::decrementCommentCount('chapters', $locked->chapter_id, $amount);
                 } else {
-                    $chapterQuery->increment('comment_count');
+                    DB::table('chapters')->where('id', $locked->chapter_id)->increment('comment_count', $amount);
                 }
             }
 
@@ -59,9 +63,12 @@ class CommentController extends Controller
             $locked = Comment::query()->lockForUpdate()->findOrFail($comment->id);
 
             if (! $locked->is_hidden) {
-                DB::table('stories')->where('id', $locked->story_id)->where('comment_count', '>', 0)->decrement('comment_count');
+                // Xem ghi chú ở CommentController@destroy (N-L3, NM-4).
+                $decrement = 1 + $locked->replies()->where('is_hidden', false)->count();
+
+                StoryStatsService::decrementCommentCount('stories', $locked->story_id, $decrement);
                 if ($locked->chapter_id) {
-                    DB::table('chapters')->where('id', $locked->chapter_id)->where('comment_count', '>', 0)->decrement('comment_count');
+                    StoryStatsService::decrementCommentCount('chapters', $locked->chapter_id, $decrement);
                 }
             }
 

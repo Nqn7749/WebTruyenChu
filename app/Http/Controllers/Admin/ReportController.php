@@ -8,6 +8,7 @@ use App\Models\Report;
 use App\Models\Story;
 use App\Services\AdminActivityLogger;
 use App\Services\StoryDeletionService;
+use App\Services\StoryStatsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,10 +60,16 @@ class ReportController extends Controller
                 if ($target->is_hidden === false) {
                     // is_hidden không nằm trong $fillable của Comment nên gán riêng ở đây.
                     $target->forceFill(['is_hidden' => true])->save();
-                    DB::table('stories')->where('id', $target->story_id)->where('comment_count', '>', 0)->decrement('comment_count');
+
+                    // Ẩn comment cha cũng ẩn các reply của nó trên giao
+                    // diện nên số đếm phải trừ theo cả reply (N-L3),
+                    // và không để âm (NM-4).
+                    $amount = 1 + $target->replies()->where('is_hidden', false)->count();
+
+                    StoryStatsService::decrementCommentCount('stories', $target->story_id, $amount);
 
                     if ($target->chapter_id) {
-                        DB::table('chapters')->where('id', $target->chapter_id)->where('comment_count', '>', 0)->decrement('comment_count');
+                        StoryStatsService::decrementCommentCount('chapters', $target->chapter_id, $amount);
                     }
                 }
             }

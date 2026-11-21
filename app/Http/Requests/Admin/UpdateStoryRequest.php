@@ -55,7 +55,9 @@ class UpdateStoryRequest extends FormRequest
             'tags' => ['nullable', 'array', 'max:10'],
             'tags.*' => ['exists:tags,id'],
             'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
-            'meta_description' => ['nullable', 'string', 'max:60000'],
+            // TEXT chỉ chứa 65.535 byte, tiếng Việt ~3 byte/ký tự nên
+            // max 20.000 ký tự (~60.000 byte), nhập quá dài trả 422 thay vì 500.
+            'meta_description' => ['nullable', 'string', 'max:20000'],
             'meta_keywords' => ['nullable', 'string', 'max:255'],
         ];
     }

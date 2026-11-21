@@ -39,7 +39,11 @@ Route::get('/robots.txt', function () {
 
     return response($content, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
 })->name('robots');
-Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
+Route::get('/tim-kiem', [SearchController::class, 'index'])
+    // Tìm kiếm chạy nhiều LIKE '%...%' + whereHas, không throttle thì
+    // spam request sẽ đốt CPU DB (NM-5).
+    ->middleware('throttle:30,1')
+    ->name('search');
 Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index');
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
@@ -65,14 +69,14 @@ Route::get('/dashboard', function () {
 Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->group(function () {
     Route::get('/', WriterDashboardController::class)->name('dashboard');
     Route::get('/binh-luan', [WriterCommentController::class, 'index'])->name('comments.index');
-    Route::patch('/binh-luan/{comment}/an-hien', [WriterCommentController::class, 'toggleHidden'])->name('comments.toggle-hidden');
+    Route::patch('/binh-luan/{comment}/an-hien', [WriterCommentController::class, 'toggleHidden'])->middleware('throttle:20,1')->name('comments.toggle-hidden');
 
     Route::get('/truyen', [WriterStoryController::class, 'index'])->name('stories.index');
     Route::get('/truyen/create', [WriterStoryController::class, 'create'])->name('stories.create');
     Route::post('/truyen', [WriterStoryController::class, 'store'])->middleware('throttle:10,1')->name('stories.store');
     Route::get('/truyen/{story}/edit', [WriterStoryController::class, 'edit'])->name('stories.edit');
     Route::put('/truyen/{story}', [WriterStoryController::class, 'update'])->middleware('throttle:20,1')->name('stories.update');
-    Route::delete('/truyen/{story}', [WriterStoryController::class, 'destroy'])->name('stories.destroy');
+    Route::delete('/truyen/{story}', [WriterStoryController::class, 'destroy'])->middleware('throttle:20,1')->name('stories.destroy');
 
     Route::get('/truyen/{story}/chuong', [WriterChapterController::class, 'index'])->name('stories.chapters.index');
     Route::get('/truyen/{story}/chuong/create', [WriterChapterController::class, 'create'])->name('stories.chapters.create');
@@ -80,13 +84,13 @@ Route::middleware(['auth', 'verified'])->prefix('sang-tac')->name('writer.')->gr
     Route::get('/chuong/{chapter}/preview', [WriterChapterController::class, 'preview'])->name('chapters.preview');
     Route::get('/chuong/{chapter}/edit', [WriterChapterController::class, 'edit'])->name('chapters.edit');
     Route::put('/chuong/{chapter}', [WriterChapterController::class, 'update'])->middleware('throttle:30,1')->name('chapters.update');
-    Route::delete('/chuong/{chapter}', [WriterChapterController::class, 'destroy'])->name('chapters.destroy');
+    Route::delete('/chuong/{chapter}', [WriterChapterController::class, 'destroy'])->middleware('throttle:20,1')->name('chapters.destroy');
 });
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:20,1')->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('throttle:20,1')->name('profile.destroy');
 
     Route::post('/truyen/{story:slug}/bao-cao', [ReportController::class, 'story'])
         ->middleware('throttle:10,1')
@@ -122,8 +126,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications/unread', [NotificationController::class, 'unread'])
         ->middleware('throttle:30,1')->name('notifications.unread');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
-    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->middleware('throttle:30,1')->name('notifications.mark-read');
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->middleware('throttle:30,1')->name('notifications.mark-all-read');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.index');

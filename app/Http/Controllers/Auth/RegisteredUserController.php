@@ -33,7 +33,9 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            // Cột users.name là varchar(100): max:255 cho qua rồi MySQL
+            // báo 500 (NM-2).
+            'name' => ['required', 'string', 'max:100'],
             'username' => [
                 'required',
                 'string',

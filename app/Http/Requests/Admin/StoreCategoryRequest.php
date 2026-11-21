@@ -12,7 +12,9 @@ class StoreCategoryRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ admin mới được quản lý thể loại (NL-11): trước đây trả
+        // true mù, chỉ nhờ lớp middleware role:admin ở ngoài.
+        return $this->user()?->role?->slug === 'admin';
     }
 
     /**

@@ -72,7 +72,7 @@ class SitemapController extends Controller
                 ->orderBy('id')
                 ->skip(($page - 1) * self::STORIES_PER_PAGE)
                 ->take(self::STORIES_PER_PAGE)
-                ->get(['id', 'story_id', 'slug', 'published_at']);
+                ->get(['id', 'story_id', 'slug', 'published_at', 'created_at']);
 
             abort_if($chapters->isEmpty(), 404);
 

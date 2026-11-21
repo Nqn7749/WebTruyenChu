@@ -12,7 +12,10 @@ class StoreRatingRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        // Chỉ tài khoản đã đăng nhập mới được đánh giá (NL-11): route đã
+        // nằm sau auth nhưng authorize() trả true mù thì request có thể
+        // bị reuse ở route khác mà không có lớp bảo vệ nào.
+        return $this->user() !== null;
     }
 
     /**

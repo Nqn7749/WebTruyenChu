@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Writer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
+use App\Services\StoryStatsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -35,23 +36,25 @@ class CommentController extends Controller
                 ->where('id', $lockedComment->id)
                 ->update(['is_hidden' => $isHidden]);
 
-            $delta = $isHidden ? -1 : 1;
+            // Ẩn/hiện comment cha cũng ẩn/hiện các reply của nó trên giao
+            // diện nên số đếm phải đổi theo cả reply (N-L3), và không
+            // để âm khi số đếm đã lệch trước đó (NM-4).
+            $amount = 1 + $lockedComment->replies()->where('is_hidden', false)->count();
 
             if ($lockedComment->story) {
-                $storyQuery = DB::table('stories')->where('id', $lockedComment->story_id);
-
-                // Chặn ở 0 như bản admin: counter đã lệch thì không được âm.
-                $delta < 0
-                    ? $storyQuery->where('comment_count', '>', 0)->decrement('comment_count')
-                    : $storyQuery->increment('comment_count');
+                if ($isHidden) {
+                    StoryStatsService::decrementCommentCount('stories', $lockedComment->story_id, $amount);
+                } else {
+                    DB::table('stories')->where('id', $lockedComment->story_id)->increment('comment_count', $amount);
+                }
             }
 
             if ($lockedComment->chapter_id && $lockedComment->chapter) {
-                $chapterQuery = DB::table('chapters')->where('id', $lockedComment->chapter_id);
-
-                $delta < 0
-                    ? $chapterQuery->where('comment_count', '>', 0)->decrement('comment_count')
-                    : $chapterQuery->increment('comment_count');
+                if ($isHidden) {
+                    StoryStatsService::decrementCommentCount('chapters', $lockedComment->chapter_id, $amount);
+                } else {
+                    DB::table('chapters')->where('id', $lockedComment->chapter_id)->increment('comment_count', $amount);
+                }
             }
         });
 

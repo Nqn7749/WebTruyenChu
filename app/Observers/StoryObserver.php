@@ -39,6 +39,16 @@ class StoryObserver
         app(HomeCacheService::class)->invalidate();
     }
 
+    public function forceDeleted(Story $story): void
+    {
+        // Giống ChapterObserver: xóa vĩnh viễn cũng phải làm mới cache,
+        // nếu không truyện đã xóa vẫn nằm trong cache home và sitemap
+        // (NL-1). Hiện chưa có controller nào gọi forceDelete() nên đây
+        // là phòng thủ cho route gọi nó sau này.
+        app(SitemapCacheService::class)->invalidate();
+        app(HomeCacheService::class)->invalidate();
+    }
+
     public function restored(Story $story): void
     {
         app(SitemapCacheService::class)->invalidate();

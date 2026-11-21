@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCommentRequest;
 use App\Models\Chapter;
 use App\Models\Comment;
 use App\Models\Story;
+use App\Services\StoryStatsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -152,13 +153,18 @@ class CommentController extends Controller
             $chapter = $comment->chapter;
 
             if (! $comment->is_hidden) {
+                // Reply chỉ có 1 cấp: xóa comment cha cũng gỡ số đếm của
+                // các reply còn hiển thị của nó, nếu không comment_count
+                // lệch dần (N-L3). Trừ có chặn ở 0 khi số đếm đã lệch
+                // trước đó (NM-4).
+                $decrement = 1 + $comment->replies()->where('is_hidden', false)->count();
 
                 if ($story) {
-                    $story->decrement('comment_count');
+                    StoryStatsService::decrementCommentCount('stories', $story->id, $decrement);
                 }
 
                 if ($chapter) {
-                    $chapter->decrement('comment_count');
+                    StoryStatsService::decrementCommentCount('chapters', $chapter->id, $decrement);
                 }
             }
 
