@@ -41,6 +41,7 @@
 
         <ul class="list-group small">
             <li class="list-group-item d-flex justify-content-between"><span>Lượt xem</span><strong>{{ number_format($story->views) }}</strong></li>
+            <li class="list-group-item d-flex justify-content-between"><span>Lượt đọc thật</span><strong>{{ number_format($story->reads_count) }}</strong></li>
             <li class="list-group-item d-flex justify-content-between"><span>Yêu thích</span><strong>{{ number_format($story->favorite_count) }}</strong></li>
             <li class="list-group-item d-flex justify-content-between">
                 <span>Đánh giá</span><strong>{{ number_format($story->average_rating, 1) }}/5 ({{ $story->rating_count }})</strong>

@@ -58,6 +58,15 @@ Route::get('/truyen/{story:slug}/chuong/{chapter:slug}', [ChapterController::cla
     ->name('chapters.show')
     ->scopeBindings();
 
+// Ghi lượt đọc thật (phương án C): JS ở trang đọc gọi khi người đọc ở
+// lại đủ 15 giây và cuộn qua 25% nội dung. Khách vãng lai cũng được
+// tính nên không yêu cầu đăng nhập; throttle 30/phút chặn spam gọi
+// thẳng endpoint.
+Route::post('/truyen/{story:slug}/chuong/{chapter:slug}/doc-that', [ChapterController::class, 'recordRead'])
+    ->middleware('throttle:30,1')
+    ->name('chapters.record-read')
+    ->scopeBindings();
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware('auth')->name('dashboard');
