@@ -31,8 +31,31 @@
         };
         // Normalize số trang theo đúng luật của Paginator (?page=abc → 1,
         // ?page=1001 → 1000) để canonical của ?page=abc và ?page=1 là
-        // một, không tạo URL chuẩn trùng nhau (C7).
-        $canonicalQuery = collect(request()->query())->only($canonicalParams)->map(fn ($value, $key) => str_ends_with((string) $key, '_page') || $key === 'page' ? (is_numeric($value) ? min(1000, max(1, (int) $value)) : 1) : $value)->filter(fn ($value) => ! is_array($value) && $value !== '' && $value !== null)->all();
+        // một, không tạo URL chuẩn trùng nhau (C7). Tham số `recent`
+        // của trang chủ cũng chuẩn hóa theo luật riêng của nó (kẹp
+        // 1–100 như HomeController, bỏ khi = 1 vì trang 1 là mặc
+        // định của trang chủ).
+        $canonicalQuery = collect(request()->query())
+            ->only($canonicalParams)
+            ->map(function ($value, $key) {
+                if (str_ends_with((string) $key, '_page') || $key === 'page') {
+                    return is_numeric($value) ? min(1000, max(1, (int) $value)) : 1;
+                }
+
+                if ($key === 'recent') {
+                    return is_numeric($value) ? min(100, max(1, (int) $value)) : 1;
+                }
+
+                return $value;
+            })
+            // Giá trị dạng array bị loại khỏi canonical: với
+            // categories[] đây là CỐ Ý (SEO consolidation) — không lập
+            // chỉ mục từng tổ hợp bộ lọc, mọi trang lọc đều gộp về
+            // canonical của trang danh sách không lọc; với ?q[]=x thì
+            // tránh canonical chứa q[0]=x. Trang 1 của `recent` cũng
+            // bị bỏ vì đó là trạng thái mặc định của trang chủ.
+            ->filter(fn ($value, $key) => ! is_array($value) && $value !== '' && $value !== null && ! ($key === 'recent' && $value <= 1))
+            ->all();
     @endphp
     @php($canonicalUrl = url()->current().($canonicalQuery ? '?'.http_build_query($canonicalQuery) : ''))
     <link rel="canonical" href="{{ $canonicalUrl }}">

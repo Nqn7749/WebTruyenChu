@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,7 +55,21 @@ class RegisteredUserController extends Controller
         // Role 'user' chưa tồn tại (chưa chạy seeder) thì tạo luôn
         // thay vì tạo user với role_id null âm thầm (R1).
         $user = DB::transaction(function () use ($request) {
-            $role = Role::firstOrCreate(['slug' => 'user'], ['name' => 'User']);
+            // firstOrCreate không nguyên tử: hai đăng ký đồng thời khi
+            // role 'user' chưa tồn tại (chưa chạy seeder) có thể cùng
+            // INSERT, một bên dính lỗi unique (SQLSTATE 23000) → 500.
+            // Bắt đúng lỗi đó và đọc lại role bên kia đã tạo (round 7).
+            try {
+                $role = Role::firstOrCreate(['slug' => 'user'], ['name' => 'User']);
+            } catch (QueryException $e) {
+                $sqlState = $e->errorInfo[0] ?? (string) $e->getCode();
+
+                if ($sqlState !== '23000') {
+                    throw $e;
+                }
+
+                $role = Role::query()->where('slug', 'user')->firstOrFail();
+            }
 
             $user = User::create([
                 'username' => $request->username,

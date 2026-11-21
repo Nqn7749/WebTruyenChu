@@ -9,11 +9,22 @@ secrets to this repository.
 - Set `APP_ENV=production` and `APP_DEBUG=false`.
 - Set `APP_URL` to the canonical HTTPS origin and configure a valid `APP_KEY`.
 - Configure HTTPS at the load balancer/web server. Set `SESSION_SECURE_COOKIE=true`
-  when HTTPS is enforced; keep `SESSION_HTTP_ONLY=true` and
+  when HTTPS is enforced and `SESSION_ENCRYPT=true` so session payloads stored in
+  the database are encrypted with `APP_KEY`; keep `SESSION_HTTP_ONLY=true` and
   `SESSION_SAME_SITE=lax` unless a documented cross-site integration requires otherwise.
 - Use a least-privilege database account; do not deploy with a database root account.
 - Configure a durable session/cache/queue backend appropriate to the deployment.
   Run a queue worker under a process supervisor if queued jobs are enabled.
+- Password reset logs other devices out by deleting the user's rows in the `sessions`
+  table, so that part only applies when the session driver is `database`. With any
+  other session driver, other sessions are still invalidated on their next request
+  by the `AuthenticateSession` password-hash check — do not rely on the table delete
+  alone, and keep `SESSION_DRIVER=database` unless the deployment consciously
+  accepts that difference.
+- Guest view/read throttling is keyed by client IP. Behind a reverse proxy or CDN,
+  verify `request()->ip()` returns the real client IP (trust only that proxy's IP
+  via `trustProxies`); otherwise all guests share one throttle bucket and guest
+  views/reads are systematically undercounted.
 - Configure a real mail transport (SMTP, SES, Postmark, or Resend), sender address,
   sender domain authentication (SPF/DKIM/DMARC where supported), and queue worker if
   mail notifications are queued. The development default `MAIL_MAILER=log` writes

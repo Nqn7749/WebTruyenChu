@@ -30,6 +30,17 @@
             @enderror
         </div>
 
+        <div class="mb-3">
+            <label for="current_password" class="form-label">Mật khẩu hiện tại <span class="text-muted">(bắt buộc khi đổi email)</span></label>
+            <input id="current_password" name="current_password" type="password"
+                   class="form-control @error('current_password') is-invalid @enderror"
+                   autocomplete="current-password">
+            @error('current_password')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+            <div class="form-text">Chỉ cần nhập khi bạn đổi địa chỉ email.</div>
+        </div>
+
         <div class="d-flex align-items-center gap-3">
             <button type="submit" class="btn btn-primary">Lưu</button>
 

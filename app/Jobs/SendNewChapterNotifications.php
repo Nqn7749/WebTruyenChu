@@ -13,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 class SendNewChapterNotifications implements ShouldQueue
@@ -36,23 +37,45 @@ class SendNewChapterNotifications implements ShouldQueue
 
     /**
      * @param  int  $waitSeconds  thời gian tối đa chờ lock của chương
+     * @param  int  $deadlineAt  mốc thời gian tuyệt đối (Unix timestamp)
+     *                           mà vòng lặp chờ lock phải dừng hẳn; 0 = tính ở lần chạy đầu
+     *                           tiên là thời điểm hiện tại + 1200s (bằng TTL của lock chương).
+     *                           Deadline tuyệt đối (không phải số giây còn lại) để mỗi lần
+     *                           dispatch lại vẫn giữ cùng một mốc, không reset ngân sách.
      */
     public function __construct(
         public int $chapterId,
-        public int $waitSeconds = 60
+        public int $waitSeconds = 60,
+        public int $deadlineAt = 0
     ) {}
 
     public function handle(): void
     {
+        $deadlineAt = $this->deadlineAt > 0 ? $this->deadlineAt : now()->timestamp + 1200;
+
         if (! self::notifyChapter($this->chapterId, $this->waitSeconds)) {
             // Không lấy được lock trong thời gian chờ: một job khác đang
-            // gửi cho chương này. Dispatch job mới chạy sau 60 giây thay
-            // vì release(): release() vẫn tốn một lượt tries nên job kẹt
-            // lock có thể cạn tries rồi rơi vào failed_jobs, mất thông
-            // báo (C1). Job mới có tries mới; vòng lặp hữu hạn vì lock
-            // tối đa 1200s rồi hết hạn, và chương/truyện không còn công
-            // khai thì notifyChapter trả true nên không dispatch nữa.
-            self::dispatch($this->chapterId, $this->waitSeconds)->delay(now()->addSeconds(60));
+            // gửi cho chương này.
+            if (now()->timestamp >= $deadlineAt) {
+                // Hết ngân sách tổng chờ lock thì dừng hẳn thay vì
+                // dispatch job mới: lock có thể bận liên tục nên vòng lặp
+                // dispatch lại là vô hạn nếu không có mốc dừng (R7-J1).
+                // Thông báo có thể bị mất — ghi log cảnh báo để theo dõi
+                // thay vì im lặng.
+                Log::warning('SendNewChapterNotifications: hết ngân sách chờ lock, bỏ gửi thông báo chương.', [
+                    'chapter_id' => $this->chapterId,
+                    'deadline_at' => $deadlineAt,
+                ]);
+
+                return;
+            }
+
+            // Dispatch job mới chạy sau 60 giây thay vì release():
+            // release() vẫn tốn một lượt tries nên job kẹt lock có thể
+            // cạn tries rồi rơi vào failed_jobs, mất thông báo (C1).
+            // Job mới có tries mới, nhưng giữ nguyên $deadlineAt nên
+            // tổng thời gian chờ lock của cả chuỗi vẫn bị giới hạn.
+            self::dispatch($this->chapterId, $this->waitSeconds, $deadlineAt)->delay(now()->addSeconds(60));
         }
     }
 

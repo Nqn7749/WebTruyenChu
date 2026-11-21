@@ -68,6 +68,11 @@ test('changing password logs out other sessions but keeps the current one', func
     // nếu PUT bị redirect mà không báo lỗi ở bag mặc định).
     $this->assertTrue(Hash::check('NewPassword1234', $user->fresh()->password));
 
+    // Đổi mật khẩu tạo lại session id (round 7): session id cũ không
+    // còn dùng được (row cũ giữ hash cũ), lấy id mới cho các request
+    // sau của thiết bị A.
+    $deviceAId = session()->getId();
+
     $this->assertAuthenticatedAs($user);
 
     // Thiết bị A vẫn dùng được.
@@ -121,7 +126,7 @@ test('resetting password deletes all user sessions', function () {
     });
 });
 
-test('global per-account login bucket locks out after twenty failures regardless of IP', function () {
+test('global per-account login bucket throttles wrong passwords after twenty failures regardless of IP', function () {
     $user = User::factory()->create(['username' => 'global-bucket']);
     $key = 'login-user:'.$user->id;
 
@@ -135,12 +140,18 @@ test('global per-account login bucket locks out after twenty failures regardless
             RateLimiter::hit($key, 3600);
         }
 
-        $this->post('/login', [
+        // Round 7: bucket toàn cục chỉ chặn lần thử SAI — mật khẩu
+        // đúng vẫn đăng nhập được (xem Round7AuthTest).
+        $response = $this->post('/login', [
             'email' => 'global-bucket',
-            'password' => 'Password1234',
-        ])->assertSessionHasErrors('email');
+            'password' => 'wrong-password',
+        ]);
 
+        $response->assertSessionHasErrors('email');
         $this->assertGuest();
+
+        expect(session('errors')->getBag('default')->first('email'))
+            ->not->toBe(trans('auth.failed'));
     } finally {
         RateLimiter::clear($key);
     }

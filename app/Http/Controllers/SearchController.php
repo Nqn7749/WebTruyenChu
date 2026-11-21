@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Story;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -134,12 +136,39 @@ class SearchController extends Controller
             'page' => $page,
         ]));
 
-        $stories = Cache::remember($cacheKey, now()->addSeconds(60), function () use ($query) {
-            return $query
-                ->orderByDesc('id')
-                ->paginate(15)
-                ->withQueryString();
-        });
+        // Chỉ cache dữ liệu kết quả, KHÔNG cache paginator: paginator giữ
+        // query string lúc tạo (withQueryString) nên cache nó sẽ đóng
+        // băng query string của request đầu tiên vào link phân trang của
+        // mọi request sau (L4). Rebuild paginator mới mỗi request để
+        // link luôn mang query string hiện tại.
+        $cached = Cache::get($cacheKey);
+
+        if ($cached === null) {
+            // Chống stampede: chỉ một request chạy truy vấn đắt, các
+            // request khác chờ lock rồi đọc lại cache; nếu vẫn trống
+            // thì tự tính mà không ghi cache.
+            $lock = Cache::lock($cacheKey.':lock', 10);
+
+            if ($lock->acquire()) {
+                try {
+                    $cached = $this->cachedSearchResults($query);
+                    Cache::put($cacheKey, $cached, now()->addSeconds(60));
+                } finally {
+                    $lock->release();
+                }
+            } else {
+                $cached = Cache::get($cacheKey) ?? $this->cachedSearchResults($query);
+            }
+        }
+
+        $stories = new LengthAwarePaginator(
+            $cached['items'],
+            $cached['total'],
+            $cached['per_page'],
+            $cached['current_page'],
+            ['path' => $request->url(), 'pageName' => 'page']
+        );
+        $stories->withQueryString();
 
         $categories = Category::query()
             ->orderBy('name')
@@ -154,6 +183,23 @@ class SearchController extends Controller
             'sort',
             'period'
         ));
+    }
+
+    /**
+     * Chạy truy vấn tìm kiếm và trả về dữ liệu thuần để cache (items +
+     * số liệu phân trang), không kèm paginator — paginator được rebuild
+     * mới ở mỗi request (xem index()).
+     */
+    private function cachedSearchResults(Builder $query): array
+    {
+        $paginator = $query->orderByDesc('id')->paginate(15);
+
+        return [
+            'items' => $paginator->items(),
+            'total' => $paginator->total(),
+            'per_page' => $paginator->perPage(),
+            'current_page' => $paginator->currentPage(),
+        ];
     }
 
     /**
@@ -189,7 +235,9 @@ class SearchController extends Controller
      *
      * Boolean mode mặc định là OR giữa các từ: "kiếm hiệp" trả cả truyện
      * chỉ có "kiếm" hoặc chỉ có "hiệp". Thêm + vào mỗi từ để bắt buộc
-     * tất cả các từ đều xuất hiện (SE-M1).
+     * tất cả các từ đều xuất hiện (SE-M1), và * vào cuối mỗi từ để khớp
+     * tiền tố: gõ dở "truy" vẫn tìm được truyện "Truyện kiếm hiệp",
+     * vì đó là cách người dùng tìm kiếm phổ biến nhất.
      */
     private function toBooleanKeyword(string $keyword): string
     {
@@ -200,7 +248,7 @@ class SearchController extends Controller
             return '';
         }
 
-        return '+'.implode(' +', explode(' ', $cleaned));
+        return '+'.implode('* +', explode(' ', $cleaned)).'*';
     }
 
     /**

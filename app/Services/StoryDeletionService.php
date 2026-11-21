@@ -83,6 +83,15 @@ class StoryDeletionService
                 'deleted_by' => $deletedBy,
             ])->save();
 
+            // Xóa luôn bình luận của truyện (kể cả bình luận đã xóa mềm):
+            // nếu không, trang kiểm duyệt bình luận của admin sẽ 500 ở
+            // $comment->story->title vì truyện đã mất (round 7). Dùng
+            // forceDelete vì Comment dùng SoftDeletes; xóa theo story_id
+            // nên cả reply (cùng story_id) cũng bị xóa theo. FK
+            // cascadeOnDelete trên comments.story_id là lớp phòng thủ
+            // thứ hai, không dựa hoàn toàn vào nó.
+            $lockedStory->comments()->withTrashed()->forceDelete();
+
             $lockedStory->forceDelete();
 
             // Thông báo về truyện này (kể cả thông báo chương của nó,

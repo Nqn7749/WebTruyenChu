@@ -143,7 +143,10 @@ test('N-L4: the viewed chapters session list is capped at 100 entries', function
     $story = Story::factory()->create(['status_publish' => true]);
     $chapter = Chapter::factory()->for($story)->create(['status' => true]);
 
+    // Trình duyệt thật: request không có User-Agent bị coi là bot nên
+    // trackView trả về sớm, không ghi vào session viewed_chapters (R7).
     $this->withSession(['viewed_chapters' => range(200, 349)])
+        ->withHeaders(['User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'])
         ->get(route('chapters.show', [$story, $chapter]))
         ->assertOk();
 

@@ -72,3 +72,22 @@ test('sitemap rejects a page beyond the total page count', function () {
     $this->get(route('sitemap.stories', ['page' => 999999]))->assertNotFound();
     $this->get(route('sitemap.chapters', ['page' => 999999]))->assertNotFound();
 });
+
+test('editing a chapter content moves its sitemap lastmod', function () {
+    $story = Story::factory()->create(['status_publish' => true]);
+    $chapter = Chapter::factory()->for($story)->create(['status' => true]);
+    $oldUpdatedAt = now()->subDays(5);
+    $chapter->forceFill(['updated_at' => $oldUpdatedAt])->saveQuietly();
+
+    $this->get(route('sitemap.chapters', ['page' => 1]))
+        ->assertOk()
+        ->assertSee($oldUpdatedAt->toAtomString(), false);
+
+    $chapter->update(['content' => 'Nội dung chương đã được sửa.']);
+
+    $newUpdatedAt = $chapter->fresh()->updated_at->toAtomString();
+
+    $this->get(route('sitemap.chapters', ['page' => 1]))
+        ->assertOk()
+        ->assertSee($newUpdatedAt, false);
+});

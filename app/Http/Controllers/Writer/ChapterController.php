@@ -93,6 +93,16 @@ class ChapterController extends Controller
             $lockedChapter->update($data);
             $stats->refreshChapterStats($lockedStory);
 
+            // Gỡ/đăng lại công khai làm comment của chương hiện/ẩn theo
+            // scopeVisible nên phải đếm lại comment_count của truyện:
+            // đếm lại từ source chữa được cả hai chiều và cả số đếm
+            // đã lệch từ trước (R7). Chỉ chạy khi trạng thái thật sự
+            // đổi. refreshStories chạy trong cùng transaction này nên
+            // lockForUpdate trên truyện đã giữ là an toàn.
+            if ($wasPublished !== (bool) $lockedChapter->status) {
+                $stats->refreshStories([$lockedStory->id]);
+            }
+
             return [$lockedStory, $lockedChapter, $wasPublished];
         });
 

@@ -35,10 +35,14 @@ class SitemapController extends Controller
                     Story::published()->max('updated_at'),
                     Story::published()->max('last_chapter_at')
                 ),
+                // lastmod của chương là updated_at (round 7): sửa nội dung
+                // chương cũng phải làm mới index (published_at chỉ đổi
+                // khi đăng chương mới). updated_at đã bị đóng băng với
+                // các lần ghi chỉ-đếm (S-M1) nên chỉ đổi khi sửa thật.
                 'lastChapterUpdate' => Chapter::query()
                     ->where('status', true)
                     ->whereHas('story', fn ($query) => $query->published())
-                    ->max('published_at'),
+                    ->max('updated_at'),
                 'lastCategoryUpdate' => Category::max('updated_at'),
             ])->render();
         });
@@ -90,7 +94,7 @@ class SitemapController extends Controller
                 ->orderBy('id')
                 ->skip(($page - 1) * self::STORIES_PER_PAGE)
                 ->take(self::STORIES_PER_PAGE)
-                ->get(['id', 'story_id', 'slug', 'published_at', 'created_at']);
+                ->get(['id', 'story_id', 'slug', 'published_at', 'created_at', 'updated_at']);
 
             abort_if($chapters->isEmpty(), 404);
 

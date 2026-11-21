@@ -187,8 +187,10 @@ class ChapterController extends Controller
     {
         $agent = Str::lower((string) request()->userAgent());
 
+        // Không trình duyệt thật nào gửi User-Agent trống: request
+        // không có UA là script/crawler tự động (R7).
         if ($agent === '') {
-            return false;
+            return true;
         }
 
         return Str::contains($agent, [

@@ -68,6 +68,8 @@ php artisan queue:work --timeout=1800  # gửi thông báo chương mới (NewCh
 php artisan schedule:work      # chạy tác vụ định kỳ khi phát triển
 ```
 
+Production: chạy worker bằng systemd unit `deploy/queue-worker.service` (đã cấu hình sẵn `--timeout=1800`).
+
 ## Tác vụ định kỳ
 
 | Lệnh | Lịch | Mô tả |
