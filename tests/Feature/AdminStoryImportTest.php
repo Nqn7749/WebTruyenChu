@@ -103,6 +103,24 @@ test('queued chapter job imports content outside a transaction and is idempotent
         ->and(Chapter::query()->where('source_hash', $hash)->first()->status)->toBeFalse();
 });
 
+
+test('queued chapter job does not save a chapter when the source request fails', function () {
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/failed';
+    $hash = hash('sha256', $url);
+
+    Http::fake([
+        $url => Http::response('', 503),
+    ]);
+
+    $job = new ImportStoryChapter($story->id, 'Chương lỗi', $url, $hash, 1);
+
+    expect(fn () => $job->handle(app(StoryUrlImportService::class)))
+        ->toThrow(RuntimeException::class, 'HTTP 503');
+
+    expect(Chapter::query()->where('source_hash', $hash)->exists())->toBeFalse();
+});
+
 test('story URL import rejects insecure URLs', function () {
     $this->actingAs(storyImportAdmin())
         ->post(route('admin.story-import.preview'), ['url' => 'http://8.8.8.8/story'])
