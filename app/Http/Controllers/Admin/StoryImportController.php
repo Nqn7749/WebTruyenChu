@@ -33,6 +33,7 @@ class StoryImportController extends Controller
         }
 
         $token = Str::random(48);
+        $preview['requested_by'] = $request->user()->id;
         Cache::put('story-url-import:'.$token, $preview, now()->addMinutes(30));
 
         return redirect()->route('admin.story-import.index', ['preview' => $token]);
@@ -65,10 +66,13 @@ class StoryImportController extends Controller
                 ->withErrors(['url' => 'Phiên xem trước đã hết hạn. Hãy phân tích lại URL.']);
         }
 
+        abort_unless((int) ($preview['requested_by'] ?? 0) === (int) $request->user()->id, 403);
+
         $selected = array_values(array_unique(array_map('intval', $data['chapters'])));
         foreach ($selected as $index) {
             if (! isset($preview['chapters'][$index])) {
-                throw new RuntimeException('Danh sách chương được chọn không hợp lệ.');
+                return redirect()->route('admin.story-import.index')
+                    ->withErrors(['chapters' => 'Danh sách chương được chọn không hợp lệ.']);
             }
         }
 
