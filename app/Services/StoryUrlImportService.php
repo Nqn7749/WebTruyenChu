@@ -219,7 +219,6 @@ class StoryUrlImportService
 
     private function chapterLinks(\DOMXPath $xpath, string $sourceUrl): array
     {
-        $source = parse_url($sourceUrl);
         $nodes = $xpath->query('//a[@href]');
         $chapters = [];
         $seen = [];
