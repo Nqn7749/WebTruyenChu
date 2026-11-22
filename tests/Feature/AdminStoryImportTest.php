@@ -55,13 +55,15 @@ test('admin queues selected chapters as unpublished drafts and prevents duplicat
     $token = str_repeat('a', 48);
     Cache::put('story-url-import:'.$token, $preview, now()->addMinutes(30));
 
-    $this->actingAs($admin)
+    $response = $this->actingAs($admin)
         ->post(route('admin.story-import.store'), [
             'token' => $token,
             'chapters' => [0],
             'permission_confirmed' => '1',
-        ])->assertRedirect(route('admin.stories.index'))
+        ])->assertRedirect()
         ->assertSessionHas('success');
+
+    expect($response->headers->get('Location'))->toContain('/admin/story-import/batches/');
 
     $story = Story::query()->where('source_hash', hash('sha256', 'https://8.8.8.8/story'))->firstOrFail();
 
