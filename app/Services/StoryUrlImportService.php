@@ -48,13 +48,13 @@ class StoryUrlImportService
 
         foreach ($queries as $query) {
             $nodes = $xpath->query($query);
-            if (!$nodes || $nodes->length === 0) {
+            if (! $nodes || $nodes->length === 0) {
                 continue;
             }
 
             foreach ($nodes as $node) {
                 $clone = $node->cloneNode(true);
-                if (!$clone instanceof \DOMElement) {
+                if (! $clone instanceof \DOMElement) {
                     continue;
                 }
 
@@ -103,7 +103,7 @@ class StoryUrlImportService
             throw new RuntimeException('Website chuyển hướng. Hãy dán URL đích HTTPS trực tiếp.');
         }
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new RuntimeException('Không thể đọc website nguồn (HTTP '.$response->status().').');
         }
 
@@ -118,7 +118,7 @@ class StoryUrlImportService
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
-        if (!$loaded) {
+        if (! $loaded) {
             throw new RuntimeException('Không thể phân tích HTML của website nguồn.');
         }
 
@@ -128,7 +128,7 @@ class StoryUrlImportService
     private function assertSafeUrl(string $url): void
     {
         $parts = parse_url($url);
-        if (!$parts || strtolower($parts['scheme'] ?? '') !== 'https'
+        if (! $parts || strtolower($parts['scheme'] ?? '') !== 'https'
             || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
             || (isset($parts['port']) && $parts['port'] !== 443)) {
             throw new RuntimeException('Chỉ hỗ trợ URL HTTPS hợp lệ, không chứa thông tin đăng nhập.');
@@ -224,7 +224,7 @@ class StoryUrlImportService
         $seen = [];
         $number = 0;
 
-        if (!$nodes) {
+        if (! $nodes) {
             return [];
         }
 
@@ -236,7 +236,7 @@ class StoryUrlImportService
 
             $href = trim($node->attributes?->getNamedItem('href')?->nodeValue ?? '');
             $url = $this->absoluteUrl($href, $sourceUrl);
-            if (!$url || isset($seen[$url])) {
+            if (! $url || isset($seen[$url])) {
                 continue;
             }
 
