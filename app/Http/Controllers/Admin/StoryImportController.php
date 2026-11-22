@@ -56,17 +56,39 @@ class StoryImportController extends Controller
         $batch = Bus::findBatch($batchId);
         abort_if($batch === null, 404);
 
-        $failedJobIds = $batch->failedJobIds();
+        // Laravel keeps failed jobs inside pending_jobs when failures are allowed,
+        // so a batch with failures never gets finished_at. Derive the numbers here.
+        $failed = $batch->failedJobs;
+        $succeeded = $batch->processedJobs();
+        $waiting = max(0, $batch->pendingJobs - $failed);
+        $done = $batch->cancelled() || $waiting === 0;
+        $progress = $batch->totalJobs > 0
+            ? (int) round(($succeeded + $failed) / $batch->totalJobs * 100)
+            : 0;
+
+        $failedJobIds = $batch->failedJobIds;
         $failures = $failedJobIds === [] ? collect() : DB::table('failed_jobs')
             ->whereIn('uuid', $failedJobIds)
             ->get(['uuid', 'exception', 'failed_at'])
             ->map(fn ($job) => [
                 'uuid' => $job->uuid,
-                'message' => Str::limit(trim(Str::before($job->exception, "\n")), 300),
+                'message' => $this->failureSummary((string) $job->exception),
                 'failed_at' => $job->failed_at,
             ]);
 
-        return view('admin.story-import.batch', compact('batch', 'failures'));
+        $stats = compact('failed', 'succeeded', 'waiting', 'done', 'progress');
+
+        return view('admin.story-import.batch', compact('batch', 'failures', 'stats'));
+    }
+
+    private function failureSummary(string $exception): string
+    {
+        $firstLine = trim(Str::before($exception, "\n"));
+        // Drop the "ClassName: " prefix and the trailing " in /path/file.php:123".
+        $firstLine = preg_replace('/^[\\\w]+: /', '', $firstLine) ?? $firstLine;
+        $firstLine = preg_replace('/ in \S+:\d+$/', '', $firstLine) ?? $firstLine;
+
+        return Str::limit($firstLine, 300);
     }
 
     public function import(Request $request)
@@ -114,7 +136,9 @@ class StoryImportController extends Controller
                 'title' => $item['title'],
                 'url' => $item['url'],
                 'source_hash' => $chapterHash,
-                'chapter_number' => $offset + 1,
+                // Keep the number parsed from the source title (e.g. "Chương 5") so
+                // importing a subset does not renumber chapters from 1.
+                'chapter_number' => max(1, (int) ($item['number'] ?? $offset + 1)),
             ];
         }
 

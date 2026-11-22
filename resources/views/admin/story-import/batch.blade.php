@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
 @section('content')
-@if (!$batch->finished())
+@if (!$stats['done'])
     <meta http-equiv="refresh" content="5">
 @endif
 
@@ -18,8 +18,7 @@
 @endif
 
 @php
-    $progress = $batch->progress();
-    $processed = $batch->processedJobs();
+    $progress = $stats['progress'];
 @endphp
 
 <div class="card shadow-sm mb-4">
@@ -28,9 +27,9 @@
             <strong>
                 @if ($batch->cancelled())
                     Đã hủy
-                @elseif (!$batch->finished())
+                @elseif (!$stats['done'])
                     Đang xử lý
-                @elseif ($batch->failedJobs > 0)
+                @elseif ($stats['failed'] > 0)
                     Hoàn tất có chương lỗi
                 @else
                     Hoàn tất thành công
@@ -52,30 +51,30 @@
             </div>
             <div class="col-6 col-md-3">
                 <div class="border rounded p-3">
-                    <div class="fs-4 fw-semibold text-success">{{ max(0, $processed - $batch->failedJobs) }}</div>
+                    <div class="fs-4 fw-semibold text-success">{{ $stats['succeeded'] }}</div>
                     <div class="small text-muted">Thành công</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="border rounded p-3">
-                    <div class="fs-4 fw-semibold text-danger">{{ $batch->failedJobs }}</div>
+                    <div class="fs-4 fw-semibold text-danger">{{ $stats['failed'] }}</div>
                     <div class="small text-muted">Thất bại</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="border rounded p-3">
-                    <div class="fs-4 fw-semibold">{{ $batch->pendingJobs }}</div>
+                    <div class="fs-4 fw-semibold">{{ $stats['waiting'] }}</div>
                     <div class="small text-muted">Đang chờ</div>
                 </div>
             </div>
         </div>
 
-        @if (!$batch->finished())
+        @if (!$stats['done'])
             <p class="small text-muted mt-3 mb-0">Trang tự cập nhật sau mỗi 5 giây. Hãy giữ queue worker hoạt động để xử lý các chương đang chờ.</p>
-        @elseif ($batch->failedJobs === 0)
+        @elseif ($stats['failed'] === 0)
             <p class="text-success mt-3 mb-0">Tất cả chương đã được xử lý thành công. Truyện vẫn ở trạng thái bản nháp cho đến khi bạn công khai.</p>
         @else
-            <p class="text-warning mt-3 mb-0">Batch đã kết thúc. Các chương thành công vẫn được giữ lại; hãy kiểm tra lỗi bên dưới để xử lý những chương chưa nhập được.</p>
+            <p class="text-warning mt-3 mb-0">Batch đã kết thúc. Các chương thành công vẫn được giữ lại; hãy kiểm tra lỗi bên dưới. Để thử lại các chương lỗi, chạy: <code>php artisan queue:retry-batch {{ $batch->id }}</code></p>
         @endif
     </div>
 </div>
@@ -88,7 +87,7 @@
                 <thead>
                     <tr>
                         <th>Job ID</th>
-                        <th>Lỗi</th>
+                        <th>Chương và lý do lỗi</th>
                         <th>Thời điểm</th>
                     </tr>
                 </thead>

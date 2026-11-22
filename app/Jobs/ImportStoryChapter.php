@@ -13,6 +13,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
+use Throwable;
 
 class ImportStoryChapter implements ShouldQueue
 {
@@ -47,7 +49,13 @@ class ImportStoryChapter implements ShouldQueue
         // Network I/O stays outside the database transaction. Each chapter
         // is an independent job, so a slow or unavailable source cannot hold
         // locks or block the remaining chapters in the batch.
-        $content = $importer->fetchChapter($this->url);
+        try {
+            $content = $importer->fetchChapter($this->url);
+        } catch (Throwable $exception) {
+            // Name the chapter in the failure so the admin progress page can
+            // show which chapter failed and why.
+            throw new RuntimeException($this->title.' ('.$this->url.'): '.$exception->getMessage(), 0, $exception);
+        }
 
         DB::transaction(function () use ($story, $content): void {
             // Re-check after the HTTP request to make retries and duplicate
