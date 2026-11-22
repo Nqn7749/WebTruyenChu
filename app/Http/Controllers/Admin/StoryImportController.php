@@ -92,13 +92,12 @@ class StoryImportController extends Controller
                 continue;
             }
 
-            $chaptersToQueue[] = new ImportStoryChapter(
-                0,
-                $item['title'],
-                $item['url'],
-                $chapterHash,
-                $offset + 1,
-            );
+            $chaptersToQueue[] = [
+                'title' => $item['title'],
+                'url' => $item['url'],
+                'source_hash' => $chapterHash,
+                'chapter_number' => $offset + 1,
+            ];
         }
 
         if ($chaptersToQueue === []) {
@@ -125,11 +124,16 @@ class StoryImportController extends Controller
                 return $story;
             });
 
-            $jobs = array_map(function (ImportStoryChapter $job) use ($story): ImportStoryChapter {
-                $job->storyId = $story->id;
-
-                return $job;
-            }, $chaptersToQueue);
+            $jobs = array_map(
+                fn (array $chapter): ImportStoryChapter => new ImportStoryChapter(
+                    $story->id,
+                    $chapter['title'],
+                    $chapter['url'],
+                    $chapter['source_hash'],
+                    $chapter['chapter_number'],
+                ),
+                $chaptersToQueue,
+            );
 
             Bus::batch($jobs)
                 ->name('Nhập truyện: '.Str::limit($story->title, 100, ''))
