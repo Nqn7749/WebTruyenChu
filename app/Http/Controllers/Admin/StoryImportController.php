@@ -51,6 +51,46 @@ class StoryImportController extends Controller
         ]);
     }
 
+    public function batch(string $batchId)
+    {
+        $batch = Bus::findBatch($batchId);
+        abort_if($batch === null, 404);
+
+        // Laravel keeps failed jobs inside pending_jobs when failures are allowed,
+        // so a batch with failures never gets finished_at. Derive the numbers here.
+        $failed = $batch->failedJobs;
+        $succeeded = $batch->processedJobs();
+        $waiting = max(0, $batch->pendingJobs - $failed);
+        $done = $batch->cancelled() || $waiting === 0;
+        $progress = $batch->totalJobs > 0
+            ? (int) round(($succeeded + $failed) / $batch->totalJobs * 100)
+            : 0;
+
+        $failedJobIds = $batch->failedJobIds;
+        $failures = $failedJobIds === [] ? collect() : DB::table('failed_jobs')
+            ->whereIn('uuid', $failedJobIds)
+            ->get(['uuid', 'exception', 'failed_at'])
+            ->map(fn ($job) => [
+                'uuid' => $job->uuid,
+                'message' => $this->failureSummary((string) $job->exception),
+                'failed_at' => $job->failed_at,
+            ]);
+
+        $stats = compact('failed', 'succeeded', 'waiting', 'done', 'progress');
+
+        return view('admin.story-import.batch', compact('batch', 'failures', 'stats'));
+    }
+
+    private function failureSummary(string $exception): string
+    {
+        $firstLine = trim(Str::before($exception, "\n"));
+        // Drop the "ClassName: " prefix and the trailing " in /path/file.php:123".
+        $firstLine = preg_replace('/^[\\\w]+: /', '', $firstLine) ?? $firstLine;
+        $firstLine = preg_replace('/ in \S+:\d+$/', '', $firstLine) ?? $firstLine;
+
+        return Str::limit($firstLine, 300);
+    }
+
     public function import(Request $request)
     {
         $data = $request->validate([
@@ -96,7 +136,9 @@ class StoryImportController extends Controller
                 'title' => $item['title'],
                 'url' => $item['url'],
                 'source_hash' => $chapterHash,
-                'chapter_number' => $offset + 1,
+                // Keep the number parsed from the source title (e.g. "Chương 5") so
+                // importing a subset does not renumber chapters from 1.
+                'chapter_number' => max(1, (int) ($item['number'] ?? $offset + 1)),
             ];
         }
 
@@ -135,7 +177,7 @@ class StoryImportController extends Controller
                 $chaptersToQueue,
             );
 
-            Bus::batch($jobs)
+            $batch = Bus::batch($jobs)
                 ->name('Nhập truyện: '.Str::limit($story->title, 100, ''))
                 ->allowFailures()
                 ->dispatch();
@@ -148,7 +190,7 @@ class StoryImportController extends Controller
                 ->withErrors(['url' => Str::limit($exception->getMessage(), 300)]);
         }
 
-        return redirect()->route('admin.stories.index')
+        return redirect()->route('admin.story-import.batch', $batch->id)
             ->with('success', 'Đã đưa '.$story->title.' cùng '.count($jobs).' chương vào hàng đợi. Nội dung sẽ được nhập nền ở trạng thái bản nháp.');
     }
 }

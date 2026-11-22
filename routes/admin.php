@@ -31,6 +31,7 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::delete('crawler/{crawlerSource}', [CrawlerSourceController::class, 'destroy'])->name('crawler.destroy');
 
     Route::get('story-import', [StoryImportController::class, 'showPreview'])->name('story-import.index');
+    Route::get('story-import/batches/{batchId}', [StoryImportController::class, 'batch'])->name('story-import.batch')->whereUuid('batchId');
     Route::post('story-import/preview', [StoryImportController::class, 'preview'])->middleware('throttle:10,1')->name('story-import.preview');
     Route::post('story-import', [StoryImportController::class, 'import'])->middleware('throttle:3,1')->name('story-import.store');
 
