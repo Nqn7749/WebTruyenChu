@@ -62,7 +62,7 @@ class StoryImportController extends Controller
             ->get(['uuid', 'exception', 'failed_at'])
             ->map(fn ($job) => [
                 'uuid' => $job->uuid,
-                'message' => Str::limit(trim(strtok($job->exception, "\\n")), 300),
+                'message' => Str::limit(trim(Str::before($job->exception, "\n")), 300),
                 'failed_at' => $job->failed_at,
             ]);
 
