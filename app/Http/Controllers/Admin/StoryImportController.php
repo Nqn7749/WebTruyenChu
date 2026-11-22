@@ -128,8 +128,7 @@ class StoryImportController extends Controller
             return redirect()->route('admin.story-import.index')
                 ->withErrors(['url' => Str::limit($exception->getMessage(), 300)]);
         }
-
-        Cache::forget($cacheKey);
+ 
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Đã nhập truyện "'.$story->title.'" cùng '.$story->chapters()->count().' chương ở trạng thái bản nháp.');
