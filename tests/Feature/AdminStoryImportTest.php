@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\StoryUrlImportService;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 function storyImportAdmin(): User
@@ -40,9 +41,15 @@ test('admin can preview a story URL and its chapter links', function () {
 test('admin imports selected chapters as unpublished drafts and prevents duplicate stories', function () {
     $this->withoutMiddleware(ThrottleRequests::class);
     Cache::flush();
+    $transactionLevel = DB::transactionLevel();
+
     Http::fake([
         'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Truyện thử"></head><body><a href="/chapter/1">Chương 1</a></body></html>'),
-        'https://8.8.8.8/chapter/1' => Http::response('<html><body><article><p>'.str_repeat('Nội dung chương thử nghiệm. ', 8).'</p></article></body></html>'),
+        'https://8.8.8.8/chapter/1' => function () use ($transactionLevel) {
+            expect(DB::transactionLevel())->toBe($transactionLevel);
+
+            return Http::response('<html><body><article><p>'.str_repeat('Nội dung chương thử nghiệm. ', 8).'</p></article></body></html>');
+        },
     ]);
 
     $admin = storyImportAdmin();
