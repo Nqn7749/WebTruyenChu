@@ -1,15 +1,15 @@
 <?php
 
-namespace App\\Http\\Controllers\\Admin;
+namespace App\Http\Controllers\Admin;
 
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\Chapter;
-use App\\Models\\Story;
-use App\\Services\\StoryUrlImportService;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\Cache;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Str;
+use App\Http\Controllers\Controller;
+use App\Models\Chapter;
+use App\Models\Story;
+use App\Services\StoryUrlImportService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 class StoryImportController extends Controller
