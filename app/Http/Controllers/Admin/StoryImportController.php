@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use RuntimeException;
 use Throwable;
 
 class StoryImportController extends Controller
@@ -132,7 +131,6 @@ class StoryImportController extends Controller
             return redirect()->route('admin.story-import.index')
                 ->withErrors(['url' => Str::limit($exception->getMessage(), 300)]);
         }
- 
 
         return redirect()->route('admin.stories.index')
             ->with('success', 'Đã nhập truyện "'.$story->title.'" cùng '.$story->chapters()->count().' chương ở trạng thái bản nháp.');
