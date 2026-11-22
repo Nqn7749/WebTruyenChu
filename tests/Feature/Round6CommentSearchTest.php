@@ -81,6 +81,8 @@ test('search with an array q parameter returns the search page instead of redire
 test('search page abc and page 1 return the same results', function () {
     Story::factory()->create(['status_publish' => true, 'title' => 'Truyện kiểm tra trang']);
 
+    commitFullTextFixtures();
+
     $first = $this->get(route('search', ['q' => 'kiểm tra', 'page' => 1]));
     $second = $this->get(route('search', ['q' => 'kiểm tra', 'page' => 'abc']));
 

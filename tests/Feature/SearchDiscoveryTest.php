@@ -88,6 +88,8 @@ test('search treats percent underscore and escape characters as literal input', 
         'status_publish' => true,
     ]);
 
+    commitFullTextFixtures();
+
     $this->get(route('search', ['q' => '100%']))
         ->assertOk()
         ->assertSee('Tỷ lệ 100% hoàn thành')
@@ -151,6 +153,8 @@ test('relevance sorting prioritizes exact title then title prefix author and des
         'status_publish' => true,
     ]);
 
+    commitFullTextFixtures();
+
     $response = $this->get(route('search', ['q' => 'Ember', 'sort' => 'relevance']));
 
     $response->assertOk()->assertViewHas('stories', function ($stories) {
@@ -210,6 +214,8 @@ test('relevance sorting keeps author prefix and description ahead of category an
         'status_publish' => true,
     ]);
     $tagMatch->tags()->create(['name' => 'Ember tag', 'slug' => 'ember-tag']);
+
+    commitFullTextFixtures();
 
     $response = $this->get(route('search', ['q' => 'Ember', 'sort' => 'relevance']));
 

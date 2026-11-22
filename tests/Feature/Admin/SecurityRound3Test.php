@@ -190,9 +190,7 @@ test('M7: search uses the FULLTEXT index on MySQL and still finds stories by key
     // InnoDB publishes FULLTEXT index changes at transaction commit. The
     // Feature suite's RefreshDatabase transaction would otherwise hide the
     // newly inserted row from MATCH ... AGAINST in this integration test.
-    $connection = DB::connection();
-    $connection->commit();
-    $connection->beginTransaction();
+    commitFullTextFixtures();
 
     $this->get('/tim-kiem?q=Ember')
         ->assertOk()

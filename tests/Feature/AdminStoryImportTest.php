@@ -232,3 +232,82 @@ test('imported chapters keep the chapter number parsed from the source title', f
 
     Bus::assertBatched(fn ($batch) => $batch->jobs->map(fn ($job) => $job->chapterNumber)->all() === [5, 6]);
 });
+
+test('story URL import blocks internal, reserved and malformed targets before any request', function (string $url) {
+    Http::fake();
+
+    expect(fn () => app(StoryUrlImportService::class)->preview($url))->toThrow(RuntimeException::class);
+
+    Http::assertNothingSent();
+})->with([
+    'loopback' => 'https://127.0.0.1/story',
+    'private 10/8' => 'https://10.0.0.5/story',
+    'private 192.168' => 'https://192.168.1.10/story',
+    'cloud metadata' => 'https://169.254.169.254/latest/meta-data',
+    'carrier-grade NAT' => 'https://100.64.0.1/story',
+    'ipv6 loopback' => 'https://[::1]/story',
+    'ipv4-mapped ipv6' => 'https://[::ffff:127.0.0.1]/story',
+    'ipv6 unique local' => 'https://[fd00::1]/story',
+    'ipv6 link local' => 'https://[fe80::1]/story',
+    'localhost' => 'https://localhost/story',
+    'internal suffix' => 'https://db.internal/story',
+    'custom port' => 'https://8.8.8.8:8443/story',
+    'credentials' => 'https://user:pass@8.8.8.8/story',
+    'plain http' => 'http://8.8.8.8/story',
+]);
+
+test('story URL import rejects a hostname when any resolved address is internal', function (array $addresses) {
+    Http::fake();
+
+    $importer = new class($addresses) extends StoryUrlImportService
+    {
+        public function __construct(private array $addresses) {}
+
+        protected function resolveHost(string $host): array
+        {
+            return $this->addresses;
+        }
+    };
+
+    expect(fn () => $importer->preview('https://source.example/story'))
+        ->toThrow(RuntimeException::class, 'không được phép');
+
+    Http::assertNothingSent();
+})->with([
+    'only private' => [['10.0.0.5']],
+    'mixed public and private' => [['8.8.8.8', '10.0.0.5']],
+    'public ipv4 and loopback ipv6' => [['8.8.8.8', '::1']],
+]);
+
+test('story URL import reports an unresolvable hostname', function () {
+    Http::fake();
+
+    $importer = new class extends StoryUrlImportService
+    {
+        protected function resolveHost(string $host): array
+        {
+            return [];
+        }
+    };
+
+    expect(fn () => $importer->preview('https://missing.example/story'))
+        ->toThrow(RuntimeException::class, 'Không phân giải');
+});
+
+test('story URL import rejects non-HTML responses', function () {
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('{"a":1}', 200, ['Content-Type' => 'application/json']),
+    ]);
+
+    expect(fn () => app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
+        ->toThrow(RuntimeException::class, 'không trả về trang HTML');
+});
+
+test('story URL import rejects oversized pages', function () {
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response(str_repeat('a', 2_000_001), 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    expect(fn () => app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
+        ->toThrow(RuntimeException::class, '2 MB');
+});

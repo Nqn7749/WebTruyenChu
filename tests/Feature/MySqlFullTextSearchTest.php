@@ -16,9 +16,7 @@ test('mysql full-text index matches indexed story columns and exposes its index 
     // InnoDB publishes FULLTEXT index changes at transaction commit. The
     // Feature suite's RefreshDatabase transaction would otherwise hide the
     // newly inserted row from MATCH ... AGAINST in this integration test.
-    $connection = DB::connection();
-    $connection->commit();
-    $connection->beginTransaction();
+    commitFullTextFixtures();
 
     // scopeSearch đã bị xóa (V6, giữ semantics OR cũ): gọi thẳng
     // whereFullText natural-language mode để kiểm chứng index.
@@ -65,9 +63,7 @@ test('mysql full-text search requires every keyword word to match', function () 
     // InnoDB publishes FULLTEXT index changes at transaction commit. The
     // Feature suite's RefreshDatabase transaction would otherwise hide the
     // newly inserted row from MATCH ... AGAINST in this integration test.
-    $connection = DB::connection();
-    $connection->commit();
-    $connection->beginTransaction();
+    commitFullTextFixtures();
 
     $response = $this->get('/tim-kiem?q='.urlencode('kiếm hiệp'));
 
@@ -91,9 +87,7 @@ test('mysql search falls back to substring matching for stopword-only keywords',
     // InnoDB publishes FULLTEXT index changes at transaction commit. The
     // Feature suite's RefreshDatabase transaction would otherwise hide the
     // newly inserted row from MATCH ... AGAINST in this integration test.
-    $connection = DB::connection();
-    $connection->commit();
-    $connection->beginTransaction();
+    commitFullTextFixtures();
 
     $response = $this->get('/tim-kiem?q='.urlencode('about ma'));
 
@@ -115,9 +109,7 @@ test('mysql full-text search matches a partial word via prefix matching', functi
     // InnoDB publishes FULLTEXT index changes at transaction commit. The
     // Feature suite's RefreshDatabase transaction would otherwise hide the
     // newly inserted row from MATCH ... AGAINST in this integration test.
-    $connection = DB::connection();
-    $connection->commit();
-    $connection->beginTransaction();
+    commitFullTextFixtures();
 
     $response = $this->get('/tim-kiem?q='.urlencode('truy'));
 

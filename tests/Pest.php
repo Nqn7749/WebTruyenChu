@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /*
@@ -43,6 +44,34 @@ expect()->extend('toBeOne', function () {
 | global functions to help you to reduce the number of lines of code in your test files.
 |
 */
+
+/**
+ * MySQL publishes FULLTEXT index changes only at commit, so FULLTEXT tests must
+ * commit their fixtures. Those rows would survive RefreshDatabase's rollback and
+ * leak into later tests, so they are purged once the test has finished.
+ */
+function commitFullTextFixtures(): void
+{
+    $connection = DB::connection();
+    if ($connection->getDriverName() !== 'mysql') {
+        return;
+    }
+
+    $connection->commit();
+    $connection->beginTransaction();
+
+    test()->beforeApplicationDestroyed(function (): void {
+        $connection = DB::connection();
+        $connection->statement('SET FOREIGN_KEY_CHECKS=0');
+        foreach ($connection->select('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"') as $row) {
+            $table = array_values((array) $row)[0];
+            if ($table !== 'migrations') {
+                $connection->table($table)->delete();
+            }
+        }
+        $connection->statement('SET FOREIGN_KEY_CHECKS=1');
+    });
+}
 
 function something()
 {

@@ -241,7 +241,9 @@ class SearchController extends Controller
      */
     private function toBooleanKeyword(string $keyword): string
     {
-        $cleaned = (string) preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $keyword);
+        // InnoDB treats "_" as part of a word ("chap_ter" is one token), so keep it;
+        // splitting on it would require tokens that do not exist in the index.
+        $cleaned = (string) preg_replace('/[^\p{L}\p{N}_\s]/u', ' ', $keyword);
         $cleaned = trim((string) preg_replace('/\s+/u', ' ', $cleaned));
 
         if ($cleaned === '') {

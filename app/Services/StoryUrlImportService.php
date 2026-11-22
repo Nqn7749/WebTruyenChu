@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class StoryUrlImportService
 {
@@ -89,15 +90,46 @@ class StoryUrlImportService
         throw new RuntimeException('Không tìm thấy nội dung chương có thể đọc. Hãy kiểm tra website hoặc dùng bộ phân tích chuyên biệt.');
     }
 
+    private const MAX_BODY_BYTES = 2_000_000;
+
     private function fetchDocument(string $url): \DOMDocument
     {
-        $this->assertSafeUrl($url);
+        // Resolve once, validate every address, then pin the request to the
+        // validated IP so a second DNS lookup cannot point somewhere else
+        // (DNS rebinding).
+        [$host, $ips] = $this->resolveSafeTarget($url);
 
-        $response = Http::timeout(15)
-            ->connectTimeout(5)
-            ->withHeaders(['User-Agent' => 'WebTruyenChuImporter/1.0 (+admin import; respect source permissions)'])
-            ->withOptions(['allow_redirects' => false])
-            ->get($url);
+        $options = ['allow_redirects' => false];
+        if (! filter_var($host, FILTER_VALIDATE_IP) && defined('CURLOPT_RESOLVE')) {
+            $pin = str_contains($ips[0], ':') ? '['.$ips[0].']' : $ips[0];
+            $options['curl'] = [CURLOPT_RESOLVE => [$host.':443:'.$pin]];
+        }
+        // Abort oversized downloads while streaming, not after the whole body is in memory.
+        $options['on_headers'] = function ($response): void {
+            if ((int) $response->getHeaderLine('Content-Length') > self::MAX_BODY_BYTES) {
+                throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+            }
+        };
+        $options['progress'] = function ($downloadTotal, $downloaded): void {
+            if ($downloaded > self::MAX_BODY_BYTES) {
+                throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+            }
+        };
+
+        try {
+            $response = Http::timeout(15)
+                ->connectTimeout(5)
+                ->withHeaders(['User-Agent' => 'WebTruyenChuImporter/1.0 (+admin import; respect source permissions)'])
+                ->withOptions($options)
+                ->get($url);
+        } catch (Throwable $exception) {
+            $limit = $exception;
+            while ($limit && ! str_contains($limit->getMessage(), 'giới hạn 2 MB')) {
+                $limit = $limit->getPrevious();
+            }
+
+            throw new RuntimeException($limit ? 'Trang nguồn vượt quá giới hạn 2 MB.' : 'Không thể kết nối tới website nguồn.');
+        }
 
         if ($response->redirect()) {
             throw new RuntimeException('Website chuyển hướng. Hãy dán URL đích HTTPS trực tiếp.');
@@ -107,8 +139,13 @@ class StoryUrlImportService
             throw new RuntimeException('Không thể đọc website nguồn (HTTP '.$response->status().').');
         }
 
+        $contentType = strtolower($response->header('Content-Type'));
+        if ($contentType !== '' && ! str_contains($contentType, 'html') && ! str_contains($contentType, 'xml')) {
+            throw new RuntimeException('Website nguồn không trả về trang HTML.');
+        }
+
         $html = $response->body();
-        if (strlen($html) > 2_000_000) {
+        if (strlen($html) > self::MAX_BODY_BYTES) {
             throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
         }
 
@@ -125,7 +162,10 @@ class StoryUrlImportService
         return $document;
     }
 
-    private function assertSafeUrl(string $url): void
+    /**
+     * @return array{0: string, 1: list<string>} normalized host and its validated public IPs
+     */
+    private function resolveSafeTarget(string $url): array
     {
         $parts = parse_url($url);
         if (! $parts || strtolower($parts['scheme'] ?? '') !== 'https'
@@ -134,18 +174,94 @@ class StoryUrlImportService
             throw new RuntimeException('Chỉ hỗ trợ URL HTTPS hợp lệ, không chứa thông tin đăng nhập.');
         }
 
-        $host = strtolower($parts['host']);
-        if ($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local')) {
+        $host = rtrim(strtolower(trim($parts['host'], '[]')), '.');
+        if ($host === '' || $host === 'localhost' || str_ends_with($host, '.localhost')
+            || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
             throw new RuntimeException('Địa chỉ máy chủ nội bộ không được phép.');
         }
 
-        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
-        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
+        $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : $this->resolveHost($host);
+        if ($ips === []) {
             throw new RuntimeException('Không phân giải được tên miền nguồn.');
         }
-        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            throw new RuntimeException('Địa chỉ máy chủ nguồn không được phép.');
+
+        // Every resolved address must be public, otherwise a mixed DNS answer
+        // could still route the request to an internal service.
+        foreach ($ips as $ip) {
+            if (! $this->isPublicIp($ip)) {
+                throw new RuntimeException('Địa chỉ máy chủ nguồn không được phép.');
+            }
         }
+
+        return [$host, $ips];
+    }
+
+    /**
+     * @return list<string> all A and AAAA addresses for the host
+     */
+    protected function resolveHost(string $host): array
+    {
+        $ips = [];
+        foreach ([DNS_A => 'ip', DNS_AAAA => 'ipv6'] as $type => $key) {
+            foreach (@dns_get_record($host, $type) ?: [] as $record) {
+                if (isset($record[$key])) {
+                    $ips[] = $record[$key];
+                }
+            }
+        }
+
+        if ($ips === []) {
+            $ips = @gethostbynamel($host) ?: [];
+        }
+
+        return array_values(array_unique($ips));
+    }
+
+    private function isPublicIp(string $ip): bool
+    {
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return false;
+        }
+
+        $packed = @inet_pton($ip);
+        if ($packed === false) {
+            return false;
+        }
+
+        if (strlen($packed) === 4) {
+            return ! $this->isBlockedIpv4(ip2long($ip) ?: 0);
+        }
+
+        $bytes = array_values(unpack('C*', $packed));
+        $embedded = null;
+        if (array_slice($bytes, 0, 10) === array_fill(0, 10, 0) && $bytes[10] === 0xFF && $bytes[11] === 0xFF) {
+            $embedded = array_slice($bytes, 12, 4);               // ::ffff:a.b.c.d
+        } elseif (array_slice($bytes, 0, 12) === [0, 0x64, 0xFF, 0x9B, 0, 0, 0, 0, 0, 0, 0, 0]) {
+            $embedded = array_slice($bytes, 12, 4);               // 64:ff9b::/96 NAT64
+        } elseif ($bytes[0] === 0x20 && $bytes[1] === 0x02) {
+            $embedded = array_slice($bytes, 2, 4);                // 2002::/16 6to4
+        }
+        if ($embedded !== null && $this->isBlockedIpv4(ip2long(implode('.', $embedded)) ?: 0)) {
+            return false;
+        }
+
+        return ! (($bytes[0] & 0xFE) === 0xFC                      // fc00::/7 unique local
+            || ($bytes[0] === 0xFE && ($bytes[1] & 0xC0) === 0x80)  // fe80::/10 link local
+            || $bytes[0] === 0xFF);                                 // multicast
+    }
+
+    private function isBlockedIpv4(int $long): bool
+    {
+        foreach (['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12',
+            '192.0.0.0/24', '192.168.0.0/16', '198.18.0.0/15', '224.0.0.0/3'] as $cidr) {
+            [$net, $bits] = explode('/', $cidr);
+            $mask = -1 << (32 - (int) $bits);
+            if (($long & $mask) === (ip2long($net) & $mask)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function metadata(\DOMXPath $xpath, \DOMDocument $document): array

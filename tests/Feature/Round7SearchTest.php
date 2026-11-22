@@ -36,6 +36,8 @@ test('cached search pagination links carry the current request query string', fu
     }
 
     // Request đầu tiên ghi cache; link phân trang mang utm_source=first.
+    commitFullTextFixtures();
+
     $this->get('/tim-kiem?q='.urlencode('truyện').'&utm_source=first')
         ->assertOk()
         ->assertSee('utm_source=first', false);
