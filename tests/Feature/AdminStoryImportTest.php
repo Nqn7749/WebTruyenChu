@@ -127,3 +127,21 @@ test('story URL import rejects insecure URLs', function () {
         ->post(route('admin.story-import.preview'), ['url' => 'http://8.8.8.8/story'])
         ->assertSessionHasErrors('url');
 });
+
+
+test('admin can view queued chapter batch progress', function () {
+    $admin = storyImportAdmin();
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/progress';
+    $batch = Bus::batch([
+        new ImportStoryChapter($story->id, 'Chương chờ', $url, hash('sha256', $url), 1),
+    ])->name('Nhập truyện: Theo dõi tiến trình')->allowFailures()->dispatch();
+
+    $this->actingAs($admin)
+        ->get(route('admin.story-import.batch', $batch->id))
+        ->assertOk()
+        ->assertSee('Tiến trình nhập truyện')
+        ->assertSee('Nhập truyện: Theo dõi tiến trình')
+        ->assertSee('Tổng số chương')
+        ->assertSee('Đang chờ');
+});
