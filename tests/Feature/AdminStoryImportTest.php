@@ -6,6 +6,7 @@ use App\Models\Chapter;
 use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
+use App\Services\StoryUrlImportService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -43,7 +44,7 @@ test('admin imports selected chapters as unpublished drafts and prevents duplica
     ]);
 
     $admin = storyImportAdmin();
-    $preview = app(\App\Services\StoryUrlImportService::class)->preview('https://8.8.8.8/story');
+    $preview = app(StoryUrlImportService::class)->preview('https://8.8.8.8/story');
     $preview['requested_by'] = $admin->id;
     $token = str_repeat('a', 48);
     Cache::put('story-url-import:'.$token, $preview, now()->addMinutes(30));
