@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 
 function storyImportAdmin(): User
 {
@@ -130,6 +131,8 @@ test('story URL import rejects insecure URLs', function () {
 
 
 test('admin can view queued chapter batch progress', function () {
+    Queue::fake();
+
     $admin = storyImportAdmin();
     $story = Story::factory()->create();
     $url = 'https://8.8.8.8/chapter/progress';
