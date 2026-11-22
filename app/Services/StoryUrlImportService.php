@@ -140,10 +140,10 @@ class StoryUrlImportService
         }
 
         $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
-        if ($ip === $host && !filter_var($host, FILTER_VALIDATE_IP)) {
+        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
             throw new RuntimeException('Không phân giải được tên miền nguồn.');
         }
-        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
             throw new RuntimeException('Địa chỉ máy chủ nguồn không được phép.');
         }
     }
@@ -179,7 +179,7 @@ class StoryUrlImportService
             }
             $json = json_decode($script->textContent, true);
             foreach ($this->flattenJsonLd($json) as $item) {
-                if (!is_array($item)) {
+                if (! is_array($item)) {
                     continue;
                 }
                 $title = $title ?: (is_string($item['name'] ?? null) ? $item['name'] : '');
@@ -201,7 +201,7 @@ class StoryUrlImportService
 
     private function flattenJsonLd(mixed $value): array
     {
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             return [];
         }
 
@@ -230,7 +230,7 @@ class StoryUrlImportService
 
         foreach ($nodes as $node) {
             $title = trim(preg_replace('/\s+/u', ' ', $node->textContent) ?? '');
-            if ($title === '' || !preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title)) {
+            if ($title === '' || ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title)) {
                 continue;
             }
 
