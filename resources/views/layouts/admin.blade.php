@@ -14,6 +14,7 @@
             <li><a href="{{ route('admin.dashboard') }}" class="nav-link text-white">Dashboard</a></li>
             <li><a href="{{ route('admin.categories.index') }}" class="nav-link text-white">Thể loại</a></li>
             <li><a href="{{ route('admin.stories.index') }}" class="nav-link text-white">Truyện</a></li>
+            <li><a href="{{ route('admin.story-import.index') }}" class="nav-link text-white">Nhập truyện từ URL</a></li>
             <li><a href="{{ route('admin.users.index') }}" class="nav-link text-white">Người dùng</a></li>
             <li><a href="{{ route('admin.comments.index') }}" class="nav-link text-white">Bình luận</a></li>
             <li><a href="{{ route('admin.reports.index') }}" class="nav-link text-white">Báo cáo cộng đồng</a></li>
