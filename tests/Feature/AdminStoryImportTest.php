@@ -42,11 +42,13 @@ test('admin imports selected chapters as unpublished drafts and prevents duplica
         'https://8.8.8.8/chapter/1' => Http::response('<html><body><article><p>'.str_repeat('Nội dung chương thử nghiệm. ', 8).'</p></article></body></html>'),
     ]);
 
+    $admin = storyImportAdmin();
     $preview = app(\App\Services\StoryUrlImportService::class)->preview('https://8.8.8.8/story');
+    $preview['requested_by'] = $admin->id;
     $token = str_repeat('a', 48);
     Cache::put('story-url-import:'.$token, $preview, now()->addMinutes(30));
 
-    $this->actingAs(storyImportAdmin())
+    $this->actingAs($admin)
         ->post(route('admin.story-import.store'), [
             'token' => $token,
             'chapters' => [0],
