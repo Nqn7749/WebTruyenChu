@@ -51,6 +51,24 @@ class StoryImportController extends Controller
         ]);
     }
 
+    public function batch(string $batchId)
+    {
+        $batch = Bus::findBatch($batchId);
+        abort_if($batch === null, 404);
+
+        $failedJobIds = $batch->failedJobIds();
+        $failures = $failedJobIds === [] ? collect() : DB::table('failed_jobs')
+            ->whereIn('uuid', $failedJobIds)
+            ->get(['uuid', 'exception', 'failed_at'])
+            ->map(fn ($job) => [
+                'uuid' => $job->uuid,
+                'message' => Str::limit(trim(strtok($job->exception, "\\n")), 300),
+                'failed_at' => $job->failed_at,
+            ]);
+
+        return view('admin.story-import.batch', compact('batch', 'failures'));
+    }
+
     public function import(Request $request)
     {
         $data = $request->validate([
@@ -135,7 +153,7 @@ class StoryImportController extends Controller
                 $chaptersToQueue,
             );
 
-            Bus::batch($jobs)
+            $batch = Bus::batch($jobs)
                 ->name('Nhập truyện: '.Str::limit($story->title, 100, ''))
                 ->allowFailures()
                 ->dispatch();
@@ -148,7 +166,7 @@ class StoryImportController extends Controller
                 ->withErrors(['url' => Str::limit($exception->getMessage(), 300)]);
         }
 
-        return redirect()->route('admin.stories.index')
+        return redirect()->route('admin.story-import.batch', $batch->id)
             ->with('success', 'Đã đưa '.$story->title.' cùng '.count($jobs).' chương vào hàng đợi. Nội dung sẽ được nhập nền ở trạng thái bản nháp.');
     }
 }
