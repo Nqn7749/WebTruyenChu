@@ -70,5 +70,4 @@ class ImportStoryChapter implements ShouldQueue
             $chapter->save();
         });
     }
-
 }

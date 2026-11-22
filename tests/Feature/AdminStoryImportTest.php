@@ -103,7 +103,6 @@ test('queued chapter job imports content outside a transaction and is idempotent
         ->and(Chapter::query()->where('source_hash', $hash)->first()->status)->toBeFalse();
 });
 
-
 test('queued chapter job does not save a chapter when the source request fails', function () {
     $story = Story::factory()->create();
     $url = 'https://8.8.8.8/chapter/failed';
