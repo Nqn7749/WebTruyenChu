@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ImportStoryChapter;
 use App\Models\Chapter;
 use App\Models\Story;
 use App\Services\StoryUrlImportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -49,7 +51,7 @@ class StoryImportController extends Controller
         ]);
     }
 
-    public function import(Request $request, StoryUrlImportService $importer)
+    public function import(Request $request)
     {
         $data = $request->validate([
             'token' => ['required', 'string', 'size:48'],
@@ -81,34 +83,30 @@ class StoryImportController extends Controller
                 ->withErrors(['url' => 'Truyện từ URL này đã được nhập trước đó.']);
         }
 
+        $chaptersToQueue = [];
+        foreach ($selected as $offset => $index) {
+            $item = $preview['chapters'][$index];
+            $chapterHash = hash('sha256', $item['url']);
+
+            if (Chapter::withTrashed()->where('source_hash', $chapterHash)->exists()) {
+                continue;
+            }
+
+            $chaptersToQueue[] = [
+                'title' => $item['title'],
+                'url' => $item['url'],
+                'source_hash' => $chapterHash,
+                'chapter_number' => $offset + 1,
+            ];
+        }
+
+        if ($chaptersToQueue === []) {
+            return redirect()->route('admin.story-import.index')
+                ->withErrors(['url' => 'Các chương được chọn đều đã tồn tại hoặc không có nội dung hợp lệ.']);
+        }
+
         try {
-            // Download and parse every selected chapter before opening a
-            // transaction so slow or unavailable source websites never hold
-            // database locks while the import is waiting for HTTP responses.
-            $preparedChapters = [];
-            foreach ($selected as $index) {
-                $item = $preview['chapters'][$index];
-                $chapterHash = hash('sha256', $item['url']);
-
-                if (Chapter::withTrashed()->where('source_hash', $chapterHash)->exists()) {
-                    continue;
-                }
-
-                $preparedChapters[] = [
-                    'item' => $item,
-                    'source_hash' => $chapterHash,
-                    'content' => $importer->fetchChapter($item['url']),
-                ];
-            }
-
-            if ($preparedChapters === []) {
-                return redirect()->route('admin.story-import.index')
-                    ->withErrors(['url' => 'Các chương được chọn đều đã tồn tại hoặc không có nội dung hợp lệ.']);
-            }
-
-            // Keep the transaction limited to database writes. If any source
-            // request above fails, no story or partial chapter set is created.
-            $story = DB::transaction(function () use ($request, $preview, $sourceHash, $preparedChapters) {
+            $story = DB::transaction(function () use ($request, $preview, $sourceHash): Story {
                 $story = new Story;
                 $story->forceFill([
                     'user_id' => $request->user()->id,
@@ -123,32 +121,34 @@ class StoryImportController extends Controller
                 ]);
                 $story->save();
 
-                foreach ($preparedChapters as $offset => $prepared) {
-                    $chapterNumber = $offset + 1;
-                    $item = $prepared['item'];
-
-                    $chapter = new Chapter;
-                    $chapter->forceFill([
-                        'story_id' => $story->id,
-                        'chapter_number' => $chapterNumber,
-                        'title' => $item['title'],
-                        'slug' => 'chuong-'.$chapterNumber.'-'.Str::lower(Str::random(6)),
-                        'content' => $prepared['content'],
-                        'status' => false,
-                        'source_url' => $item['url'],
-                        'source_hash' => $prepared['source_hash'],
-                    ]);
-                    $chapter->save();
-                }
-
                 return $story;
             });
+
+            $jobs = array_map(
+                fn (array $chapter): ImportStoryChapter => new ImportStoryChapter(
+                    $story->id,
+                    $chapter['title'],
+                    $chapter['url'],
+                    $chapter['source_hash'],
+                    $chapter['chapter_number'],
+                ),
+                $chaptersToQueue,
+            );
+
+            Bus::batch($jobs)
+                ->name('Nhập truyện: '.Str::limit($story->title, 100, ''))
+                ->allowFailures()
+                ->dispatch();
         } catch (Throwable $exception) {
+            if (isset($story) && $story->exists) {
+                $story->forceDelete();
+            }
+
             return redirect()->route('admin.story-import.index')
                 ->withErrors(['url' => Str::limit($exception->getMessage(), 300)]);
         }
 
         return redirect()->route('admin.stories.index')
-            ->with('success', 'Đã nhập truyện "'.$story->title.'" cùng '.$story->chapters()->count().' chương ở trạng thái bản nháp.');
+            ->with('success', 'Đã đưa '.$story->title.' cùng '.count($jobs).' chương vào hàng đợi. Nội dung sẽ được nhập nền ở trạng thái bản nháp.');
     }
 }

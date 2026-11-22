@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Jobs\ImportStoryChapter;
 use App\Models\Chapter;
 use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
 use App\Services\StoryUrlImportService;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -38,18 +40,13 @@ test('admin can preview a story URL and its chapter links', function () {
         ->assertSee('Tác giả');
 });
 
-test('admin imports selected chapters as unpublished drafts and prevents duplicate stories', function () {
+test('admin queues selected chapters as unpublished drafts and prevents duplicate stories', function () {
     $this->withoutMiddleware(ThrottleRequests::class);
+    Bus::fake();
     Cache::flush();
-    $transactionLevel = DB::transactionLevel();
 
     Http::fake([
         'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Truyện thử"></head><body><a href="/chapter/1">Chương 1</a></body></html>'),
-        'https://8.8.8.8/chapter/1' => function () use ($transactionLevel) {
-            expect(DB::transactionLevel())->toBe($transactionLevel);
-
-            return Http::response('<html><body><article><p>'.str_repeat('Nội dung chương thử nghiệm. ', 8).'</p></article></body></html>');
-        },
     ]);
 
     $admin = storyImportAdmin();
@@ -63,12 +60,16 @@ test('admin imports selected chapters as unpublished drafts and prevents duplica
             'token' => $token,
             'chapters' => [0],
             'permission_confirmed' => '1',
-        ])->assertRedirect(route('admin.stories.index'));
+        ])->assertRedirect(route('admin.stories.index'))
+        ->assertSessionHas('success');
 
-    expect(Story::query()->where('source_hash', hash('sha256', 'https://8.8.8.8/story'))->exists())->toBeTrue()
-        ->and(Chapter::query()->where('source_hash', hash('sha256', 'https://8.8.8.8/chapter/1'))->exists())->toBeTrue()
-        ->and(Story::query()->first()->status_publish)->toBeFalse()
-        ->and(Chapter::query()->first()->status)->toBeFalse();
+    $story = Story::query()->where('source_hash', hash('sha256', 'https://8.8.8.8/story'))->firstOrFail();
+
+    expect($story->status_publish)->toBeFalse()
+        ->and($story->chapters()->count())->toBe(0);
+
+    Bus::assertBatched(fn ($batch) => $batch->name === 'Nhập truyện: Truyện thử' && count($batch->jobs) === 1);
+    Http::assertNotSent(fn ($request) => $request->url() === 'https://8.8.8.8/chapter/1');
 
     $this->post(route('admin.story-import.store'), [
         'token' => $token,
@@ -78,6 +79,45 @@ test('admin imports selected chapters as unpublished drafts and prevents duplica
         ->assertSessionHasErrors('url');
 
     expect(Story::query()->count())->toBe(1);
+});
+
+test('queued chapter job imports content outside a transaction and is idempotent', function () {
+    $story = Story::factory()->create();
+    $transactionLevel = DB::transactionLevel();
+    $url = 'https://8.8.8.8/chapter/1';
+    $hash = hash('sha256', $url);
+
+    Http::fake([
+        $url => function () use ($transactionLevel) {
+            expect(DB::transactionLevel())->toBe($transactionLevel);
+
+            return Http::response('<html><body><article><p>'.str_repeat('Nội dung chương thử nghiệm. ', 8).'</p></article></body></html>');
+        },
+    ]);
+
+    $job = new ImportStoryChapter($story->id, 'Chương 1', $url, $hash, 1);
+    $job->handle(app(StoryUrlImportService::class));
+    $job->handle(app(StoryUrlImportService::class));
+
+    expect(Chapter::query()->where('source_hash', $hash)->count())->toBe(1)
+        ->and(Chapter::query()->where('source_hash', $hash)->first()->status)->toBeFalse();
+});
+
+test('queued chapter job does not save a chapter when the source request fails', function () {
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/failed';
+    $hash = hash('sha256', $url);
+
+    Http::fake([
+        $url => Http::response('', 503),
+    ]);
+
+    $job = new ImportStoryChapter($story->id, 'Chương lỗi', $url, $hash, 1);
+
+    expect(fn () => $job->handle(app(StoryUrlImportService::class)))
+        ->toThrow(RuntimeException::class, 'HTTP 503');
+
+    expect(Chapter::query()->where('source_hash', $hash)->exists())->toBeFalse();
 });
 
 test('story URL import rejects insecure URLs', function () {
