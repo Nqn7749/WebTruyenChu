@@ -13,7 +13,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
 
 class ImportStoryChapter implements ShouldQueue
 {
@@ -72,9 +71,4 @@ class ImportStoryChapter implements ShouldQueue
         });
     }
 
-    public function failed(Throwable $exception): void
-    {
-        // Laravel's batch records the failed job. Keep the exception visible
-        // in the failed-jobs table for diagnosis and later progress reporting.
-    }
 }
