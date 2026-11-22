@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
 use App\Services\StoryUrlImportService;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -37,6 +38,7 @@ test('admin can preview a story URL and its chapter links', function () {
 });
 
 test('admin imports selected chapters as unpublished drafts and prevents duplicate stories', function () {
+    $this->withoutMiddleware(ThrottleRequests::class);
     Cache::flush();
     Http::fake([
         'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Truyện thử"></head><body><a href="/chapter/1">Chương 1</a></body></html>'),

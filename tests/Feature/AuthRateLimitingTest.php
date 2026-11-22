@@ -6,10 +6,10 @@ use Illuminate\Support\Facades\Route;
 test('sensitive authentication endpoints have explicit rate limits', function () {
     $limits = [
         'register.store' => 'throttle:5,1',
-        'password.email' => 'throttle:5,1',
+        'password.email' => 'throttle:10,1',
         'password.store' => 'throttle:10,1',
-        'password.confirm.store' => 'throttle:6,1',
-        'password.update' => 'throttle:6,1',
+        'password.confirm.store' => 'throttle:10,1',
+        'password.update' => 'throttle:10,1',
     ];
 
     foreach ($limits as $routeName => $expectedMiddleware) {
@@ -28,8 +28,8 @@ test('registration endpoint enforces its five request per minute limit', functio
     $this->postJson(route('register.store'), [])->assertTooManyRequests();
 });
 
-test('password reset link endpoint enforces its five request per minute limit', function () {
-    foreach (range(1, 5) as $attempt) {
+test('password reset link endpoint enforces its ten request per minute limit', function () {
+    foreach (range(1, 10) as $attempt) {
         $this->postJson(route('password.email'), [])->assertUnprocessable();
     }
 
@@ -44,10 +44,10 @@ test('password reset submission endpoint enforces its ten request per minute lim
     $this->postJson(route('password.store'), [])->assertTooManyRequests();
 });
 
-test('password confirmation endpoint enforces its six request per minute limit', function () {
+test('password confirmation endpoint enforces its ten request per minute limit', function () {
     $this->actingAs(User::factory()->create());
 
-    foreach (range(1, 6) as $attempt) {
+    foreach (range(1, 10) as $attempt) {
         $this->postJson(route('password.confirm.store'), [
             'password' => 'incorrect-password',
         ])->assertUnprocessable();
@@ -58,10 +58,10 @@ test('password confirmation endpoint enforces its six request per minute limit',
     ])->assertTooManyRequests();
 });
 
-test('password update endpoint enforces its six request per minute limit', function () {
+test('password update endpoint enforces its ten request per minute limit', function () {
     $this->actingAs(User::factory()->create());
 
-    foreach (range(1, 6) as $attempt) {
+    foreach (range(1, 10) as $attempt) {
         $this->putJson(route('password.update'), [])->assertUnprocessable();
     }
 
