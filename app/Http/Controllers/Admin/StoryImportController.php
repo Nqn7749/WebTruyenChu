@@ -51,7 +51,7 @@ class StoryImportController extends Controller
         ]);
     }
 
-    public function import(Request $request, StoryUrlImportService $importer)
+    public function import(Request $request)
     {
         $data = $request->validate([
             'token' => ['required', 'string', 'size:48'],
