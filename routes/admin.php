@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CrawlerSourceController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\StoryController;
+use App\Http\Controllers\Admin\StoryImportController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,10 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::post('crawler', [CrawlerSourceController::class, 'store'])->middleware('throttle:10,1')->name('crawler.store');
     Route::post('crawler/{crawlerSource}/run', [CrawlerSourceController::class, 'run'])->middleware('throttle:5,1')->name('crawler.run');
     Route::delete('crawler/{crawlerSource}', [CrawlerSourceController::class, 'destroy'])->name('crawler.destroy');
+
+    Route::get('story-import', [StoryImportController::class, 'showPreview'])->name('story-import.index');
+    Route::post('story-import/preview', [StoryImportController::class, 'preview'])->middleware('throttle:10,1')->name('story-import.preview');
+    Route::post('story-import', [StoryImportController::class, 'import'])->middleware('throttle:3,1')->name('story-import.store');
 
     Route::resource('categories', CategoryController::class)
         ->except(['show']);
