@@ -22,4 +22,9 @@ return [
      * ],
      */
     'sources' => [],
+
+    /*
+     * Maximum chapter downloads per minute for a single source host.
+     */
+    'requests_per_minute' => (int) env('STORY_IMPORT_REQUESTS_PER_MINUTE', 30),
 ];

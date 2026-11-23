@@ -54,6 +54,24 @@ secrets to this repository.
 - Continue to review authorization and upload validation whenever new write endpoints
   are introduced.
 
+## Story URL import (admin)
+
+- Set `STORY_IMPORT_REQUIRE_ALLOWLIST=true` in production and add each permitted
+  host to `config/story_import.php` (`sources`) only after confirming the site owner
+  allows automated collection. A host entry may be `[]` (generic parser) or contain
+  XPath overrides: `title`, `author`, `description`, `chapter_links`,
+  `chapter_content`, `remove`.
+- Chapters are downloaded by `ImportStoryChapter` queue jobs, so a queue worker must
+  run under a process supervisor. Jobs are rate limited per source host
+  (`STORY_IMPORT_REQUESTS_PER_MINUTE`, default 30), retry with backoff and stop after
+  3 real failures. Monitor `failed_jobs`; failed chapters can be retried from the
+  batch progress page.
+- Fetch safeguards: HTTPS on port 443 only, no redirects, no credentials in the URL,
+  every resolved IP must be public (IPv4, IPv6, mapped/NAT64/6to4/Teredo checked), the
+  validated IP is pinned for the request (requires `ext-curl`; otherwise the import
+  fails closed), HTML/XML only, 2 MB maximum.
+- Imported stories and chapters are unpublished drafts until an admin publishes them.
+
 ## Database integration testing
 
 The default `phpunit.xml` intentionally uses in-memory SQLite for fast, isolated

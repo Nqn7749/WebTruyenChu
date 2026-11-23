@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
 use App\Services\StoryUrlImportService;
+use Illuminate\Queue\Middleware\RateLimited;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
@@ -191,7 +192,8 @@ test('batch progress page counts failures correctly and stops refreshing once al
         ->assertDontSee('http-equiv="refresh"', false)
         ->assertSee('Chương 3 (https://8.8.8.8/chapter/3): Không thể đọc website nguồn (HTTP 503).')
         ->assertDontSee('/var/www/app')
-        ->assertSee('queue:retry-batch');
+        ->assertSee('Thử lại 1 chương lỗi')
+        ->assertSee(route('admin.story-import.retry', $batch->id), false);
 
     $fresh = Bus::findBatch($batch->id);
     expect($fresh->processedJobs())->toBe(2)
@@ -387,4 +389,45 @@ test('story URL import ignores an invalid profile XPath instead of failing', fun
     ]);
 
     expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story')['title'])->toBe('Generic');
+});
+
+test('admin can retry the failed chapters of a finished batch', function () {
+    Queue::fake();
+
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/retry';
+    $batch = Bus::batch([new ImportStoryChapter($story->id, 'Chương lỗi', $url, hash('sha256', $url), 1)])
+        ->allowFailures()->dispatch();
+    $batch->recordFailedJob((string) Str::uuid(), new RuntimeException('boom'));
+
+    Artisan::shouldReceive('call')->once()->with('queue:retry-batch', ['id' => [$batch->id]]);
+
+    $this->actingAs(storyImportAdmin())
+        ->post(route('admin.story-import.retry', $batch->id))
+        ->assertRedirect(route('admin.story-import.batch', $batch->id))
+        ->assertSessionHas('success');
+});
+
+test('retry is refused while a batch is still running or has no failures', function () {
+    Queue::fake();
+
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/norretry';
+    $batch = Bus::batch([new ImportStoryChapter($story->id, 'Chương', $url, hash('sha256', $url), 1)])
+        ->allowFailures()->dispatch();
+
+    Artisan::shouldReceive('call')->never();
+
+    $this->actingAs(storyImportAdmin())
+        ->post(route('admin.story-import.retry', $batch->id))
+        ->assertSessionHasErrors('retry');
+});
+
+test('chapter import jobs are rate limited per source host', function () {
+    $job = new ImportStoryChapter(1, 'Chương 1', 'https://Source.Example/c/1', 'hash', 1);
+
+    expect($job->host())->toBe('source.example')
+        ->and($job->middleware())->toHaveCount(1)
+        ->and($job->middleware()[0])->toBeInstanceOf(RateLimited::class)
+        ->and($job->maxExceptions)->toBe(3);
 });

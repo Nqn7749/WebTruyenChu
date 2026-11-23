@@ -17,6 +17,10 @@
     <div class="alert alert-success" role="alert">{{ session('success') }}</div>
 @endif
 
+@if ($errors->has('retry'))
+    <div class="alert alert-danger" role="alert">{{ $errors->first('retry') }}</div>
+@endif
+
 @php
     $progress = $stats['progress'];
 @endphp
@@ -74,7 +78,11 @@
         @elseif ($stats['failed'] === 0)
             <p class="text-success mt-3 mb-0">Tất cả chương đã được xử lý thành công. Truyện vẫn ở trạng thái bản nháp cho đến khi bạn công khai.</p>
         @else
-            <p class="text-warning mt-3 mb-0">Batch đã kết thúc. Các chương thành công vẫn được giữ lại; hãy kiểm tra lỗi bên dưới. Để thử lại các chương lỗi, chạy: <code>php artisan queue:retry-batch {{ $batch->id }}</code></p>
+            <p class="text-warning mt-3 mb-0">Batch đã kết thúc. Các chương thành công vẫn được giữ lại; hãy kiểm tra lỗi bên dưới. Bạn có thể thử lại các chương lỗi bằng nút bên dưới.</p>
+            <form method="POST" action="{{ route('admin.story-import.retry', $batch->id) }}" class="mt-2">
+                @csrf
+                <button type="submit" class="btn btn-warning">Thử lại {{ $stats['failed'] }} chương lỗi</button>
+            </form>
         @endif
     </div>
 </div>
