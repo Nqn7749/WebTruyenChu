@@ -57,6 +57,14 @@ function commitFullTextFixtures(): void
         return;
     }
 
+    // The cleanup below deletes every row, so never run it against a non-test database.
+    if (! app()->environment('testing') || ! str_contains(strtolower((string) $connection->getDatabaseName()), 'test')) {
+        throw new RuntimeException('commitFullTextFixtures() refuses to run: database "'.$connection->getDatabaseName().'" is not a test database.');
+    }
+    if ($connection->transactionLevel() !== 1) {
+        throw new RuntimeException('commitFullTextFixtures() expects exactly one open transaction, found '.$connection->transactionLevel().'.');
+    }
+
     $connection->commit();
     $connection->beginTransaction();
 

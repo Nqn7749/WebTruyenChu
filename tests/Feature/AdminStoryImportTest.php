@@ -311,3 +311,23 @@ test('story URL import rejects oversized pages', function () {
     expect(fn () => app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
         ->toThrow(RuntimeException::class, '2 MB');
 });
+
+test('story URL import with allowlist enabled rejects hosts that are not listed', function () {
+    Http::fake();
+    config(['story_import.require_allowlist' => true, 'story_import.sources' => ['allowed.example' => []]]);
+
+    expect(fn () => app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
+        ->toThrow(RuntimeException::class, 'chưa được cấp phép');
+
+    Http::assertNothingSent();
+});
+
+test('story URL import with allowlist enabled accepts listed hosts', function () {
+    config(['story_import.require_allowlist' => true, 'story_import.sources' => ['8.8.8.8' => []]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Truyen A"></head><body><a href="/chapter/1">Chương 1: Bắt đầu</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
+        ->toHaveKey('title', 'Truyen A');
+});

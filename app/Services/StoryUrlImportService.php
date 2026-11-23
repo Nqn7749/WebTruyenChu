@@ -9,6 +9,8 @@ use Throwable;
 
 class StoryUrlImportService
 {
+    private const MAX_BODY_BYTES = 2_000_000;
+
     public function preview(string $url): array
     {
         $document = $this->fetchDocument($url);
@@ -89,8 +91,6 @@ class StoryUrlImportService
 
         throw new RuntimeException('Không tìm thấy nội dung chương có thể đọc. Hãy kiểm tra website hoặc dùng bộ phân tích chuyên biệt.');
     }
-
-    private const MAX_BODY_BYTES = 2_000_000;
 
     private function fetchDocument(string $url): \DOMDocument
     {
@@ -178,6 +178,11 @@ class StoryUrlImportService
         if ($host === '' || $host === 'localhost' || str_ends_with($host, '.localhost')
             || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
             throw new RuntimeException('Địa chỉ máy chủ nội bộ không được phép.');
+        }
+
+        if (config('story_import.require_allowlist')
+            && ! array_key_exists($host, array_change_key_case((array) config('story_import.sources', []), CASE_LOWER))) {
+            throw new RuntimeException('Website nguồn chưa được cấp phép trong danh sách import.');
         }
 
         $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : $this->resolveHost($host);
