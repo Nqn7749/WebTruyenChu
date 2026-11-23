@@ -122,9 +122,14 @@
             <ul class="navbar-nav me-auto">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Thể loại</a>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu category-menu">
                         @foreach ($navCategories ?? [] as $cat)
-                            <li><a class="dropdown-item" href="{{ route('categories.show', $cat) }}">{{ $cat->name }}</a></li>
+                            <li class="category-group">
+                                <a class="dropdown-item fw-semibold" href="{{ route('categories.show', $cat) }}">{{ $cat->name }}</a>
+                                @foreach ($cat->children as $child)
+                                    <a class="dropdown-item category-child" href="{{ route('categories.show', $child) }}">{{ $child->name }}</a>
+                                @endforeach
+                            </li>
                         @endforeach
                     </ul>
                 </li>

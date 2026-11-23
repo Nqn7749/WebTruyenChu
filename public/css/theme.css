@@ -934,3 +934,27 @@ body.reader-focus-mode .reader-wrap {
 .app-footer {
     flex-shrink: 0;
 }
+
+/* Thể loại: menu nhiều cột, A-Z chạy dọc từng cột (cột 1 xong mới sang cột 2). */
+.category-menu {
+    --bs-dropdown-min-width: 0;
+    padding: .5rem .25rem;
+}
+.category-menu.show {
+    display: block;
+    column-width: 10.5rem;
+    column-gap: .25rem;
+    width: min(44rem, 92vw);
+    max-height: 75vh;
+    overflow-y: auto;
+}
+.category-menu > li {
+    break-inside: avoid;
+}
+.category-menu .category-group {
+    padding-bottom: .25rem;
+}
+.category-menu .category-child {
+    padding-left: 1.6rem;
+    font-size: .9rem;
+}
