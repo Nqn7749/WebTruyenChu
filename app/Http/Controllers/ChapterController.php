@@ -6,6 +6,7 @@ use App\Models\Chapter;
 use App\Models\Comment;
 use App\Models\ReadingHistory;
 use App\Models\Story;
+use App\Services\HotStoriesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -146,12 +147,19 @@ class ChapterController extends Controller
             );
         });
 
+        $storyChapters = $story->chapters()
+            ->where('status', true)
+            ->orderBy('chapter_number')
+            ->orderBy('id')
+            ->get(['id', 'chapter_number', 'title', 'slug']);
+
         return view('chapters.show', compact(
             'story',
             'chapter',
             'prevChapter',
             'nextChapter',
-            'comments'
+            'comments',
+            'storyChapters'
         ));
     }
 
@@ -191,6 +199,8 @@ class ChapterController extends Controller
                 $story->timestamps = false;
                 $story->increment('reads_count');
                 $story->timestamps = true;
+
+                HotStoriesService::recordRead($story->id);
             });
         } catch (\Throwable $e) {
             // Transaction lỗi thì trả lại khóa throttle: khóa đã giữ
@@ -275,6 +285,8 @@ class ChapterController extends Controller
                     $story->timestamps = false;
                     $story->incrementViews();
                     $story->timestamps = true;
+
+                    HotStoriesService::recordView($story->id);
                 });
             } catch (\Throwable $e) {
                 // Transaction lỗi thì trả lại khóa throttle: khóa đã giữ

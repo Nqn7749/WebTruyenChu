@@ -54,6 +54,39 @@ secrets to this repository.
 - Continue to review authorization and upload validation whenever new write endpoints
   are introduced.
 
+## Advertising (admin: Quảng cáo)
+
+- Ads are managed at `/admin/ads` and shown on the left and right edges of the home, story, chapter
+  and list/search/category/ranking pages (8 placements). The rails only appear on screens at least
+  1720px wide, where they fit beside the content; they are hidden on laptops, tablets, phones, in
+  distraction-free reading mode and when printing.
+- Image ads (JPG/PNG/WebP/GIF up to 1 MB, any pixel size, https link; always shown 160px wide. The
+  left rail runs the full height of the screen and the image fills its box (object-fit: cover), cropped
+  at the edges, never stretched; the right rail is at most 600px tall and crops the bottom of an image
+  that is taller than its share; readers can close the rails with the x button, which hides
+  them for the rest of that browsing session only, via sessionStorage) are served from the public disk, so
+  `php artisan storage:link` must be in place. Clicks go through `/qc/{id}`, which counts them
+  (bots excluded) and redirects only to the stored link; the route is disallowed in `robots.txt`
+  and ad links carry `rel="sponsored nofollow noopener"`.
+- Code ads are printed as pasted, including scripts, on every page of their placement. Only admins
+  can create them; paste code from an ad network you trust, and remember a compromised admin
+  account could then inject script into the public site.
+- Each placement shows at most 3 running ads (by priority). They share the rail's height equally
+  (one gets all of it, two get half each, three a third each) and nothing scrolls.
+- Ads can be scheduled (start/end) and are cached for 5 minutes, but any change in the admin clears the cache immediately.
+
+## Automatic "Hot" stories
+
+- `php artisan stories:refresh-hot` runs hourly from the scheduler (so the scheduler must be
+  running). It ranks published stories by the last `STORIES_HOT_WINDOW_DAYS` days of activity
+  (real reads x 3 + views, from the `story_daily_stats` table), marks the top
+  `STORIES_HOT_LIMIT` that reach `STORIES_HOT_MIN_SCORE`, and unmarks automatic ones that fell out.
+- The first ranking only has data for days after this feature was deployed, so the Hot section
+  fills up as traffic arrives.
+- When an admin toggles Hot on a story the decision is pinned (`hot_override` on/off) and the
+  ranking never touches it; the "Hot: tự động" button in the admin list hands it back. The
+  migration pins every story that was already hot, since those were all chosen by hand.
+
 ## Story URL import (admin)
 
 - Set `STORY_IMPORT_REQUIRE_ALLOWLIST=true` in production and add each permitted

@@ -250,6 +250,7 @@ a:hover { color: var(--jade-dark); }
 }
 .reader-wrap[data-reader-theme="sepia"] { --reader-bg: #F1E5C8; --reader-text: #3B3226; }
 .reader-wrap[data-reader-theme="dark"]  { --reader-bg: #181A20; --reader-text: #D8D6CF; }
+.reader-wrap[data-reader-theme="oled"]  { --reader-bg: #000000; --reader-text: #B5B5B5; }
 
 .reader-chapter-badge {
     display: inline-flex;
@@ -269,6 +270,7 @@ a:hover { color: var(--jade-dark); }
 .chapter-content {
     max-width: 72ch;
     margin: 0 auto;
+    font-family: var(--reader-font-family, var(--font-display));
     font-size: var(--reader-font-size, 1.15rem);
     line-height: var(--reader-line-height, 1.9);
 }

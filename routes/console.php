@@ -12,6 +12,11 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Automatic "Hot": rank by the last days of real reads and views (admin-pinned stories are skipped).
+Schedule::command('stories:refresh-hot')
+    ->hourly()
+    ->withoutOverlapping();
+
 Schedule::command('stories:delete-without-chapters')
     ->dailyAt('02:00')
     ->withoutOverlapping();

@@ -46,7 +46,7 @@
                         <span class="badge bg-warning text-dark">Chưa công khai</span>
                     @endif
                     @if ($story->is_hot)
-                        <span class="badge bg-danger">Hot</span>
+                        <span class="badge bg-danger">Hot{{ $story->hot_override === null ? ' (tự động)' : '' }}</span>
                     @endif
                     @if ($story->is_featured)
                         <span class="badge bg-primary">Nổi bật</span>
@@ -76,6 +76,14 @@
                                 </button>
                             </form>
                         @endforeach
+                        @if ($story->hot_override !== null)
+                            <form action="{{ route('admin.stories.toggle-flag', $story) }}" method="POST" class="d-inline">
+                                @csrf
+                                @method('PATCH')
+                                <input type="hidden" name="flag" value="hot_auto">
+                                <button class="btn btn-sm btn-outline-primary" title="Bỏ ghim thủ công, để hệ thống tự xếp Hot theo lượt đọc gần đây">Hot: tự động</button>
+                            </form>
+                        @endif
                     </div>
                     <form action="{{ route('admin.stories.destroy', $story) }}" method="POST" class="mt-2 text-start"
                           onsubmit="return confirm('CẢNH BÁO: Truyện sẽ bị xóa khỏi website. Bạn đã kiểm tra nội dung và nhập đúng lý do chưa?')">

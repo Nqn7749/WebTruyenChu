@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\StoryFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -126,6 +127,49 @@ class Story extends Model
         return $query->where('is_hot', true)
             ->orderByDesc('reads_count')
             ->orderByDesc('views');
+    }
+
+    /**
+     * Related stories for the story page: published stories that share genres or tags with the story,
+     * or have the same author name. Ranked by how much they share (genre x3, tag x2, same author x4),
+     * then featured, views and recency.
+     *
+     * @return Collection<int, Story>
+     */
+    public static function relatedTo(Story $story, int $limit = 10)
+    {
+        $categoryIds = $story->categories->modelKeys();
+        $tagIds = $story->tags->modelKeys();
+        $author = trim((string) $story->author_name);
+
+        if ($categoryIds === [] && $tagIds === [] && $author === '') {
+            return (new static)->newCollection();
+        }
+
+        return static::published()
+            ->whereKeyNot($story->id)
+            ->where(function (Builder $query) use ($categoryIds, $tagIds, $author): void {
+                if ($categoryIds !== []) {
+                    $query->orWhereHas('categories', fn ($categories) => $categories->whereIn('categories.id', $categoryIds));
+                }
+                if ($tagIds !== []) {
+                    $query->orWhereHas('tags', fn ($tags) => $tags->whereIn('tags.id', $tagIds));
+                }
+                if ($author !== '') {
+                    $query->orWhere('author_name', $author);
+                }
+            })
+            ->with('categories')
+            ->withCount([
+                'categories as shared_categories_count' => fn ($categories) => $categories->whereIn('categories.id', $categoryIds ?: [0]),
+                'tags as shared_tags_count' => fn ($tags) => $tags->whereIn('tags.id', $tagIds ?: [0]),
+            ])
+            ->orderByRaw('(shared_categories_count * 3 + shared_tags_count * 2 + CASE WHEN author_name = ? THEN 4 ELSE 0 END) DESC', [$author])
+            ->orderByDesc('is_featured')
+            ->orderByDesc('views')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
     }
 
     /**

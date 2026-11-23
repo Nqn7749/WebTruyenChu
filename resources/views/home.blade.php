@@ -44,6 +44,24 @@
     </section>
 @endif
 
+{{-- RECENTLY UPDATED: list dọc --}}
+<div class="section-heading">
+    <span class="eyebrow">Cập nhật liên tục</span>
+    <h2>Mới cập nhật</h2>
+    <a href="{{ route('stories.index') }}" class="more-link">Xem thêm →</a>
+</div>
+<div class="story-list">
+    @forelse ($recentlyUpdated as $story)
+        <x-story-list-item :story="$story" />
+    @empty
+        <p class="text-muted p-3 mb-0">Chưa có truyện nào.</p>
+    @endforelse
+</div>
+
+<div class="mt-4">
+    {{ $recentlyUpdated->links() }}
+</div>
+
 {{-- HOT: kéo ngang --}}
 <div class="section-heading">
     <span class="eyebrow">Bảng xếp hạng</span>
@@ -64,24 +82,6 @@
     @foreach ($recommendedStories as $story)
         <x-story-card :story="$story" />
     @endforeach
-</div>
-
-{{-- RECENTLY UPDATED: list dọc --}}
-<div class="section-heading">
-    <span class="eyebrow">Cập nhật liên tục</span>
-    <h2>Mới cập nhật</h2>
-    <a href="{{ route('stories.index') }}" class="more-link">Xem thêm →</a>
-</div>
-<div class="story-list">
-    @forelse ($recentlyUpdated as $story)
-        <x-story-list-item :story="$story" />
-    @empty
-        <p class="text-muted p-3 mb-0">Chưa có truyện nào.</p>
-    @endforelse
-</div>
-
-<div class="mt-4">
-    {{ $recentlyUpdated->links() }}
 </div>
 
 {{-- NEW: MỚI ĐĂNG --}}

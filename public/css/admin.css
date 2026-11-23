@@ -1,0 +1,360 @@
+/* ===== Modern SaaS Admin Panel Stylesheet ===== */
+:root {
+    --admin-font: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+    --admin-bg: #f8fafc;
+    --admin-surface: #ffffff;
+    --admin-sidebar: #0f172a;
+    --admin-sidebar-border: rgba(255, 255, 255, 0.08);
+    --admin-sidebar-text: #94a3b8;
+    --admin-sidebar-hover: rgba(255, 255, 255, 0.06);
+    --admin-sidebar-active: #0ea5e9;
+    --admin-border: #e2e8f0;
+    --admin-text: #0f172a;
+    --admin-text-muted: #64748b;
+    --admin-accent: #0f6e5c;
+    --admin-accent-hover: #0a5548;
+    --admin-radius: 12px;
+    --admin-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="dark"] {
+    --admin-bg: #090d16;
+    --admin-surface: #111827;
+    --admin-sidebar: #030712;
+    --admin-sidebar-border: rgba(255, 255, 255, 0.06);
+    --admin-sidebar-text: #9ca3af;
+    --admin-sidebar-hover: rgba(255, 255, 255, 0.05);
+    --admin-sidebar-active: #38bdf8;
+    --admin-border: #1f2937;
+    --admin-text: #f9fafb;
+    --admin-text-muted: #9ca3af;
+    --admin-accent: #10b981;
+    --admin-accent-hover: #059669;
+    --admin-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+}
+
+body.admin-body {
+    font-family: var(--admin-font);
+    background-color: var(--admin-bg);
+    color: var(--admin-text);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+/* ===== Layout Structure ===== */
+.admin-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ===== Sidebar ===== */
+.admin-sidebar {
+    width: 260px;
+    background-color: var(--admin-sidebar);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    border-right: 1px solid var(--admin-sidebar-border);
+    transition: width 0.25s ease;
+    z-index: 1030;
+}
+
+.admin-sidebar-brand {
+    padding: 1.25rem 1.25rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--admin-sidebar-border);
+}
+
+.admin-brand-icon {
+    width: 36px;
+    height: 36px;
+    background: #c1372b;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #fff;
+    font-size: 1.1rem;
+}
+
+.admin-brand-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.admin-brand-badge {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    background: rgba(14, 165, 233, 0.2);
+    color: #38bdf8;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-left: auto;
+}
+
+.admin-sidebar-nav {
+    padding: 1rem 0.75rem;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.admin-nav-group-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    padding: 0.75rem 0.75rem 0.35rem;
+}
+
+.admin-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    color: var(--admin-sidebar-text);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    margin-bottom: 2px;
+    transition: all 0.15s ease;
+}
+
+.admin-nav-item i {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+    color: inherit;
+}
+
+.admin-nav-item:hover {
+    background-color: var(--admin-sidebar-hover);
+    color: #fff;
+}
+
+.admin-nav-item.active {
+    background-color: rgba(14, 165, 233, 0.15);
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.admin-sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid var(--admin-sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+/* ===== Main Canvas ===== */
+.admin-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background-color: var(--admin-bg);
+}
+
+/* ===== Topbar ===== */
+.admin-topbar {
+    height: 64px;
+    background-color: var(--admin-surface);
+    border-bottom: 1px solid var(--admin-border);
+    padding: 0 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.admin-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.admin-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.admin-theme-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border);
+    background: transparent;
+    color: var(--admin-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.admin-theme-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--admin-text);
+}
+
+[data-theme="dark"] .admin-theme-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Content Area ===== */
+.admin-content {
+    padding: 2rem 1.75rem 3rem;
+    flex-grow: 1;
+}
+
+/* ===== Card & UI Styles ===== */
+.admin-card {
+    background-color: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    box-shadow: var(--admin-shadow);
+}
+
+.card {
+    background-color: var(--admin-surface);
+    border-color: var(--admin-border);
+    border-radius: var(--admin-radius);
+    color: var(--admin-text);
+}
+
+[data-theme="dark"] .card {
+    background-color: var(--admin-surface);
+    border-color: var(--admin-border);
+    color: var(--admin-text);
+}
+
+[data-theme="dark"] .card-body {
+    color: var(--admin-text);
+}
+
+/* Tables in Admin */
+.admin-main .table {
+    color: var(--admin-text);
+    border-color: var(--admin-border);
+}
+
+[data-theme="dark"] .admin-main .table {
+    color: var(--admin-text);
+    border-color: var(--admin-border);
+}
+
+[data-theme="dark"] .admin-main .table th,
+[data-theme="dark"] .admin-main .table td {
+    background-color: transparent;
+    color: var(--admin-text);
+    border-color: var(--admin-border);
+}
+
+.admin-main .table-hover tbody tr:hover td {
+    background-color: rgba(14, 165, 233, 0.04);
+}
+
+[data-theme="dark"] .admin-main .table-hover tbody tr:hover td {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Form Controls in Admin */
+.admin-main .form-control,
+.admin-main .form-select {
+    background-color: var(--admin-surface);
+    border-color: var(--admin-border);
+    color: var(--admin-text);
+    border-radius: 8px;
+    font-size: 0.88rem;
+}
+
+[data-theme="dark"] .admin-main .form-control,
+[data-theme="dark"] .admin-main .form-select {
+    background-color: #171e2e;
+    border-color: var(--admin-border);
+    color: var(--admin-text);
+}
+
+.admin-main .form-control:focus,
+.admin-main .form-select:focus {
+    border-color: var(--admin-sidebar-active);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+/* Light-only Bootstrap helpers used in admin views: keep them readable in the dark theme. */
+[data-theme="dark"] .admin-main .badge.bg-light {
+    background-color: #1f2937 !important;
+    color: var(--admin-text-muted) !important;
+    border-color: var(--admin-border) !important;
+}
+
+[data-theme="dark"] .admin-main .bg-white {
+    background-color: var(--admin-surface) !important;
+}
+
+[data-theme="dark"] .admin-main .table-light {
+    --bs-table-bg: #1f2937;
+    --bs-table-color: var(--admin-text);
+    --bs-table-border-color: var(--admin-border);
+}
+
+/* Metric KPI Card */
+.metric-kpi-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    padding: 1.25rem;
+    box-shadow: var(--admin-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.08);
+}
+
+.metric-icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}
+
+/* Responsive Sidebar Toggle */
+@media (max-width: 991.98px) {
+    .admin-sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+
+    .admin-sidebar.show {
+        transform: translateX(0);
+    }
+
+    .admin-content {
+        padding: 1.25rem 1rem 2.5rem;
+    }
+}

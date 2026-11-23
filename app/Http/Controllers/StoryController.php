@@ -68,6 +68,18 @@ class StoryController extends Controller
             );
         });
 
+        $continueChapter = Auth::check()
+            ? Auth::user()->readingHistories()
+                ->where('story_id', $story->id)
+                ->with('chapter')
+                ->first()
+                ?->chapter
+            : null;
+
+        if ($continueChapter && (! $continueChapter->status || $continueChapter->trashed())) {
+            $continueChapter = null;
+        }
+
         $userRating = Auth::check()
             ? $story->ratings()
                 ->where('user_id', Auth::id())
@@ -76,18 +88,7 @@ class StoryController extends Controller
 
         $isFavorited = $story->isFavoritedBy(Auth::user());
 
-        $categoryIds = $story->categories->modelKeys();
-        $relatedStories = $categoryIds === []
-            ? collect()
-            : Story::published()
-                ->whereKeyNot($story->id)
-                ->whereHas('categories', fn ($categories) => $categories->whereIn('categories.id', $categoryIds))
-                ->with('categories')
-                ->orderByDesc('is_featured')
-                ->orderByDesc('views')
-                ->orderByDesc('id')
-                ->limit(6)
-                ->get();
+        $relatedStories = Story::relatedTo($story, 10);
 
         return view(
             'stories.show',
@@ -96,6 +97,7 @@ class StoryController extends Controller
                 'chapters',
                 'firstChapter',
                 'latestChapter',
+                'continueChapter',
                 'comments',
                 'userRating',
                 'isFavorited',

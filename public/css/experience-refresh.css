@@ -214,7 +214,7 @@ body.app-redesign .reader-chapter-title {
     font-size: clamp(1.65rem, 3.5vw, 2.5rem); line-height: 1.25; margin-top: 1rem;
 }
 body.app-redesign .chapter-content {
-    max-width: 68ch; font-family: var(--font-display);
+    max-width: 68ch; font-family: var(--reader-font-family, var(--font-display));
     font-size: var(--reader-font-size, 1.15rem); line-height: var(--reader-line-height, 1.95);
     letter-spacing: .005em;
 }
@@ -319,3 +319,669 @@ body.app-redesign .writer-stat-card .stat-value {
     body.app-redesign .home-intro .btn { width: 100%; }
     body.app-redesign .writer-page-heading { align-items: start; flex-direction: column; }
 }
+
+/* ===== Star Rating Interaction ===== */
+.star-rating {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    gap: 4px;
+    font-size: 1.45rem;
+    color: #d1d5db;
+}
+.star-rating .star-label {
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+.star-rating .star-label:hover,
+.star-rating .star-label:hover ~ .star-label,
+.star-rating .star-radio:checked ~ .star-label {
+    color: #f59e0b;
+}
+.star-rating .star-label:hover {
+    transform: scale(1.15);
+}
+
+/* ===== Badge Category & Tokens ===== */
+.badge-category {
+    background-color: var(--jade-tint, #E4F0EC) !important;
+    color: var(--jade-dark, #0A5548) !important;
+    font-weight: 600;
+    padding: .4rem .75rem;
+}
+[data-theme="dark"] .badge-category {
+    background-color: var(--jade-tint, #233b36) !important;
+    color: var(--jade-dark, #83d8c1) !important;
+}
+
+/* Cleanup raw bootstrap blue badge */
+.badge.bg-primary {
+    background-color: var(--ui-accent, #246b55) !important;
+    color: #fff !important;
+}
+
+/* ===== Reader TOC Offcanvas ===== */
+.reader-toc-offcanvas {
+    background: var(--ui-surface, #fffdf8);
+    color: var(--ui-ink, #20251f);
+    max-width: 380px;
+}
+[data-theme="dark"] .reader-toc-offcanvas {
+    background: var(--ui-surface, #202824);
+    color: var(--ui-ink, #edf2ec);
+}
+.reader-toc-offcanvas .list-group-item {
+    background: transparent;
+    color: var(--ui-ink, #20251f);
+    border-color: var(--ui-line, #e4dfd2);
+    font-size: .92rem;
+}
+[data-theme="dark"] .reader-toc-offcanvas .list-group-item {
+    color: var(--ui-ink, #edf2ec);
+    border-color: var(--ui-line, #35413a);
+}
+.reader-toc-offcanvas .list-group-item.active {
+    background: var(--ui-surface-soft, #ebe7dc);
+    color: var(--ui-accent, #246b55);
+    font-weight: 600;
+    border-color: var(--ui-line, #e4dfd2);
+}
+[data-theme="dark"] .reader-toc-offcanvas .list-group-item.active {
+    background: var(--ui-surface-soft, #29332e);
+    color: var(--ui-accent, #80c5a6);
+}
+
+/* ===== Mobile Bottom Navigation Bar ===== */
+.app-mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(22, 28, 25, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.18);
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+}
+.app-mobile-nav .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.2rem 0.4rem;
+    border-radius: 8px;
+    transition: color 0.15s ease;
+    min-width: 52px;
+}
+.app-mobile-nav .mobile-nav-item i {
+    font-size: 1.25rem;
+    margin-bottom: 2px;
+}
+.app-mobile-nav .mobile-nav-item.active {
+    color: #80c5a6;
+    font-weight: 700;
+}
+.app-mobile-nav .mobile-nav-item:hover,
+.app-mobile-nav .mobile-nav-item:active {
+    color: #fff;
+}
+@media (max-width: 991.98px) {
+    body:not(.reader-focus-mode) {
+        padding-bottom: calc(4.2rem + env(safe-area-inset-bottom));
+    }
+}
+
+/* ===== Apple Books Style Reader Dock ===== */
+.apple-reader-dock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(22, 28, 25, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+    width: fit-content;
+    max-width: calc(100% - 1.5rem);
+    margin: 0 auto;
+    position: sticky;
+    bottom: 1.25rem;
+    z-index: 1030;
+}
+
+.apple-reader-dock .dock-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.85);
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.apple-reader-dock .dock-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.apple-reader-dock .dock-btn.active {
+    background: rgba(15, 110, 92, 0.4);
+    color: #80c5a6;
+}
+
+.apple-reader-dock .dock-btn.active-highlight {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.apple-reader-dock .divider {
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 0.1rem;
+}
+
+/* ===== OLED Pure Black Theme ===== */
+.reader-wrap[data-reader-theme="oled"] {
+    --reader-bg: #000000;
+    --reader-text: #b5b5b5;
+    background: #000000 !important;
+    color: #b5b5b5 !important;
+    border-color: #1a1a1a !important;
+    box-shadow: none !important;
+}
+
+body[data-reader-body-theme="oled"] {
+    background: #000000 !important;
+}
+
+body[data-reader-body-theme="oled"] .reader-meta a {
+    color: #80c5a6 !important;
+}
+
+/* ===== Editorial Drop Cap ===== */
+.chapter-content > p:first-of-type::first-letter {
+    font-family: var(--font-display);
+    float: left;
+    font-size: 3.1rem;
+    line-height: 0.85;
+    padding-top: 4px;
+    padding-right: 8px;
+    padding-bottom: 2px;
+    color: var(--ui-accent, #0F6E5C);
+    font-weight: 700;
+}
+
+/* ===== Appearance Modal & Floating Popover ===== */
+.appearance-modal-content {
+    background: var(--ui-surface, #fffdf8);
+    color: var(--ui-ink, #20251f);
+    border-radius: 20px;
+}
+[data-theme="dark"] .appearance-modal-content {
+    background: #1c2420;
+    color: #edf2ec;
+}
+.appearance-modal-content .theme-btn.active {
+    border-color: var(--ui-accent, #0F6E5C) !important;
+    box-shadow: 0 0 0 2px rgba(15, 110, 92, 0.25);
+}
+
+/* =========================================================
+   Apple Books / Kindle Style Floating Appearance Popover
+========================================================= */
+.reader-appearance-popover {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
+    left: 50%;
+    transform: translateX(-50%) translateY(16px) scale(0.96);
+    width: min(440px, calc(100vw - 1.25rem));
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 1045;
+    background: #ffffff;
+    color: #1a202c;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(15, 23, 42, 0.08);
+    padding: 1rem 1.15rem 1.15rem;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.22s;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+}
+
+.reader-appearance-popover.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Dock highlight when Aa popover is active */
+.apple-reader-dock .dock-btn#appearanceToggle.active {
+    background: var(--ui-accent, #0F6E5C);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(15, 110, 92, 0.4);
+}
+
+/* Popover Themes */
+body[data-reader-body-theme="sepia"] .reader-appearance-popover {
+    background: #fbf5e8;
+    color: #3b3226;
+    border-color: rgba(140, 110, 60, 0.16);
+    box-shadow: 0 20px 48px rgba(70, 50, 20, 0.18), 0 4px 14px rgba(70, 50, 20, 0.08);
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover {
+    background: #1e232b;
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55);
+}
+
+body[data-reader-body-theme="oled"] .reader-appearance-popover {
+    background: #111215;
+    color: #f1f5f9;
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.75);
+}
+
+/* Header */
+.reader-appearance-popover .popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.65rem;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+body[data-reader-body-theme="sepia"] .reader-appearance-popover .popover-header {
+    border-bottom-color: rgba(140, 110, 60, 0.12);
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .popover-header,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .popover-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.reader-appearance-popover .popover-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(15, 110, 92, 0.1);
+    color: #0F6E5C;
+    font-size: 0.9rem;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .popover-badge,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .popover-badge {
+    background: rgba(128, 197, 166, 0.15);
+    color: #80c5a6;
+}
+
+.reader-appearance-popover .popover-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.reader-appearance-popover .btn-close-popover {
+    background: transparent;
+    border: none;
+    color: inherit;
+    opacity: 0.55;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.reader-appearance-popover .btn-close-popover:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .btn-close-popover:hover,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .btn-close-popover:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Sections */
+.reader-appearance-popover .popover-section {
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+body[data-reader-body-theme="sepia"] .reader-appearance-popover .popover-section {
+    border-bottom-color: rgba(140, 110, 60, 0.1);
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .popover-section,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .popover-section {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.reader-appearance-popover .section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.65;
+    margin-bottom: 0.5rem;
+}
+
+.reader-appearance-popover .value-badge {
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(15, 110, 92, 0.1);
+    color: #0F6E5C;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .value-badge,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .value-badge {
+    background: rgba(128, 197, 166, 0.15);
+    color: #80c5a6;
+}
+
+/* 1. Theme Swatches Grid */
+.reader-appearance-popover .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.reader-appearance-popover .theme-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.25rem 0.45rem;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    text-decoration: none;
+}
+
+.reader-appearance-popover .theme-swatch:hover {
+    transform: translateY(-2px);
+}
+
+.reader-appearance-popover .theme-swatch .swatch-preview {
+    font-family: var(--font-display, serif);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.reader-appearance-popover .theme-swatch .swatch-name {
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+
+.theme-swatch-light {
+    background: #F7F6F2 !important;
+    color: #14171F !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-swatch-sepia {
+    background: #F1E5C8 !important;
+    color: #3B3226 !important;
+    border-color: rgba(140, 110, 60, 0.18) !important;
+}
+
+.theme-swatch-dark {
+    background: #181A20 !important;
+    color: #D8D6CF !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.theme-swatch-oled {
+    background: #000000 !important;
+    color: #f1f5f9 !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.reader-appearance-popover .theme-swatch.active {
+    border-color: #0F6E5C !important;
+    box-shadow: 0 0 0 3px rgba(15, 110, 92, 0.3), 0 4px 10px rgba(0, 0, 0, 0.12) !important;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .theme-swatch.active,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .theme-swatch.active {
+    border-color: #80c5a6 !important;
+    box-shadow: 0 0 0 3px rgba(128, 197, 166, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 2. Segmented Controls (Font Family, Width, Speed) */
+.reader-appearance-popover .segmented-control {
+    display: flex;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    padding: 3px;
+    gap: 3px;
+}
+
+body[data-reader-body-theme="sepia"] .reader-appearance-popover .segmented-control {
+    background: rgba(70, 50, 20, 0.08);
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .segmented-control,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .segmented-control {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.reader-appearance-popover .segment-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.75;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.reader-appearance-popover .segment-btn:hover {
+    opacity: 1;
+}
+
+.reader-appearance-popover .segment-btn.active {
+    opacity: 1;
+    background: #ffffff;
+    color: #0F6E5C;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+body[data-reader-body-theme="sepia"] .reader-appearance-popover .segment-btn.active {
+    background: #f1e5c8;
+    color: #0F6E5C;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .segment-btn.active {
+    background: #2b323c;
+    color: #80c5a6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-reader-body-theme="oled"] .reader-appearance-popover .segment-btn.active {
+    background: #222328;
+    color: #80c5a6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 3. Stepper Controls (Font Size, Line Height) */
+.reader-appearance-popover .stepper-control {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.reader-appearance-popover .stepper-btn {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.03);
+    color: inherit;
+    border-radius: 10px;
+    padding: 0.42rem 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 72px;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .stepper-btn,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .stepper-btn {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.reader-appearance-popover .stepper-btn:hover {
+    background: rgba(15, 110, 92, 0.1);
+    border-color: #0F6E5C;
+    color: #0F6E5C;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .stepper-btn:hover,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .stepper-btn:hover {
+    background: rgba(128, 197, 166, 0.15);
+    border-color: #80c5a6;
+    color: #80c5a6;
+}
+
+.reader-appearance-popover .stepper-symbol.font-sm {
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.reader-appearance-popover .stepper-symbol.font-lg {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.reader-appearance-popover .stepper-track-wrap {
+    flex: 1;
+    padding: 0 4px;
+}
+
+.reader-appearance-popover .stepper-track {
+    height: 6px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .stepper-track,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .stepper-track {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.reader-appearance-popover .stepper-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0F6E5C, #209f87);
+    border-radius: 999px;
+    transition: width 0.15s ease;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .stepper-fill,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .stepper-fill {
+    background: linear-gradient(90deg, #80c5a6, #48a37d);
+}
+
+/* 4. Utility Buttons (Focus, Fullscreen) */
+.reader-appearance-popover .utility-btn {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.03);
+    color: inherit;
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .utility-btn,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .utility-btn {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.reader-appearance-popover .utility-btn:hover {
+    border-color: #0F6E5C;
+    color: #0F6E5C;
+}
+
+.reader-appearance-popover .utility-btn.active {
+    background: rgba(15, 110, 92, 0.12);
+    border-color: #0F6E5C;
+    color: #0F6E5C;
+    font-weight: 700;
+}
+
+body[data-reader-body-theme="dark"] .reader-appearance-popover .utility-btn.active,
+body[data-reader-body-theme="oled"] .reader-appearance-popover .utility-btn.active {
+    background: rgba(128, 197, 166, 0.18);
+    border-color: #80c5a6;
+    color: #80c5a6;
+}
+
+.reader-appearance-popover .auto-speed-group .segment-btn {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.76rem;
+}
+

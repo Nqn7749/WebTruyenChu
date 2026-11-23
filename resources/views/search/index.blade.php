@@ -11,12 +11,28 @@
 </div>
 
 <form action="{{ route('search') }}" method="GET" id="search-filters" class="search-filter-panel p-3 mb-4">
-    @if ($tagSlug !== '')
-        <input type="hidden" name="tag" value="{{ $tagSlug }}">
-        <div class="mb-2">
-            <span class="badge bg-primary fs-6">Tag: #{{ $activeTag?->name ?? $tagSlug }}</span>
-            <a href="{{ route('search', array_filter(['q' => $keyword, 'category' => $categorySlug, 'status' => $status, 'sort' => $sort, 'period' => $period])) }}"
-               class="small ms-2">Bỏ lọc tag</a>
+    @php
+        // Active filters set by clicking a tag, an author or a poster name. Each chip links to the same
+        // search without that one filter.
+        $filterParams = array_filter([
+            'q' => $keyword, 'category' => $categorySlug, 'tag' => $tagSlug, 'author' => $authorName,
+            'poster' => $posterId ?: null, 'status' => $status, 'sort' => $sort, 'period' => $period,
+        ], fn ($value) => $value !== '' && $value !== null);
+        $chips = array_filter([
+            'tag' => $tagSlug !== '' ? 'Tag: #'.($activeTag?->name ?? $tagSlug) : null,
+            'author' => $authorName !== '' ? 'Tác giả: '.$authorName : null,
+            'poster' => $posterId > 0 ? 'Người đăng: '.($posterName ?? '#'.$posterId) : null,
+        ]);
+    @endphp
+    @if ($tagSlug !== '') <input type="hidden" name="tag" value="{{ $tagSlug }}"> @endif
+    @if ($authorName !== '') <input type="hidden" name="author" value="{{ $authorName }}"> @endif
+    @if ($posterId > 0) <input type="hidden" name="poster" value="{{ $posterId }}"> @endif
+    @if ($chips !== [])
+        <div class="mb-2 d-flex flex-wrap align-items-center gap-2">
+            @foreach ($chips as $key => $label)
+                <span class="badge bg-primary fs-6">{{ $label }}</span>
+                <a href="{{ route('search', \Illuminate\Support\Arr::except($filterParams, [$key])) }}" class="small me-2">Bỏ lọc {{ ['tag' => 'tag', 'author' => 'tác giả', 'poster' => 'người đăng'][$key] }}</a>
+            @endforeach
         </div>
     @endif
     <div class="row g-2">

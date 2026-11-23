@@ -7,6 +7,7 @@ use App\Jobs\SendBulkChapterNotifications;
 use App\Models\Story;
 use App\Services\AdminActivityLogger;
 use App\Services\HomeCacheService;
+use App\Services\HotStoriesService;
 use App\Services\StoryDeletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -85,13 +86,24 @@ class StoryController extends Controller
      * tạo truyện. Đổi cờ xong làm mới cache trang chủ để mục Hot/Đề cử
      * cập nhật ngay thay vì chờ hết 10 phút cache (M13).
      */
-    public function toggleFlag(Request $request, Story $story, AdminActivityLogger $logger)
+    public function toggleFlag(Request $request, Story $story, AdminActivityLogger $logger, HotStoriesService $hot)
     {
         $validated = $request->validate([
-            'flag' => ['required', 'string', Rule::in(['is_hot', 'is_featured', 'is_recommended'])],
+            'flag' => ['required', 'string', Rule::in(['is_hot', 'hot_auto', 'is_featured', 'is_recommended'])],
         ]);
 
         $flag = $validated['flag'];
+
+        // "Hot" is automatic by default. Toggling it pins the decision (on/off) so the hourly ranking
+        // stops touching the story; "hot_auto" gives the decision back to the ranking.
+        if ($flag === 'hot_auto') {
+            $story->forceFill(['hot_override' => null])->save();
+            $hot->refresh();
+
+            $logger->record($request, 'story.flag_auto', $story, 'Trả "Truyện hot" về chế độ tự động cho truyện "'.$story->title.'"');
+
+            return back()->with('success', 'Đã trả "Truyện hot" về chế độ tự động.');
+        }
 
         $labels = [
             'is_hot' => 'Truyện hot',
@@ -106,7 +118,12 @@ class StoryController extends Controller
 
             $enabled = ! $lockedStory->{$flag};
 
-            $lockedStory->forceFill([$flag => $enabled])->save();
+            $attributes = [$flag => $enabled];
+            if ($flag === 'is_hot') {
+                $attributes['hot_override'] = $enabled ? 'on' : 'off';
+            }
+
+            $lockedStory->forceFill($attributes)->save();
 
             return $enabled;
         });
