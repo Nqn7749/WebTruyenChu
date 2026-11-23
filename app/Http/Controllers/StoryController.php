@@ -68,6 +68,18 @@ class StoryController extends Controller
             );
         });
 
+        $continueChapter = Auth::check()
+            ? Auth::user()->readingHistories()
+                ->where('story_id', $story->id)
+                ->with('chapter')
+                ->first()
+                ?->chapter
+            : null;
+
+        if ($continueChapter && (! $continueChapter->status || $continueChapter->trashed())) {
+            $continueChapter = null;
+        }
+
         $userRating = Auth::check()
             ? $story->ratings()
                 ->where('user_id', Auth::id())
@@ -85,6 +97,7 @@ class StoryController extends Controller
                 'chapters',
                 'firstChapter',
                 'latestChapter',
+                'continueChapter',
                 'comments',
                 'userRating',
                 'isFavorited',

@@ -14,7 +14,13 @@
 
 <div class="reading-progress-bar" id="readingProgressBar"></div>
 
-<div class="mx-auto" style="max-width: 900px;">
+@php
+    $chapterText = \App\Support\ChapterContent::plainText($chapter->renderedContent());
+    $wordCount = count(preg_split('/\s+/u', trim($chapterText)) ?: []);
+    $readingMinutes = max(1, (int) ceil($wordCount / 220));
+@endphp
+
+<div class="mx-auto" id="readerContainer" style="max-width: 800px; transition: max-width 0.3s ease;">
 
     {{-- Breadcrumb --}}
     <nav aria-label="breadcrumb" class="small mb-3" id="readerBreadcrumb">
@@ -36,10 +42,14 @@
              id="readerWrap"
              data-reader-theme="light">
 
-        <div class="reader-meta">
+        <div class="reader-meta d-flex flex-wrap align-items-center gap-2">
             <a href="{{ route('stories.show', $story) }}">{{ $story->title }}</a>
             <span aria-hidden="true">·</span>
-            <span>Đang đọc chương {{ $chapter->chapter_number }}</span>
+            <span>Chương {{ $chapter->chapter_number }}</span>
+            <span aria-hidden="true">·</span>
+            <span class="badge rounded-pill bg-light text-muted border py-1 px-2" title="Ước tính theo {{ number_format($wordCount) }} từ">
+                <i class="bi bi-clock me-1 text-primary"></i>~{{ $readingMinutes }} phút đọc
+            </span>
         </div>
 
         <span class="reader-chapter-badge">
@@ -55,93 +65,253 @@
 
     </article>
 
-    {{-- Thanh công cụ --}}
-    <div class="reader-toolbar">
+    {{-- Offcanvas Mục lục chương nhanh --}}
+    <div class="offcanvas offcanvas-start reader-toc-offcanvas" tabindex="-1" id="readerTocOffcanvas" aria-labelledby="readerTocOffcanvasLabel">
+        <div class="offcanvas-header border-bottom">
+            <div>
+                <h5 class="offcanvas-title h6 mb-1 text-truncate" id="readerTocOffcanvasLabel" style="max-width: 240px;">{{ $story->title }}</h5>
+                <small class="text-muted">Mục lục: {{ count($storyChapters ?? []) }} chương</small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Đóng"></button>
+        </div>
+        <div class="p-2 border-bottom">
+            <input type="search" id="tocSearchInput" class="form-control form-control-sm" placeholder="Tìm số chương hoặc tiêu đề..." aria-label="Tìm chương">
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="list-group list-group-flush" id="tocChaptersList">
+                @foreach ($storyChapters ?? [] as $ch)
+                    <a href="{{ route('chapters.show', [$story, $ch->slug]) }}"
+                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2 px-3 {{ $ch->id === $chapter->id ? 'active' : '' }}"
+                       data-chapter-number="{{ $ch->chapter_number }}"
+                       data-chapter-title="{{ Str::lower($ch->title ?? '') }}">
+                        <span class="text-truncate">
+                            Chương {{ $ch->chapter_number }}{{ $ch->title ? ': '.$ch->title : '' }}
+                        </span>
+                        @if ($ch->id === $chapter->id)
+                            <span class="badge bg-light text-dark rounded-pill ms-2">Đang đọc</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    {{-- Bảng Tùy chỉnh hiển thị Aa (Floating E-Reader Popover / Sheet) --}}
+    <div id="readerAppearanceModal"
+         class="reader-appearance-popover"
+         role="dialog"
+         aria-labelledby="readerAppearanceTitle"
+         aria-modal="false"
+         tabindex="-1">
+        <div class="popover-header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="popover-badge"><i class="bi bi-sliders"></i></span>
+                <span class="fw-bold popover-title" id="readerAppearanceTitle">Tùy chỉnh hiển thị</span>
+            </div>
+            <button type="button" class="btn-close-popover" id="closeAppearanceBtn" aria-label="Đóng bảng tùy chỉnh">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="popover-body">
+            {{-- 1. Theme Swatches (Sáng, Sepia, Tối, OLED) --}}
+            <div class="popover-section">
+                <div class="section-label">MÀU NỀN & CHỦ ĐỀ</div>
+                <div class="theme-grid">
+                    <button type="button" class="btn theme-btn theme-swatch theme-swatch-light active" data-theme="light" title="Giao diện Sáng" aria-label="Giao diện Sáng">
+                        <span class="swatch-preview">Aa</span>
+                        <span class="swatch-name">Sáng</span>
+                    </button>
+                    <button type="button" class="btn theme-btn theme-swatch theme-swatch-sepia" data-theme="sepia" title="Giao diện Sepia" aria-label="Giao diện Sepia">
+                        <span class="swatch-preview">Aa</span>
+                        <span class="swatch-name">Sepia</span>
+                    </button>
+                    <button type="button" class="btn theme-btn theme-swatch theme-swatch-dark" data-theme="dark" title="Giao diện Tối" aria-label="Giao diện Tối">
+                        <span class="swatch-preview">Aa</span>
+                        <span class="swatch-name">Tối</span>
+                    </button>
+                    <button type="button" class="btn theme-btn theme-swatch theme-swatch-oled" data-theme="oled" title="Giao diện OLED Pure Black" aria-label="Giao diện OLED Pure Black">
+                        <span class="swatch-preview">Aa</span>
+                        <span class="swatch-name">OLED</span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- 2. Phông chữ (Serif vs Sans) --}}
+            <div class="popover-section">
+                <div class="section-label">PHÔNG CHỮ</div>
+                <div class="segmented-control">
+                    <button type="button" class="segment-btn font-family-btn active" id="fontFamilySerif" data-font="serif" style="font-family: var(--font-display, 'Literata', serif);">
+                        Có chân (Literata)
+                    </button>
+                    <button type="button" class="segment-btn font-family-btn" id="fontFamilySans" data-font="sans" style="font-family: var(--font-body, system-ui, sans-serif);">
+                        Không chân (Sans)
+                    </button>
+                </div>
+            </div>
+
+            {{-- 3. Cỡ chữ (Font Size Stepper) --}}
+            <div class="popover-section">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="section-label mb-0">CỠ CHỮ</span>
+                    <span id="fontSizeDisplay" class="value-badge">1.15rem</span>
+                </div>
+                <div class="stepper-control">
+                    <button type="button" class="stepper-btn" id="fontDecrease" title="Giảm cỡ chữ" aria-label="Giảm cỡ chữ">
+                        <span class="stepper-symbol font-sm">A</span>
+                        <i class="bi bi-dash"></i>
+                    </button>
+                    <div class="stepper-track-wrap" aria-hidden="true">
+                        <div class="stepper-track">
+                            <div class="stepper-fill" id="fontSizeFill" style="width: 28%;"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="stepper-btn" id="fontIncrease" title="Tăng cỡ chữ" aria-label="Tăng cỡ chữ">
+                        <i class="bi bi-plus"></i>
+                        <span class="stepper-symbol font-lg">A</span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- 4. Giãn dòng (Line Height Stepper) --}}
+            <div class="popover-section">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="section-label mb-0">GIÃN DÒNG</span>
+                    <span id="lineHeightDisplay" class="value-badge">1.9</span>
+                </div>
+                <div class="stepper-control">
+                    <button type="button" class="stepper-btn" id="lineHeightDecrease" title="Giảm giãn dòng" aria-label="Giảm giãn dòng">
+                        <i class="bi bi-distribute-vertical fs-6"></i>
+                        <span class="ms-1">Gọn</span>
+                    </button>
+                    <div class="stepper-track-wrap" aria-hidden="true">
+                        <div class="stepper-track">
+                            <div class="stepper-fill" id="lineHeightFill" style="width: 44%;"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="stepper-btn" id="lineHeightIncrease" title="Tăng giãn dòng" aria-label="Tăng giãn dòng">
+                        <span class="me-1">Thoáng</span>
+                        <i class="bi bi-arrows-expand fs-6"></i>
+                    </button>
+                </div>
+            </div>
+
+            {{-- 5. Độ rộng khung đọc --}}
+            <div class="popover-section">
+                <div class="section-label">ĐỘ RỘNG KHUNG ĐỌC</div>
+                <div class="segmented-control">
+                    <button type="button" class="segment-btn reader-width-btn" data-width="narrow">
+                        <i class="bi bi-layout-sidebar-inset me-1"></i> Hẹp (640px)
+                    </button>
+                    <button type="button" class="segment-btn reader-width-btn active" data-width="normal">
+                        <i class="bi bi-layout-three-columns me-1"></i> Chuẩn (800px)
+                    </button>
+                    <button type="button" class="segment-btn reader-width-btn" data-width="wide">
+                        <i class="bi bi-arrows-fullscreen me-1"></i> Rộng (980px)
+                    </button>
+                </div>
+            </div>
+
+            {{-- 6. Tiện ích đọc & Tốc độ cuộn --}}
+            <div class="popover-section border-0 pb-0 mb-0">
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <button type="button" id="focusModeToggle" class="utility-btn w-100" title="Bật chế độ tập trung" aria-label="Bật chế độ tập trung" aria-pressed="false">
+                            <i class="bi bi-eye"></i>
+                            <span>Tập trung</span>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" id="fullscreenToggle" class="utility-btn w-100" title="Toàn màn hình">
+                            <i class="bi bi-fullscreen"></i>
+                            <span>Toàn màn hình</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                    <span class="section-label mb-0">TỐC ĐỘ CUỘN</span>
+                    <div class="segmented-control auto-speed-group" role="group">
+                        <button type="button" class="segment-btn auto-speed-btn active" data-speed="1">1x</button>
+                        <button type="button" class="segment-btn auto-speed-btn" data-speed="2">2x</button>
+                        <button type="button" class="segment-btn auto-speed-btn" data-speed="3">3x</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Thanh công cụ Apple Books Style --}}
+    <div class="reader-toolbar apple-reader-dock" id="readerDock">
 
         @if ($prevChapter)
             <a href="{{ route('chapters.show', [$story, $prevChapter->slug]) }}"
+               class="dock-btn"
                title="Chương trước"
                aria-label="Chương trước">
                 <i class="bi bi-chevron-left"></i>
+                <span class="d-none d-sm-inline ms-1">Trước</span>
             </a>
+        @else
+            <span class="dock-btn text-muted opacity-50 pe-none" aria-disabled="true">
+                <i class="bi bi-chevron-left"></i>
+                <span class="d-none d-sm-inline ms-1">Trước</span>
+            </span>
         @endif
 
         <div class="divider"></div>
 
         <button type="button"
-                id="fontDecrease"
-                title="Giảm cỡ chữ"
-                aria-label="Giảm cỡ chữ">
-            <i class="bi bi-dash-lg"></i>
-        </button>
-
-        <button type="button"
-                id="fontIncrease"
-                title="Tăng cỡ chữ"
-                aria-label="Tăng cỡ chữ">
-            <i class="bi bi-plus-lg"></i>
-        </button>
-
-        <div class="divider"></div>
-
-        <button type="button"
-                id="lineHeightDecrease"
-                title="Giảm giãn dòng"
-                aria-label="Giảm giãn dòng">
-            <i class="bi bi-arrows-collapse"></i>
-        </button>
-
-        <button type="button"
-                id="lineHeightIncrease"
-                title="Tăng giãn dòng"
-                aria-label="Tăng giãn dòng">
-            <i class="bi bi-arrows-expand"></i>
+                id="tocToggle"
+                class="dock-btn"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#readerTocOffcanvas"
+                aria-controls="readerTocOffcanvas"
+                title="Mục lục chương"
+                aria-label="Mục lục chương">
+            <i class="bi bi-list-ul"></i>
+            <span class="d-none d-sm-inline ms-1">Mục lục</span>
         </button>
 
         <div class="divider"></div>
 
         <button type="button"
-                class="theme-btn active"
-                data-theme="light"
-                title="Sáng"
-                aria-label="Giao diện sáng">
-            <i class="bi bi-sun"></i>
-        </button>
-
-        <button type="button"
-                class="theme-btn"
-                data-theme="sepia"
-                title="Sepia"
-                aria-label="Giao diện sepia">
-            <i class="bi bi-circle-half"></i>
-        </button>
-
-        <button type="button"
-                class="theme-btn"
-                data-theme="dark"
-                title="Tối"
-                aria-label="Giao diện tối">
-            <i class="bi bi-moon-stars"></i>
+                id="autoScrollToggle"
+                class="dock-btn"
+                title="Bật/Tắt cuộn tự động"
+                aria-label="Cuộn tự động">
+            <i class="bi bi-play-circle" id="autoScrollIcon"></i>
+            <span class="d-none d-sm-inline ms-1" id="autoScrollLabel">Cuộn</span>
         </button>
 
         <div class="divider"></div>
 
         <button type="button"
-                id="focusModeToggle"
-                title="Bật chế độ tập trung"
-                aria-label="Bật chế độ tập trung"
-                aria-pressed="false">
-            <i class="bi bi-eye"></i>
+                id="appearanceToggle"
+                class="dock-btn"
+                aria-controls="readerAppearanceModal"
+                aria-expanded="false"
+                title="Tùy chỉnh giao diện đọc"
+                aria-label="Tùy chỉnh giao diện đọc">
+            <span class="fw-bold" style="font-size: 1.05rem; font-family: var(--font-display);">Aa</span>
+            <span class="d-none d-sm-inline ms-1">Hiển thị</span>
         </button>
 
         <div class="divider"></div>
 
         @if ($nextChapter)
             <a href="{{ route('chapters.show', [$story, $nextChapter->slug]) }}"
+               class="dock-btn"
                title="Chương sau"
                aria-label="Chương sau">
+                <span class="d-none d-sm-inline me-1">Sau</span>
                 <i class="bi bi-chevron-right"></i>
             </a>
+        @else
+            <span class="dock-btn text-muted opacity-50 pe-none" aria-disabled="true">
+                <span class="d-none d-sm-inline me-1">Sau</span>
+                <i class="bi bi-chevron-right"></i>
+            </span>
         @endif
 
     </div>
@@ -309,6 +479,8 @@
         position: `chapter_${chapterId}`,
         fontSize: 'reader_font_size',
         lineHeight: 'reader_line_height',
+        fontFamily: 'reader_font_family',
+        width: 'reader_container_width',
         theme: 'reader_theme',
         focusMode: 'reader_focus_mode'
     };
@@ -616,6 +788,17 @@
             '--reader-font-size',
             `${fontSize}rem`
         );
+
+        const display = document.getElementById('fontSizeDisplay');
+        if (display) {
+            display.textContent = `${fontSize.toFixed(2)}rem`;
+        }
+
+        const fill = document.getElementById('fontSizeFill');
+        if (fill) {
+            const pct = Math.round(((fontSize - 0.9) / (1.8 - 0.9)) * 100);
+            fill.style.width = `${clamp(pct, 0, 100)}%`;
+        }
     }
 
 
@@ -664,6 +847,16 @@
     function applyLineHeight() {
         lineHeight = clamp(lineHeight, 1.5, 2.4);
         content.style.setProperty('--reader-line-height', lineHeight.toFixed(1));
+        const display = document.getElementById('lineHeightDisplay');
+        if (display) {
+            display.textContent = lineHeight.toFixed(1);
+        }
+
+        const fill = document.getElementById('lineHeightFill');
+        if (fill) {
+            const pct = Math.round(((lineHeight - 1.5) / (2.4 - 1.5)) * 100);
+            fill.style.width = `${clamp(pct, 0, 100)}%`;
+        }
     }
 
     function saveLineHeight() {
@@ -690,7 +883,7 @@
 
 
     /* =========================================================
-       READER THEME
+       READER THEME (Light, Sepia, Dark, OLED Black)
     ========================================================= */
 
     const themeButtons =
@@ -702,7 +895,8 @@
         const allowedThemes = [
             'light',
             'sepia',
-            'dark'
+            'dark',
+            'oled'
         ];
 
         if (!allowedThemes.includes(theme)) {
@@ -710,6 +904,7 @@
         }
 
         wrap.dataset.readerTheme = theme;
+        document.body.dataset.readerBodyTheme = theme;
 
         writeLocalStorage(storageKeys.theme, theme);
 
@@ -727,7 +922,6 @@
                 'aria-pressed',
                 isActive
             );
-
         });
     }
 
@@ -776,8 +970,8 @@
                 isEnabled ? 'Tắt chế độ tập trung' : 'Bật chế độ tập trung'
             );
             focusModeToggle.innerHTML = isEnabled
-                ? '<i class="bi bi-eye-slash"></i>'
-                : '<i class="bi bi-eye"></i>';
+                ? '<i class="bi bi-eye-slash me-1"></i> Đang tập trung'
+                : '<i class="bi bi-eye me-1"></i> Tập trung';
         }
     }
 
@@ -785,6 +979,280 @@
 
     focusModeToggle?.addEventListener('click', () => {
         applyFocusMode(!document.body.classList.contains('reader-focus-mode'));
+    });
+
+
+    /* =========================================================
+       FONT FAMILY TOGGLE (Serif vs Sans-serif)
+    ========================================================= */
+
+    const fontButtons = document.querySelectorAll('.font-family-btn');
+    let currentFontFamily = readLocalStorage(storageKeys.fontFamily) || 'serif';
+
+    function applyFontFamily(family) {
+        currentFontFamily = family === 'sans' ? 'sans' : 'serif';
+        if (currentFontFamily === 'sans') {
+            content.style.setProperty('--reader-font-family', 'var(--font-body)');
+        } else {
+            content.style.setProperty('--reader-font-family', 'var(--font-display)');
+        }
+
+        fontButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.font === currentFontFamily);
+        });
+
+        writeLocalStorage(storageKeys.fontFamily, currentFontFamily);
+    }
+
+    fontButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyFontFamily(btn.dataset.font || 'serif');
+        });
+    });
+
+    applyFontFamily(currentFontFamily);
+
+
+    /* =========================================================
+       READER CONTAINER WIDTH
+    ========================================================= */
+
+    const widthButtons = document.querySelectorAll('.reader-width-btn');
+    const readerContainer = document.getElementById('readerContainer');
+
+    function applyReaderWidth(width) {
+        if (!readerContainer) return;
+        const widthMap = {
+            narrow: '640px',
+            normal: '800px',
+            wide: '980px'
+        };
+        readerContainer.style.maxWidth = widthMap[width] || '800px';
+        writeLocalStorage(storageKeys.width, width);
+        widthButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.width === width);
+        });
+    }
+
+    const savedWidth = readLocalStorage(storageKeys.width) || 'normal';
+    applyReaderWidth(savedWidth);
+
+    widthButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyReaderWidth(btn.dataset.width || 'normal');
+        });
+    });
+
+
+    /* =========================================================
+       FULLSCREEN TOGGLE
+    ========================================================= */
+
+    const fullscreenBtn = document.getElementById('fullscreenToggle');
+    fullscreenBtn?.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+            fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit me-1"></i> Thu nhỏ';
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+            fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen me-1"></i> Toàn màn hình';
+        }
+    });
+
+
+    /* =========================================================
+       APPEARANCE POPOVER (Floating E-Reader Sheet)
+    ========================================================= */
+
+    const appearanceModal = document.getElementById('readerAppearanceModal');
+    const appearanceToggle = document.getElementById('appearanceToggle');
+    const closeAppearanceBtn = document.getElementById('closeAppearanceBtn');
+
+    function openAppearancePopover() {
+        if (!appearanceModal) return;
+        // Close TOC offcanvas if open
+        const tocEl = document.getElementById('readerTocOffcanvas');
+        if (tocEl && typeof bootstrap !== 'undefined') {
+            const offcanvas = bootstrap.Offcanvas.getInstance(tocEl);
+            if (offcanvas) offcanvas.hide();
+        }
+        appearanceModal.classList.add('show');
+        appearanceToggle?.classList.add('active');
+        appearanceToggle?.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeAppearancePopover() {
+        if (!appearanceModal) return;
+        appearanceModal.classList.remove('show');
+        appearanceToggle?.classList.remove('active');
+        appearanceToggle?.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleAppearancePopover() {
+        if (!appearanceModal) return;
+        if (appearanceModal.classList.contains('show')) {
+            closeAppearancePopover();
+        } else {
+            openAppearancePopover();
+        }
+    }
+
+    appearanceToggle?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleAppearancePopover();
+    });
+
+    closeAppearanceBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeAppearancePopover();
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!appearanceModal || !appearanceModal.classList.contains('show')) return;
+        if (!appearanceModal.contains(e.target) && !appearanceToggle?.contains(e.target)) {
+            closeAppearancePopover();
+        }
+    });
+
+    // Close when pressing Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && appearanceModal?.classList.contains('show')) {
+            closeAppearancePopover();
+        }
+    });
+
+    // Close appearance popover when TOC offcanvas is opened
+    const tocOffcanvasEl = document.getElementById('readerTocOffcanvas');
+    if (tocOffcanvasEl) {
+        tocOffcanvasEl.addEventListener('show.bs.offcanvas', () => {
+            closeAppearancePopover();
+        });
+    }
+
+
+    /* =========================================================
+       AUTO-SCROLL (Cuộn tự động thông minh)
+    ========================================================= */
+
+    let autoScrollActive = false;
+    let autoScrollSpeed = 1;
+    let autoScrollRaf = null;
+    let lastScrollTime = 0;
+
+    const autoScrollBtn = document.getElementById('autoScrollToggle');
+    const autoScrollIcon = document.getElementById('autoScrollIcon');
+    const autoScrollLabel = document.getElementById('autoScrollLabel');
+
+    function autoScrollStep(timestamp) {
+        if (!autoScrollActive) return;
+        if (!lastScrollTime) lastScrollTime = timestamp;
+        const elapsed = timestamp - lastScrollTime;
+
+        const pxPerSec = autoScrollSpeed === 3 ? 110 : (autoScrollSpeed === 2 ? 65 : 35);
+        const step = (pxPerSec * elapsed) / 1000;
+
+        if (step >= 0.5) {
+            window.scrollBy(0, step);
+            lastScrollTime = timestamp;
+        }
+
+        const isBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 60);
+        if (isBottom) {
+            stopAutoScroll();
+            return;
+        }
+
+        autoScrollRaf = requestAnimationFrame(autoScrollStep);
+    }
+
+    function startAutoScroll() {
+        autoScrollActive = true;
+        lastScrollTime = 0;
+        autoScrollBtn?.classList.add('active');
+        if (autoScrollIcon) autoScrollIcon.className = 'bi bi-pause-circle text-warning';
+        if (autoScrollLabel) autoScrollLabel.textContent = 'Dừng';
+        autoScrollRaf = requestAnimationFrame(autoScrollStep);
+    }
+
+    function stopAutoScroll() {
+        autoScrollActive = false;
+        autoScrollBtn?.classList.remove('active');
+        if (autoScrollIcon) autoScrollIcon.className = 'bi bi-play-circle';
+        if (autoScrollLabel) autoScrollLabel.textContent = 'Cuộn';
+        if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
+    }
+
+    autoScrollBtn?.addEventListener('click', () => {
+        if (autoScrollActive) {
+            stopAutoScroll();
+        } else {
+            startAutoScroll();
+        }
+    });
+
+    document.querySelectorAll('.auto-speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.auto-speed-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            autoScrollSpeed = parseInt(btn.dataset.speed || '1', 10);
+        });
+    });
+
+    window.addEventListener('wheel', () => {
+        if (autoScrollActive) stopAutoScroll();
+    }, { passive: true });
+    window.addEventListener('touchmove', () => {
+        if (autoScrollActive) stopAutoScroll();
+    }, { passive: true });
+
+
+    /* =========================================================
+       QUICK TABLE OF CONTENTS (TOC) SEARCH & FILTER
+    ========================================================= */
+
+    const tocSearch = document.getElementById('tocSearchInput');
+    const tocList = document.getElementById('tocChaptersList');
+
+    if (tocSearch && tocList) {
+        tocSearch.addEventListener('input', () => {
+            const query = tocSearch.value.trim().toLowerCase();
+            const items = tocList.querySelectorAll('.list-group-item');
+
+            items.forEach(item => {
+                const num = item.dataset.chapterNumber || '';
+                const title = item.dataset.chapterTitle || '';
+                const text = item.textContent.toLowerCase();
+                const match = !query || num.includes(query) || title.includes(query) || text.includes(query);
+                item.style.display = match ? '' : 'none';
+            });
+        });
+    }
+
+
+    /* =========================================================
+       KEYBOARD SHORTCUTS (ArrowLeft / ArrowRight)
+    ========================================================= */
+
+    window.addEventListener('keydown', (event) => {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+            return;
+        }
+
+        if (event.key === 'ArrowLeft') {
+            const prevBtn = document.querySelector('.reader-toolbar a[title="Chương trước"]');
+            if (prevBtn) {
+                prevBtn.click();
+            }
+        } else if (event.key === 'ArrowRight') {
+            const nextBtn = document.querySelector('.reader-toolbar a[title="Chương sau"]');
+            if (nextBtn) {
+                nextBtn.click();
+            }
+        }
     });
 
 

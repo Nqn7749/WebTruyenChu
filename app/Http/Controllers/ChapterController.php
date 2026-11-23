@@ -147,12 +147,19 @@ class ChapterController extends Controller
             );
         });
 
+        $storyChapters = $story->chapters()
+            ->where('status', true)
+            ->orderBy('chapter_number')
+            ->orderBy('id')
+            ->get(['id', 'chapter_number', 'title', 'slug']);
+
         return view('chapters.show', compact(
             'story',
             'chapter',
             'prevChapter',
             'nextChapter',
-            'comments'
+            'comments',
+            'storyChapters'
         ));
     }
 

@@ -300,6 +300,38 @@
     </div>
 </footer>
 
+@unless (request()->routeIs('chapters.show', 'login', 'register'))
+    <nav class="app-mobile-nav d-lg-none" aria-label="Điều hướng di động">
+        <a href="{{ route('home') }}" class="mobile-nav-item {{ request()->routeIs('home') ? 'active' : '' }}">
+            <i class="bi bi-house{{ request()->routeIs('home') ? '-door-fill' : '-door' }}"></i>
+            <span>Trang chủ</span>
+        </a>
+        <a href="{{ route('ranking') }}" class="mobile-nav-item {{ request()->routeIs('ranking') ? 'active' : '' }}">
+            <i class="bi bi-trophy{{ request()->routeIs('ranking') ? '-fill' : '' }}"></i>
+            <span>Xếp hạng</span>
+        </a>
+        <a href="{{ route('search') }}" class="mobile-nav-item {{ request()->routeIs('search', 'stories.index') ? 'active' : '' }}">
+            <i class="bi bi-search"></i>
+            <span>Tìm truyện</span>
+        </a>
+        @auth
+            <a href="{{ route('reading-history.index') }}" class="mobile-nav-item {{ request()->routeIs('reading-history.*') ? 'active' : '' }}">
+                <i class="bi bi-clock-history"></i>
+                <span>Lịch sử</span>
+            </a>
+            <a href="{{ route('profile.edit') }}" class="mobile-nav-item {{ request()->routeIs('profile.*') ? 'active' : '' }}">
+                <i class="bi bi-person-circle"></i>
+                <span>Cá nhân</span>
+            </a>
+        @else
+            <a href="{{ route('login') }}" class="mobile-nav-item">
+                <i class="bi bi-box-arrow-in-right"></i>
+                <span>Đăng nhập</span>
+            </a>
+        @endauth
+    </nav>
+@endunless
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
