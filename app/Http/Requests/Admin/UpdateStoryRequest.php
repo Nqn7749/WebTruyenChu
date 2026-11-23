@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Story;
+use App\Support\TagInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -34,6 +35,16 @@ class UpdateStoryRequest extends FormRequest
     }
 
     /**
+     * Older clients posted tags[] as an array; the field is now one comma-separated text.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (is_array($this->input('tags'))) {
+            $this->merge(['tags' => implode(', ', array_filter($this->input('tags'), 'is_string'))]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -52,8 +63,12 @@ class UpdateStoryRequest extends FormRequest
             'status_publish' => ['nullable', 'boolean'],
             'categories' => ['required', 'array', 'max:10'],
             'categories.*' => ['exists:categories,id'],
-            'tags' => ['nullable', 'array', 'max:10'],
-            'tags.*' => ['exists:tags,id'],
+            // Free text: tags separated by commas. Authors create tags themselves.
+            'tags' => ['nullable', 'string', 'max:600', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($message = TagInput::validate((string) $value)) {
+                    $fail($message);
+                }
+            }],
             'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
             // TEXT chỉ chứa 65.535 byte, emoji tốn 4 byte/ký tự nên
             // max 16.000 ký tự (~64.000 byte), nhập quá dài trả 422 thay vì 500.

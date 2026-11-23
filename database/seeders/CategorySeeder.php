@@ -24,22 +24,40 @@ class CategorySeeder extends Seeder
             'Quân Sự' => [],
             'Light Novel' => [],
             'Đồng Nhân' => [],
+            'Xuyên Không' => [],
+            'Trọng Sinh' => [],
+            'Võng Du' => [],
+            'Lịch Sử' => [],
+            'Dị Giới' => [],
+            'Mạt Thế' => [],
+            'Linh Dị' => [],
+            'Kinh Dị' => [],
+            'Hệ Thống' => [],
+            'Cung Đấu' => [],
+            'Gia Đấu' => [],
+            'Học Đường' => [],
+            'Hài Hước' => [],
+            'Thể Thao' => [],
+            'Cổ Đại' => [],
+            'Điền Văn' => [],
+            'Đam Mỹ' => [],
+            'Bách Hợp' => [],
+            'Truyện Teen' => [],
+            'Phương Tây' => [],
         ];
 
+        // Idempotent: safe to re-run on a database that already has categories.
         foreach ($tree as $parentName => $children) {
-            $parent = Category::create([
-                'name' => $parentName,
-                'slug' => Str::slug($parentName),
-                'description' => "Truyện thuộc thể loại {$parentName}.",
-            ]);
+            $parent = Category::firstOrCreate(
+                ['slug' => Str::slug($parentName)],
+                ['name' => $parentName, 'description' => "Truyện thuộc thể loại {$parentName}."],
+            );
 
             foreach ($children as $childName) {
-                Category::create([
-                    'parent_id' => $parent->id,
-                    'name' => $childName,
-                    'slug' => Str::slug($childName),
-                    'description' => "Truyện thuộc thể loại {$childName}.",
-                ]);
+                Category::firstOrCreate(
+                    ['slug' => Str::slug($childName)],
+                    ['parent_id' => $parent->id, 'name' => $childName, 'description' => "Truyện thuộc thể loại {$childName}."],
+                );
             }
         }
     }

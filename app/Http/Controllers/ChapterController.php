@@ -7,6 +7,7 @@ use App\Models\Comment;
 use App\Models\ReadingHistory;
 use App\Models\Story;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,30 @@ class ChapterController extends Controller
             ->firstOrFail();
 
         return redirect()->route('chapters.show', [$story, $chapter->slug], 301);
+    }
+
+    /**
+     * Jump to chapter number N from the story page. Unlike legacy() this is a
+     * temporary redirect and a missing chapter returns to the story page with a message.
+     */
+    public function jump(Request $request, Story $story)
+    {
+        abort_unless($story->status_publish, 404);
+
+        $data = $request->validate(['so' => ['required', 'integer', 'min:1', 'max:99999999']]);
+
+        $chapter = $story->chapters()
+            ->where('chapter_number', (int) $data['so'])
+            ->where('status', true)
+            ->orderBy('id')
+            ->first();
+
+        if (! $chapter) {
+            return redirect()->to(route('stories.show', $story).'#chapterList')
+                ->with('chapter_jump_error', 'Không có chương số '.(int) $data['so'].'.');
+        }
+
+        return redirect()->route('chapters.show', [$story, $chapter->slug]);
     }
 
     public function show(Story $story, Chapter $chapter)
@@ -95,10 +120,11 @@ class ChapterController extends Controller
             );
         }
 
+        // Same shared thread as the story page: story-level comments plus every
+        // published chapter's comments (each shows its chapter badge).
         $comments = $story->comments()
-            ->where('chapter_id', $chapter->id)
+            ->visible()
             ->whereNull('parent_id')
-            ->where('is_hidden', false)
             ->with(['user', 'chapter'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')

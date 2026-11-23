@@ -18,3 +18,12 @@ Each run is limited to 20 stories and 50 chapters per story. New stories and cha
 For HTML such as `<a class="story" href="/story/one">...</a>`, use `//a[contains(concat(" ", normalize-space(@class), " "), " story ")]`. For chapter text, target a stable container such as `//div[@id="chapter-content"]`.
 
 The crawler does not follow redirects, rejects non-HTTPS URLs, other hosts, private/reserved IPs, oversized pages and invalid XPath. It does not bypass login, paywalls, anti-bot controls or access restrictions.
+
+## Shared allowlist with "Nhập truyện từ URL"
+
+The crawler and the URL importer share one allowlist and one hardened HTTP client.
+
+- When `STORY_IMPORT_REQUIRE_ALLOWLIST=true`, a crawler source's host must be listed in `config/story_import.php` (`sources`). The form refuses other hosts, and a run (manual or scheduled) for a host that is not listed, or was removed later, is cancelled before any request is sent.
+- Pages are fetched with the importer's client: every resolved IPv4/IPv6 address must be public, the validated IP is pinned for the request (needs `ext-curl`), redirects are refused, only HTML/XML is accepted and pages are capped at 2 MB.
+- The crawler keeps its own rule that every URL must stay on the source's configured host.
+- With the allowlist off (default) behaviour is unchanged except for the stronger network checks above.

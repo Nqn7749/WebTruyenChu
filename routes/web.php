@@ -15,9 +15,11 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\StoryListController;
 use App\Http\Controllers\Writer\ChapterController as WriterChapterController;
+use App\Http\Controllers\Writer\ChapterFileImportController as WriterChapterFileImportController;
 use App\Http\Controllers\Writer\CommentController as WriterCommentController;
 use App\Http\Controllers\Writer\DashboardController as WriterDashboardController;
 use App\Http\Controllers\Writer\StoryController as WriterStoryController;
+use App\Http\Controllers\Writer\StoryFileImportController as WriterStoryFileImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -47,6 +49,11 @@ Route::get('/tim-kiem', [SearchController::class, 'index'])
 Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index');
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
+
+// "Nhảy tới chương số N" form on the story page.
+Route::get('/truyen/{story:slug}/den-chuong', [ChapterController::class, 'jump'])
+    ->middleware('throttle:30,1')
+    ->name('chapters.jump');
 
 // Keep old chapter-number URLs working and redirect them to the canonical slug URL.
 // If duplicate chapter numbers exist, the first published chapter by ID is the stable legacy target.
@@ -83,6 +90,9 @@ Route::middleware(['auth'])->prefix('sang-tac')->name('writer.')->group(function
 
     Route::get('/truyen', [WriterStoryController::class, 'index'])->name('stories.index');
     Route::get('/truyen/create', [WriterStoryController::class, 'create'])->name('stories.create');
+    Route::get('/truyen/nhap-tep', [WriterStoryFileImportController::class, 'create'])->name('stories.import');
+    Route::post('/truyen/nhap-tep/tai-len', [WriterStoryFileImportController::class, 'upload'])->middleware('throttle:10,1')->name('stories.import.upload');
+    Route::post('/truyen/nhap-tep', [WriterStoryFileImportController::class, 'store'])->middleware('throttle:5,1')->name('stories.import.store');
     Route::post('/truyen', [WriterStoryController::class, 'store'])->middleware('throttle:10,1')->name('stories.store');
     Route::get('/truyen/{story}/edit', [WriterStoryController::class, 'edit'])->name('stories.edit');
     Route::put('/truyen/{story}', [WriterStoryController::class, 'update'])->middleware('throttle:20,1')->name('stories.update');
@@ -90,6 +100,9 @@ Route::middleware(['auth'])->prefix('sang-tac')->name('writer.')->group(function
 
     Route::get('/truyen/{story}/chuong', [WriterChapterController::class, 'index'])->name('stories.chapters.index');
     Route::get('/truyen/{story}/chuong/create', [WriterChapterController::class, 'create'])->name('stories.chapters.create');
+    Route::get('/truyen/{story}/chuong/nhap-tep', [WriterChapterFileImportController::class, 'create'])->name('stories.chapters.import');
+    Route::post('/truyen/{story}/chuong/nhap-tep/tai-len', [WriterChapterFileImportController::class, 'upload'])->middleware('throttle:10,1')->name('stories.chapters.import.upload');
+    Route::post('/truyen/{story}/chuong/nhap-tep', [WriterChapterFileImportController::class, 'store'])->middleware('throttle:5,1')->name('stories.chapters.import.store');
     Route::post('/truyen/{story}/chuong', [WriterChapterController::class, 'store'])->middleware('throttle:20,1')->name('stories.chapters.store');
     Route::get('/chuong/{chapter}/preview', [WriterChapterController::class, 'preview'])->name('chapters.preview');
     Route::get('/chuong/{chapter}/edit', [WriterChapterController::class, 'edit'])->name('chapters.edit');

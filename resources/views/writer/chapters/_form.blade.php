@@ -12,8 +12,7 @@
 </div>
 <div class="mb-3">
     <label class="form-label" for="chapter-content">Nội dung *</label>
-    <textarea id="chapter-content" name="content" rows="18" required
-              class="form-control @error('content') is-invalid @enderror">{{ old('content', $chapter->content ?? '') }}</textarea>
+    @include('components.chapter-editor', ['value' => old('content', $chapter->content ?? ''), 'invalid' => $errors->has('content')])
     @error('content')<div class="invalid-feedback">{{ $message }}</div>@enderror
 </div>
 <div class="form-check form-switch mb-4">

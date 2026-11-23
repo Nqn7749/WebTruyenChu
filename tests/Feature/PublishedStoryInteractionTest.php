@@ -49,13 +49,21 @@ test('an author cannot rate their own story', function () {
     expect($story->fresh()->rating_count)->toBe(0);
 });
 
-test('an author cannot favorite their own story', function () {
+test('an author can favorite their own story and toggle its notifications', function () {
     $author = User::factory()->create(['status' => true]);
     $story = Story::factory()->create(['user_id' => $author->id, 'status_publish' => true]);
 
     $this->actingAs($author)
         ->post(route('favorites.toggle', $story))
-        ->assertForbidden();
+        ->assertRedirect();
+
+    expect($story->fresh()->favorite_count)->toBe(1);
+
+    $this->actingAs($author)
+        ->patch(route('favorites.toggle-notify', $story))
+        ->assertSuccessful();
+
+    $this->actingAs($author)->post(route('favorites.toggle', $story));
 
     expect($story->fresh()->favorite_count)->toBe(0);
 });

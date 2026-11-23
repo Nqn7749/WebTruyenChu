@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
@@ -42,7 +43,7 @@ class AppServiceProvider extends ServiceProvider
         // của route bị cạn nhanh gấp đôi (round 6 fix1: 9 test đỏ vì
         // lỗi này). Limiter đặt tên có key riêng (IP + signature)
         // nên hai ngân sách đếm độc lập với nhau.
-        RateLimiter::for('story-import-host', fn (object $job) => Limit::perMinute((int) config('story_import.requests_per_minute', 30))
+        RateLimiter::for('story-import-host', fn (object $job) => Limit::perMinute((int) config('story_import.requests_per_minute', 60))
             ->by(method_exists($job, 'host') ? $job->host() : 'default'));
         RateLimiter::for('web-global', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
@@ -64,11 +65,18 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.public', function ($view) {
             $navCategories = Cache::remember('nav_categories', now()->addHours(6), function () {
                 return Category::whereNull('parent_id')
+                    ->with(['children' => fn ($query) => $query->select(['id', 'parent_id', 'name', 'slug'])])
                     ->orderBy('name')
                     ->get(['id', 'name', 'slug']);
             });
 
-            $view->with('navCategories', $navCategories);
+            // A-Z by Vietnamese name ignoring diacritics ("Đ" sorts with "D"); done in PHP so the
+            // order does not depend on the database collation (SQLite sorts "Đ" last).
+            $byName = fn ($category) => [Str::lower(Str::ascii($category->name)), $category->name];
+            $view->with('navCategories', $navCategories
+                ->each(fn ($category) => $category->setRelation('children', $category->children->sortBy($byName)->values()))
+                ->sortBy($byName)
+                ->values());
         });
 
         Story::observe(StoryObserver::class);

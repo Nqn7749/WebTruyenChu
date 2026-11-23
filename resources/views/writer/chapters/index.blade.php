@@ -6,7 +6,10 @@
         <h1 class="h3 mb-1">Chương truyện</h1>
         <p class="text-muted mb-0">{{ $story->title }}</p>
     </div>
-    <a href="{{ route('writer.stories.chapters.create', $story) }}" class="btn btn-primary">+ Thêm chương</a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('writer.stories.chapters.import', $story) }}" class="btn btn-outline-primary">Thêm từ tệp</a>
+        <a href="{{ route('writer.stories.chapters.create', $story) }}" class="btn btn-primary">+ Thêm chương</a>
+    </div>
 </div>
 <div class="alert alert-info">
     Bạn có thể tự đăng chương công khai hoặc lưu bản nháp. Chương công khai sẽ hiển thị với độc giả

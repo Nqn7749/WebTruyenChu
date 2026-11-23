@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RunCrawlerSource;
 use App\Models\CrawlerRun;
 use App\Models\CrawlerSource;
+use App\Services\StoryUrlImportService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -101,6 +102,12 @@ class CrawlerSourceController extends Controller
             || isset($listing['user']) || isset($listing['pass'])) {
             throw ValidationException::withMessages([
                 'base_url' => 'Base URL và URL danh sách phải cùng một host HTTPS, không chứa thông tin đăng nhập.',
+            ]);
+        }
+
+        if (! StoryUrlImportService::hostAllowed((string) ($base['host'] ?? ''))) {
+            throw ValidationException::withMessages([
+                'base_url' => 'Host này chưa có trong danh sách cho phép (config/story_import.php). Hãy thêm host vào danh sách trước khi tạo nguồn.',
             ]);
         }
 

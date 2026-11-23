@@ -6,7 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $__env->yieldContent('title', 'Web Đọc Truyện Chữ') }}</title>
+    {{-- @section('x', $value) already HTML-escapes $value (and yieldContent escapes defaults), so echoing
+         it with {{ }} escaped it a second time: quotes and "&" showed up as "&quot;" / "&amp;" in the
+         title and meta tags. Decode once here, then {{ }} escapes exactly once. Anything that was not
+         escaped yet (a block @section with raw text) is still escaped by {{ }}, so this stays XSS-safe. --}}
+    @php
+        $meta = fn (string $key, string $default = '') => html_entity_decode((string) $__env->yieldContent($key, $default), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    @endphp
+    <title>{{ $meta('title', 'Web Đọc Truyện Chữ') }}</title>
 
     {{-- SEO cơ bản --}}
     {{-- Lưu ý bảo mật: @yield xuất nội dung section KHÔNG escape, nên tuyệt đối
@@ -14,7 +21,7 @@
          do người dùng nhập có thể chứa dấu " để thoát khỏi thuộc tính content
          và chèn script (stored XSS). Dùng {{ $__env->yieldContent(...) }} để
          escape đầy đủ, kể cả dấu ngoặc kép. --}}
-    <meta name="description" content="{{ $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
+    <meta name="description" content="{{ $meta('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh, giao diện đẹp, không quảng cáo.') }}">
     {{-- Canonical giữ lại query string phân trang/lọc (page, q, ...) để các
          trang phân trang và kết quả tìm kiếm không bị gộp thành một URL duy
          nhất. Allowlist theo từng route (V5): trang tìm kiếm/danh sách giữ
@@ -23,7 +30,7 @@
          không chứa q[0]=x. --}}
     @php
         $canonicalParams = match (true) {
-            request()->routeIs('search', 'stories.index') => ['q', 'category', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
+            request()->routeIs('search', 'stories.index') => ['q', 'category', 'tag', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
             request()->routeIs('home') => ['recent', 'page'],
             request()->routeIs('stories.show') => ['chapter_page', 'comment_page', 'page'],
             request()->routeIs('chapters.show') => ['comment_page', 'page'],
@@ -66,9 +73,9 @@
     {{-- og:url phải kèm query string giống canonical, nếu không Facebook/
          Zalo gộp mọi trang phân trang/tìm kiếm thành một URL (N-L2). --}}
     <meta property="og:url" content="{{ $canonicalUrl }}">
-    <meta property="og:title" content="{{ $__env->yieldContent('og_title', $__env->yieldContent('title', 'Web Đọc Truyện Chữ')) }}">
-    <meta property="og:description" content="{{ $__env->yieldContent('og_description', $__env->yieldContent('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh.')) }}">
-    <meta property="og:image" content="{{ $__env->yieldContent('og_image', asset('images/no-cover.jpg')) }}">
+    <meta property="og:title" content="{{ $meta('og_title', $meta('title', 'Web Đọc Truyện Chữ')) }}">
+    <meta property="og:description" content="{{ $meta('og_description', $meta('meta_description', 'Đọc truyện chữ online miễn phí, cập nhật nhanh.')) }}">
+    <meta property="og:image" content="{{ $meta('og_image', asset('images/no-cover.jpg')) }}">
 
     {{-- Twitter Card --}}
     <meta name="twitter:card" content="summary_large_image">
@@ -122,9 +129,14 @@
             <ul class="navbar-nav me-auto">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Thể loại</a>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu category-menu">
                         @foreach ($navCategories ?? [] as $cat)
-                            <li><a class="dropdown-item" href="{{ route('categories.show', $cat) }}">{{ $cat->name }}</a></li>
+                            <li class="category-group">
+                                <a class="dropdown-item fw-semibold" href="{{ route('categories.show', $cat) }}">{{ $cat->name }}</a>
+                                @foreach ($cat->children as $child)
+                                    <a class="dropdown-item category-child" href="{{ route('categories.show', $child) }}">{{ $child->name }}</a>
+                                @endforeach
+                            </li>
                         @endforeach
                     </ul>
                 </li>

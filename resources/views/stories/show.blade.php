@@ -58,7 +58,7 @@
                 <a href="{{ route('categories.show', $cat) }}" class="badge bg-primary text-decoration-none">{{ $cat->name }}</a>
             @endforeach
             @foreach ($story->tags as $tag)
-                <span class="badge bg-light text-dark border">{{ $tag->name }}</span>
+                <a href="{{ route('search', ['tag' => $tag->slug]) }}" class="badge bg-light text-dark border text-decoration-none" title="Tìm truyện có tag {{ $tag->name }}">#{{ $tag->name }}</a>
             @endforeach
         </div>
 
@@ -72,6 +72,19 @@
         @endif
 
         <h5 id="chapterList">Danh sách chương ({{ number_format($chapters->total()) }})</h5>
+        <form action="{{ route('chapters.jump', $story) }}" method="GET" class="d-flex flex-wrap align-items-center gap-2 mb-3" aria-label="Nhảy tới chương">
+            <label for="chapterJump" class="visually-hidden">Số chương</label>
+            <input type="number" id="chapterJump" name="so" min="1" max="99999999" required
+                   class="form-control form-control-sm w-auto" style="width: 9rem !important" placeholder="Số chương"
+                   value="{{ old('so') }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary">Nhảy tới chương</button>
+            @if (session('chapter_jump_error'))
+                <span class="text-danger small" role="alert">{{ session('chapter_jump_error') }}</span>
+            @endif
+            @error('so')
+                <span class="text-danger small" role="alert">Số chương không hợp lệ.</span>
+            @enderror
+        </form>
         <div class="list-group mb-3 chapter-list" aria-label="Danh sách chương">
             @forelse ($chapters as $chapter)
                 <a href="{{ route('chapters.show', [$story, $chapter->slug]) }}"

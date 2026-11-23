@@ -9,6 +9,7 @@
     <div class="d-flex gap-2">
         <a href="{{ route('writer.dashboard') }}" class="btn btn-outline-primary">Tổng quan</a>
         <a href="{{ route('writer.comments.index') }}" class="btn btn-outline-secondary">Bình luận</a>
+        <a href="{{ route('writer.stories.import') }}" class="btn btn-outline-primary">Đăng từ tệp</a>
         <a href="{{ route('writer.stories.create') }}" class="btn btn-primary">+ Đăng truyện</a>
     </div>
 </div>

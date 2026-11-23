@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\ImportResponseTooLarge;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -12,13 +13,17 @@ class StoryUrlImportService
 {
     private const MAX_BODY_BYTES = 2_000_000;
 
+    private const MAX_COVER_BYTES = 3_000_000;
+
+    private const USER_AGENT = 'WebTruyenChuImporter/1.0 (+admin import; respect source permissions)';
+
     public function preview(string $url): array
     {
         $profile = $this->profile($url);
         $document = $this->fetchDocument($url);
         $xpath = new \DOMXPath($document);
         $this->applyRemovals($xpath, $profile);
-        $metadata = $this->metadata($xpath, $document, $profile);
+        $metadata = $this->metadata($xpath, $document, $url, $profile);
         $chapters = $this->chapterLinks($xpath, $url, $profile);
 
         if ($metadata['title'] === '') {
@@ -34,6 +39,7 @@ class StoryUrlImportService
             'host' => parse_url($url, PHP_URL_HOST),
             'title' => Str::limit($metadata['title'], 255, ''),
             'author' => Str::limit($metadata['author'], 150, ''),
+            'cover_url' => $metadata['cover_url'],
             'description' => Str::limit($metadata['description'], 5000, ''),
             'chapters' => array_slice($chapters, 0, 200),
         ];
@@ -98,57 +104,34 @@ class StoryUrlImportService
         throw new RuntimeException('Không tìm thấy nội dung chương có thể đọc. Hãy kiểm tra website hoặc dùng bộ phân tích chuyên biệt.');
     }
 
-    private function fetchDocument(string $url): \DOMDocument
+    /**
+     * Whether a host may be imported or crawled. Always true unless STORY_IMPORT_REQUIRE_ALLOWLIST is
+     * on, in which case the host must be listed in config('story_import.sources'). Shared by the URL
+     * importer and the legacy crawler so both obey one allowlist.
+     */
+    public static function hostAllowed(string $host): bool
     {
-        // Resolve once, validate every address, then pin the request to the
-        // validated IP so a second DNS lookup cannot point somewhere else
-        // (DNS rebinding).
-        [$host, $ips] = $this->resolveSafeTarget($url);
-
-        $options = ['allow_redirects' => false];
-        if (! filter_var($host, FILTER_VALIDATE_IP)) {
-            // Fail closed: without curl we cannot pin the validated IP, so a
-            // second DNS lookup could reach an internal address.
-            if (! defined('CURLOPT_RESOLVE')) {
-                throw new RuntimeException('Máy chủ không hỗ trợ cố định địa chỉ DNS (cần ext-curl) nên không thể import an toàn.');
-            }
-            $pin = str_contains($ips[0], ':') ? '['.$ips[0].']' : $ips[0];
-            $options['curl'] = [CURLOPT_RESOLVE => [$host.':443:'.$pin]];
-        }
-        // Abort oversized downloads while streaming, not after the whole body is in memory.
-        $options['on_headers'] = function ($response): void {
-            if ((int) $response->getHeaderLine('Content-Length') > self::MAX_BODY_BYTES) {
-                throw new ImportResponseTooLarge;
-            }
-        };
-        $options['progress'] = function ($downloadTotal, $downloaded): void {
-            if ($downloaded > self::MAX_BODY_BYTES) {
-                throw new ImportResponseTooLarge;
-            }
-        };
-
-        try {
-            $response = Http::timeout(15)
-                ->connectTimeout(5)
-                ->withHeaders(['User-Agent' => 'WebTruyenChuImporter/1.0 (+admin import; respect source permissions)'])
-                ->withOptions($options)
-                ->get($url);
-        } catch (Throwable $exception) {
-            $limit = $exception;
-            while ($limit && ! $limit instanceof ImportResponseTooLarge) {
-                $limit = $limit->getPrevious();
-            }
-
-            throw $limit ?? new RuntimeException('Không thể kết nối tới website nguồn.');
+        if (! config('story_import.require_allowlist')) {
+            return true;
         }
 
-        if ($response->redirect()) {
-            throw new RuntimeException('Website chuyển hướng. Hãy dán URL đích HTTPS trực tiếp.');
-        }
+        $host = rtrim(strtolower(trim($host, '[]')), '.');
 
-        if (! $response->successful()) {
-            throw new RuntimeException('Không thể đọc website nguồn (HTTP '.$response->status().').');
-        }
+        return array_key_exists($host, array_change_key_case((array) config('story_import.sources', []), CASE_LOWER));
+    }
+
+    /**
+     * Fetch a page through the hardened client (public IPs only, DNS pinned, no redirects, size cap,
+     * allowlist) for callers outside the importer, such as the crawler.
+     */
+    public function fetchXPath(string $url, string $userAgent): \DOMXPath
+    {
+        return new \DOMXPath($this->fetchDocument($url, $userAgent));
+    }
+
+    private function fetchDocument(string $url, string $userAgent = self::USER_AGENT): \DOMDocument
+    {
+        $response = $this->safeGet($url, self::MAX_BODY_BYTES, userAgent: $userAgent);
 
         $contentType = strtolower($response->header('Content-Type'));
         if ($contentType !== '' && ! str_contains($contentType, 'html') && ! str_contains($contentType, 'xml')) {
@@ -174,9 +157,91 @@ class StoryUrlImportService
     }
 
     /**
+     * Download a cover image through the same SSRF protections as pages. Only real
+     * JPEG, PNG or WebP files are accepted (checked from the bytes, not the headers).
+     *
+     * @return array{content: string, extension: string}
+     */
+    public function fetchCover(string $url): array
+    {
+        $response = $this->safeGet($url, self::MAX_COVER_BYTES, enforceAllowlist: false);
+        $content = $response->body();
+
+        if (strlen($content) > self::MAX_COVER_BYTES) {
+            throw new RuntimeException('Ảnh bìa vượt quá giới hạn 3 MB.');
+        }
+
+        $info = @getimagesizefromstring($content);
+        $extension = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'][$info[2] ?? 0] ?? null;
+        if (! $extension) {
+            throw new RuntimeException('Ảnh bìa phải là JPEG, PNG hoặc WebP hợp lệ.');
+        }
+
+        return ['content' => $content, 'extension' => $extension];
+    }
+
+    /**
+     * GET a public HTTPS URL: no redirects, validated and pinned IP, size cap while streaming.
+     */
+    private function safeGet(string $url, int $maxBytes, bool $enforceAllowlist = true, string $userAgent = self::USER_AGENT): Response
+    {
+        // Resolve once, validate every address, then pin the request to the
+        // validated IP so a second DNS lookup cannot point somewhere else
+        // (DNS rebinding).
+        [$host, $ips] = $this->resolveSafeTarget($url, $enforceAllowlist);
+
+        $options = ['allow_redirects' => false];
+        if (! filter_var($host, FILTER_VALIDATE_IP)) {
+            // Fail closed: without curl we cannot pin the validated IP, so a
+            // second DNS lookup could reach an internal address.
+            if (! defined('CURLOPT_RESOLVE')) {
+                throw new RuntimeException('Máy chủ không hỗ trợ cố định địa chỉ DNS (cần ext-curl) nên không thể import an toàn.');
+            }
+            $pin = str_contains($ips[0], ':') ? '['.$ips[0].']' : $ips[0];
+            $options['curl'] = [CURLOPT_RESOLVE => [$host.':443:'.$pin]];
+        }
+        // Abort oversized downloads while streaming, not after the whole body is in memory.
+        $options['on_headers'] = function ($response) use ($maxBytes): void {
+            if ((int) $response->getHeaderLine('Content-Length') > $maxBytes) {
+                throw new ImportResponseTooLarge;
+            }
+        };
+        $options['progress'] = function ($downloadTotal, $downloaded) use ($maxBytes): void {
+            if ($downloaded > $maxBytes) {
+                throw new ImportResponseTooLarge;
+            }
+        };
+
+        try {
+            $response = Http::timeout(15)
+                ->connectTimeout(5)
+                ->withHeaders(['User-Agent' => $userAgent])
+                ->withOptions($options)
+                ->get($url);
+        } catch (Throwable $exception) {
+            $limit = $exception;
+            while ($limit && ! $limit instanceof ImportResponseTooLarge) {
+                $limit = $limit->getPrevious();
+            }
+
+            throw $limit ?? new RuntimeException('Không thể kết nối tới website nguồn.');
+        }
+
+        if ($response->redirect()) {
+            throw new RuntimeException('Website chuyển hướng. Hãy dán URL đích HTTPS trực tiếp.');
+        }
+
+        if (! $response->successful()) {
+            throw new RuntimeException('Không thể đọc website nguồn (HTTP '.$response->status().').');
+        }
+
+        return $response;
+    }
+
+    /**
      * @return array{0: string, 1: list<string>} normalized host and its validated public IPs
      */
-    private function resolveSafeTarget(string $url): array
+    private function resolveSafeTarget(string $url, bool $enforceAllowlist = true): array
     {
         $parts = parse_url($url);
         if (! $parts || strtolower($parts['scheme'] ?? '') !== 'https'
@@ -191,8 +256,7 @@ class StoryUrlImportService
             throw new RuntimeException('Địa chỉ máy chủ nội bộ không được phép.');
         }
 
-        if (config('story_import.require_allowlist')
-            && ! array_key_exists($host, array_change_key_case((array) config('story_import.sources', []), CASE_LOWER))) {
+        if ($enforceAllowlist && ! self::hostAllowed($host)) {
             throw new RuntimeException('Website nguồn chưa được cấp phép trong danh sách import.');
         }
 
@@ -284,7 +348,7 @@ class StoryUrlImportService
         return false;
     }
 
-    private function metadata(\DOMXPath $xpath, \DOMDocument $document, array $profile = []): array
+    private function metadata(\DOMXPath $xpath, \DOMDocument $document, string $sourceUrl, array $profile = []): array
     {
         $readMeta = function (array $names) use ($xpath): string {
             foreach ($names as $name) {
@@ -304,6 +368,7 @@ class StoryUrlImportService
         $description = $this->profileText($xpath, $profile['description'] ?? null);
         $author = $this->profileText($xpath, $profile['author'] ?? null);
 
+        $cover = $this->absoluteHttpsUrl($readMeta(['og:image', 'twitter:image']), $sourceUrl);
         $title = $title ?: $readMeta(['og:title', 'twitter:title']);
         $description = $description ?: $readMeta(['og:description', 'description']);
         $author = $author ?: $readMeta(['author', 'book:author']);
@@ -333,6 +398,7 @@ class StoryUrlImportService
         }
 
         return [
+            'cover_url' => $cover,
             'title' => trim($title),
             'author' => trim($author),
             'description' => trim($description),
@@ -403,7 +469,7 @@ class StoryUrlImportService
 
         foreach ($nodes as $node) {
             $title = trim(preg_replace('/\s+/u', ' ', $node->textContent) ?? '');
-            if ($title === '' || (! $custom && ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title))) {
+            if ($title === '' || (! $custom && ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9]+|[ivxlcdm]+)(?![\p{L}\p{N}])/iu', $title))) {
                 continue;
             }
 
@@ -424,6 +490,22 @@ class StoryUrlImportService
         }
 
         return $chapters;
+    }
+
+    /**
+     * Absolute https URL for a possibly relative reference, or '' when it is not https.
+     */
+    private function absoluteHttpsUrl(string $reference, string $sourceUrl): string
+    {
+        if ($reference === '') {
+            return '';
+        }
+
+        // Cover images are usually served from a CDN host, so unlike chapter links
+        // an absolute https URL on another host is fine (it is still fetched safely).
+        $url = str_starts_with(strtolower($reference), 'https://') ? $reference : $this->absoluteUrl($reference, $sourceUrl);
+
+        return $url && str_starts_with(strtolower($url), 'https://') && strlen($url) <= 2048 ? $url : '';
     }
 
     private function absoluteUrl(string $href, string $sourceUrl): ?string

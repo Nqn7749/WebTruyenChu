@@ -6,13 +6,13 @@ use App\Models\CrawlerItem;
 use App\Models\CrawlerRun;
 use App\Models\CrawlerSource;
 use App\Models\Story;
+use App\Services\StoryUrlImportService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -34,6 +34,15 @@ class RunCrawlerSource implements ShouldQueue
 
         if (! $source->enabled || ! $source->permission_confirmed) {
             $run->update(['status' => 'cancelled', 'message' => 'Nguồn chưa bật hoặc chưa xác nhận quyền sử dụng.', 'finished_at' => now()]);
+
+            return;
+        }
+
+        // One allowlist for both import paths: a source whose host was removed from
+        // story_import.sources (or never added) must not run, scheduled or not.
+        $baseHost = (string) parse_url($source->base_url, PHP_URL_HOST);
+        if (! StoryUrlImportService::hostAllowed($baseHost)) {
+            $run->update(['status' => 'cancelled', 'message' => 'Host "'.$baseHost.'" chưa có trong danh sách cho phép (config/story_import.php).', 'finished_at' => now()]);
 
             return;
         }
@@ -164,32 +173,10 @@ class RunCrawlerSource implements ShouldQueue
     {
         $this->assertAllowedUrl($source, $url);
 
-        $response = Http::timeout(15)
-            ->connectTimeout(5)
-            ->withHeaders(['User-Agent' => 'WebTruyenChuBot/1.0 (+crawler; respect source permission)'])
-            ->withOptions(['allow_redirects' => false])
-            ->get($url);
-
-        if (! $response->successful()) {
-            throw new RuntimeException('Nguồn trả về HTTP '.$response->status().'.');
-        }
-
-        $html = $response->body();
-        if (strlen($html) > 2_000_000) {
-            throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
-        }
-
-        $previous = libxml_use_internal_errors(true);
-        $dom = new \DOMDocument('1.0', 'UTF-8');
-        $loaded = $dom->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NONET | LIBXML_NOWARNING | LIBXML_NOERROR);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-
-        if (! $loaded) {
-            throw new RuntimeException('Không thể phân tích HTML từ nguồn.');
-        }
-
-        return new \DOMXPath($dom);
+        // The importer's client does the network part: every resolved IPv4/IPv6 address must be public,
+        // the validated IP is pinned for the request, redirects are refused, the body is size-capped and
+        // the allowlist applies. The crawler only adds its own same-host rule above.
+        return app(StoryUrlImportService::class)->fetchXPath($url, 'WebTruyenChuBot/1.0 (+crawler; respect source permission)');
     }
 
     private function nodes(\DOMXPath $document, string $expression): array
@@ -255,15 +242,6 @@ class RunCrawlerSource implements ShouldQueue
             || isset($target['user']) || isset($target['pass'])
             || (isset($target['port']) && $target['port'] !== 443)) {
             throw new RuntimeException('Crawler chỉ được truy cập HTTPS cùng host đã cấu hình.');
-        }
-
-        $host = $target['host'];
-        $ip = filter_var($host, FILTER_VALIDATE_IP) ? $host : gethostbyname($host);
-        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
-            throw new RuntimeException('Không phân giải được máy chủ nguồn.');
-        }
-        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            throw new RuntimeException('Địa chỉ máy chủ nguồn không được phép.');
         }
     }
 }

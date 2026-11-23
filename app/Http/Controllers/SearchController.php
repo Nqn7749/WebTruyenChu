@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Story;
+use App\Models\Tag;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -30,6 +31,7 @@ class SearchController extends Controller
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:100'],
+            'tag' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:ongoing,completed,paused'],
             'sort' => ['nullable', 'in:newest,updated,most_viewed,top_rated,relevance'],
             'period' => ['nullable', 'in:week,month'],
@@ -37,6 +39,7 @@ class SearchController extends Controller
 
         $keyword = trim($filters['q'] ?? '');
         $categorySlug = $filters['category'] ?? '';
+        $tagSlug = $filters['tag'] ?? '';
         $status = $filters['status'] ?? '';
         $sort = $filters['sort'] ?? 'newest';
         $period = $filters['period'] ?? '';
@@ -95,6 +98,10 @@ class SearchController extends Controller
             $query->whereHas('categories', fn ($categories) => $categories->where('slug', $categorySlug));
         }
 
+        if ($tagSlug !== '') {
+            $query->whereHas('tags', fn ($tags) => $tags->where('slug', $tagSlug));
+        }
+
         if ($status !== '' && in_array($status, self::ALLOWED_STATUSES, true)) {
             $query->where('status', $status);
         }
@@ -130,6 +137,7 @@ class SearchController extends Controller
         $cacheKey = 'search:'.md5(json_encode([
             'q' => $keyword,
             'category' => $categorySlug,
+            'tag' => $tagSlug,
             'status' => $status,
             'sort' => $sort,
             'period' => $period,
@@ -174,11 +182,15 @@ class SearchController extends Controller
             ->orderBy('name')
             ->get(['id', 'slug', 'name']);
 
+        $activeTag = $tagSlug !== '' ? Tag::query()->where('slug', $tagSlug)->first(['id', 'name', 'slug']) : null;
+
         return view('search.index', compact(
             'stories',
             'keyword',
             'categories',
             'categorySlug',
+            'tagSlug',
+            'activeTag',
             'status',
             'sort',
             'period'
