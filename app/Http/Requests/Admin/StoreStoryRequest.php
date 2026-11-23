@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Support\TagInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,16 @@ class StoreStoryRequest extends FormRequest
     {
         // Chỉ tài khoản đã đăng nhập mới được đăng truyện.
         return $this->user() !== null;
+    }
+
+    /**
+     * Older clients posted tags[] as an array; the field is now one comma-separated text.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (is_array($this->input('tags'))) {
+            $this->merge(['tags' => implode(', ', array_filter($this->input('tags'), 'is_string'))]);
+        }
     }
 
     /**
@@ -41,8 +52,12 @@ class StoreStoryRequest extends FormRequest
             'status' => ['required', Rule::in(['ongoing', 'completed', 'paused'])],
             'categories' => ['required', 'array', 'max:10'],
             'categories.*' => ['exists:categories,id'],
-            'tags' => ['nullable', 'array', 'max:10'],
-            'tags.*' => ['exists:tags,id'],
+            // Free text: tags separated by commas. Authors create tags themselves.
+            'tags' => ['nullable', 'string', 'max:600', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($message = TagInput::validate((string) $value)) {
+                    $fail($message);
+                }
+            }],
             'meta_title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
             'meta_description' => ['nullable', 'string', 'max:16000'],
             'meta_keywords' => ['nullable', 'string', 'max:255'],

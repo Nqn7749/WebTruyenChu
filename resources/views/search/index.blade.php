@@ -11,6 +11,14 @@
 </div>
 
 <form action="{{ route('search') }}" method="GET" id="search-filters" class="search-filter-panel p-3 mb-4">
+    @if ($tagSlug !== '')
+        <input type="hidden" name="tag" value="{{ $tagSlug }}">
+        <div class="mb-2">
+            <span class="badge bg-primary fs-6">Tag: #{{ $activeTag?->name ?? $tagSlug }}</span>
+            <a href="{{ route('search', array_filter(['q' => $keyword, 'category' => $categorySlug, 'status' => $status, 'sort' => $sort, 'period' => $period])) }}"
+               class="small ms-2">Bỏ lọc tag</a>
+        </div>
+    @endif
     <div class="row g-2">
         <div class="col-lg-6">
             <label for="search-keyword" class="form-label fw-semibold">Tên truyện, tác giả, mô tả hoặc từ khóa</label>

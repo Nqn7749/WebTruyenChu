@@ -33,7 +33,7 @@ class StoryController extends Controller
     {
         return view('writer.stories.create', [
             'categories' => Category::query()->orderBy('name')->get(),
-            'tags' => Tag::query()->orderBy('name')->get(),
+            'popularTags' => $this->popularTags(),
         ]);
     }
 
@@ -41,7 +41,7 @@ class StoryController extends Controller
     {
         $data = $request->validated();
         $categoryIds = $data['categories'];
-        $tagIds = $data['tags'] ?? [];
+        $tagInput = $data['tags'] ?? '';
         unset($data['categories'], $data['tags']);
 
         $data['slug'] = $this->uniqueSlug($data['title']);
@@ -67,7 +67,7 @@ class StoryController extends Controller
                 $attempts++;
 
                 try {
-                    DB::transaction(function () use ($data, $categoryIds, $tagIds) {
+                    DB::transaction(function () use ($data, $categoryIds, $tagInput) {
                         $story = auth()->user()->stories()->create($data);
                         $story->forceFill([
                             'status_publish' => true,
@@ -76,7 +76,7 @@ class StoryController extends Controller
                             'is_recommended' => false,
                         ])->save();
                         $story->categories()->sync($categoryIds);
-                        $story->tags()->sync($tagIds);
+                        $story->tags()->sync(Tag::idsFromInput($tagInput));
 
                         // sync() pivot không kích hoạt observer của Story
                         // nên cache trang chủ không tự làm mới: đổi chỉ
@@ -114,10 +114,23 @@ class StoryController extends Controller
         return view('writer.stories.edit', [
             'story' => $story,
             'categories' => Category::query()->orderBy('name')->get(),
-            'tags' => Tag::query()->orderBy('name')->get(),
+            'popularTags' => $this->popularTags(),
             'selectedCategoryIds' => $story->categories()->pluck('categories.id')->all(),
-            'selectedTagIds' => $story->tags()->pluck('tags.id')->all(),
+            'tagNames' => $story->tags()->orderBy('name')->pluck('tags.name')->implode(', '),
         ]);
+    }
+
+    /**
+     * Most used tags, offered as one-click suggestions next to the free-text field.
+     */
+    private function popularTags()
+    {
+        return Tag::query()
+            ->withCount('stories')
+            ->orderByDesc('stories_count')
+            ->orderBy('name')
+            ->limit(12)
+            ->get(['id', 'name']);
     }
 
     public function update(UpdateStoryRequest $request, Story $story)
@@ -126,7 +139,7 @@ class StoryController extends Controller
 
         $data = $request->validated();
         $categoryIds = $data['categories'];
-        $tagIds = $data['tags'] ?? [];
+        $tagInput = $data['tags'] ?? '';
         unset($data['categories'], $data['tags'], $data['status_publish']);
 
         // Preserve the public slug when a title changes so existing links and search indexes remain valid.
@@ -144,11 +157,11 @@ class StoryController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($story, $data, $categoryIds, $tagIds) {
+            DB::transaction(function () use ($story, $data, $categoryIds, $tagInput) {
                 $lockedStory = Story::query()->lockForUpdate()->findOrFail($story->id);
                 $lockedStory->update($data);
                 $lockedStory->categories()->sync($categoryIds);
-                $lockedStory->tags()->sync($tagIds);
+                $lockedStory->tags()->sync(Tag::idsFromInput($tagInput));
 
                 // sync() pivot không kích hoạt observer của Story nên
                 // cache trang chủ không tự làm mới (xem store(), W1).

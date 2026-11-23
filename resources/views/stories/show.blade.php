@@ -58,7 +58,7 @@
                 <a href="{{ route('categories.show', $cat) }}" class="badge bg-primary text-decoration-none">{{ $cat->name }}</a>
             @endforeach
             @foreach ($story->tags as $tag)
-                <span class="badge bg-light text-dark border">{{ $tag->name }}</span>
+                <a href="{{ route('search', ['tag' => $tag->slug]) }}" class="badge bg-light text-dark border text-decoration-none" title="Tìm truyện có tag {{ $tag->name }}">#{{ $tag->name }}</a>
             @endforeach
         </div>
 
