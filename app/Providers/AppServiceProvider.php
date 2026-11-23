@@ -43,7 +43,7 @@ class AppServiceProvider extends ServiceProvider
         // của route bị cạn nhanh gấp đôi (round 6 fix1: 9 test đỏ vì
         // lỗi này). Limiter đặt tên có key riêng (IP + signature)
         // nên hai ngân sách đếm độc lập với nhau.
-        RateLimiter::for('story-import-host', fn (object $job) => Limit::perMinute((int) config('story_import.requests_per_minute', 30))
+        RateLimiter::for('story-import-host', fn (object $job) => Limit::perMinute((int) config('story_import.requests_per_minute', 60))
             ->by(method_exists($job, 'host') ? $job->host() : 'default'));
         RateLimiter::for('web-global', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 

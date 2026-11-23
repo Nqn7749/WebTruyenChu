@@ -26,17 +26,17 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
     Route::get('crawler', [CrawlerSourceController::class, 'index'])->name('crawler.index');
-    Route::post('crawler', [CrawlerSourceController::class, 'store'])->middleware('throttle:10,1')->name('crawler.store');
-    Route::post('crawler/{crawlerSource}/run', [CrawlerSourceController::class, 'run'])->middleware('throttle:5,1')->name('crawler.run');
+    Route::post('crawler', [CrawlerSourceController::class, 'store'])->middleware('throttle:30,1')->name('crawler.store');
+    Route::post('crawler/{crawlerSource}/run', [CrawlerSourceController::class, 'run'])->middleware('throttle:20,1')->name('crawler.run');
     Route::delete('crawler/{crawlerSource}', [CrawlerSourceController::class, 'destroy'])->name('crawler.destroy');
 
     Route::get('story-import', [StoryImportController::class, 'showPreview'])->name('story-import.index');
     Route::get('story-import/batches/{batchId}', [StoryImportController::class, 'batch'])->name('story-import.batch')->whereUuid('batchId');
-    Route::post('story-import/batches/{batchId}/retry', [StoryImportController::class, 'retry'])->middleware('throttle:5,1')->name('story-import.retry')->whereUuid('batchId');
-    Route::post('story-import/preview', [StoryImportController::class, 'preview'])->middleware('throttle:10,1')->name('story-import.preview');
+    Route::post('story-import/batches/{batchId}/retry', [StoryImportController::class, 'retry'])->middleware('throttle:20,1')->name('story-import.retry')->whereUuid('batchId');
+    Route::post('story-import/preview', [StoryImportController::class, 'preview'])->middleware('throttle:30,1')->name('story-import.preview');
     Route::post('story-import/file', [StoryImportController::class, 'uploadFile'])->middleware('throttle:10,1')->name('story-import.file');
     Route::post('story-import/file-store', [StoryImportController::class, 'importFile'])->middleware('throttle:10,1')->name('story-import.file-store');
-    Route::post('story-import', [StoryImportController::class, 'import'])->middleware('throttle:3,1')->name('story-import.store');
+    Route::post('story-import', [StoryImportController::class, 'import'])->middleware('throttle:20,1')->name('story-import.store');
 
     Route::resource('categories', CategoryController::class)
         ->except(['show']);

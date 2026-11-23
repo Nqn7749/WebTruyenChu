@@ -63,7 +63,7 @@ secrets to this repository.
   `chapter_content`, `remove`.
 - Chapters are downloaded by `ImportStoryChapter` queue jobs, so a queue worker must
   run under a process supervisor. Jobs are rate limited per source host
-  (`STORY_IMPORT_REQUESTS_PER_MINUTE`, default 30), retry with backoff and stop after
+  (`STORY_IMPORT_REQUESTS_PER_MINUTE`, default 60), retry with backoff and stop after
   3 real failures. Monitor `failed_jobs`; failed chapters can be retried from the
   batch progress page.
 - Fetch safeguards: HTTPS on port 443 only, no redirects, no credentials in the URL,
