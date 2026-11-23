@@ -51,7 +51,18 @@
 
     <section class="col-12 col-md-8 col-lg-9 story-detail-main" aria-labelledby="story-title">
         <h1 id="story-title" class="h2">{{ $story->title }}</h1>
-        <p class="text-muted mb-2">Tác giả: <strong>{{ $story->author_name ?? 'Đang cập nhật' }}</strong></p>
+        <p class="text-muted mb-1">Tác giả:
+            @if ($story->author_name)
+                <a href="{{ route('search', ['author' => $story->author_name]) }}" class="fw-bold text-decoration-none" title="Xem các truyện của tác giả này">{{ $story->author_name }}</a>
+            @else
+                <strong>Đang cập nhật</strong>
+            @endif
+        </p>
+        @if ($story->user)
+            <p class="text-muted mb-2 small">Người đăng:
+                <a href="{{ route('search', ['poster' => $story->user_id]) }}" class="text-decoration-none" title="Xem các truyện do người này đăng">{{ $story->user->name }}</a>
+            </p>
+        @endif
 
         <div class="mb-3">
             @foreach ($story->categories as $cat)
@@ -141,9 +152,9 @@
     <section class="mt-5" aria-labelledby="related-stories-heading">
         <div class="section-heading">
             <span class="eyebrow">Có thể bạn sẽ thích</span>
-            <h2 id="related-stories-heading">Truyện cùng thể loại</h2>
+            <h2 id="related-stories-heading">Truyện liên quan</h2>
         </div>
-        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
             @foreach ($relatedStories as $relatedStory)
                 <div class="col"><x-story-card :story="$relatedStory" /></div>
             @endforeach

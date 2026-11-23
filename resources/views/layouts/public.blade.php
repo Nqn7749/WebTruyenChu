@@ -30,7 +30,7 @@
          không chứa q[0]=x. --}}
     @php
         $canonicalParams = match (true) {
-            request()->routeIs('search', 'stories.index') => ['q', 'category', 'tag', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
+            request()->routeIs('search', 'stories.index') => ['q', 'category', 'tag', 'author', 'poster', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
             request()->routeIs('home') => ['recent', 'page'],
             request()->routeIs('stories.show') => ['chapter_page', 'comment_page', 'page'],
             request()->routeIs('chapters.show') => ['comment_page', 'page'],

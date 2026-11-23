@@ -76,18 +76,7 @@ class StoryController extends Controller
 
         $isFavorited = $story->isFavoritedBy(Auth::user());
 
-        $categoryIds = $story->categories->modelKeys();
-        $relatedStories = $categoryIds === []
-            ? collect()
-            : Story::published()
-                ->whereKeyNot($story->id)
-                ->whereHas('categories', fn ($categories) => $categories->whereIn('categories.id', $categoryIds))
-                ->with('categories')
-                ->orderByDesc('is_featured')
-                ->orderByDesc('views')
-                ->orderByDesc('id')
-                ->limit(6)
-                ->get();
+        $relatedStories = Story::relatedTo($story, 10);
 
         return view(
             'stories.show',

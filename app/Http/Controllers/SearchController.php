@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Story;
 use App\Models\Tag;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -32,6 +33,8 @@ class SearchController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:100'],
             'tag' => ['nullable', 'string', 'max:100'],
+            'author' => ['nullable', 'string', 'max:255'],
+            'poster' => ['nullable', 'integer', 'min:1'],
             'status' => ['nullable', 'in:ongoing,completed,paused'],
             'sort' => ['nullable', 'in:newest,updated,most_viewed,top_rated,relevance'],
             'period' => ['nullable', 'in:week,month'],
@@ -40,6 +43,8 @@ class SearchController extends Controller
         $keyword = trim($filters['q'] ?? '');
         $categorySlug = $filters['category'] ?? '';
         $tagSlug = $filters['tag'] ?? '';
+        $authorName = trim($filters['author'] ?? '');
+        $posterId = (int) ($filters['poster'] ?? 0);
         $status = $filters['status'] ?? '';
         $sort = $filters['sort'] ?? 'newest';
         $period = $filters['period'] ?? '';
@@ -102,6 +107,16 @@ class SearchController extends Controller
             $query->whereHas('tags', fn ($tags) => $tags->where('slug', $tagSlug));
         }
 
+        // Clicking an author name or the name of whoever posted the story: an exact filter, unlike the
+        // keyword box which matches the text anywhere.
+        if ($authorName !== '') {
+            $query->where('author_name', $authorName);
+        }
+
+        if ($posterId > 0) {
+            $query->where('user_id', $posterId);
+        }
+
         if ($status !== '' && in_array($status, self::ALLOWED_STATUSES, true)) {
             $query->where('status', $status);
         }
@@ -138,6 +153,8 @@ class SearchController extends Controller
             'q' => $keyword,
             'category' => $categorySlug,
             'tag' => $tagSlug,
+            'author' => $authorName,
+            'poster' => $posterId,
             'status' => $status,
             'sort' => $sort,
             'period' => $period,
@@ -182,6 +199,7 @@ class SearchController extends Controller
             ->orderBy('name')
             ->get(['id', 'slug', 'name']);
 
+        $posterName = $posterId > 0 ? User::query()->whereKey($posterId)->value('name') : null;
         $activeTag = $tagSlug !== '' ? Tag::query()->where('slug', $tagSlug)->first(['id', 'name', 'slug']) : null;
 
         return view('search.index', compact(
@@ -191,6 +209,9 @@ class SearchController extends Controller
             'categorySlug',
             'tagSlug',
             'activeTag',
+            'authorName',
+            'posterId',
+            'posterName',
             'status',
             'sort',
             'period'
