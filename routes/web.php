@@ -48,6 +48,11 @@ Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('st
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
 
+// "Nhảy tới chương số N" form on the story page.
+Route::get('/truyen/{story:slug}/den-chuong', [ChapterController::class, 'jump'])
+    ->middleware('throttle:30,1')
+    ->name('chapters.jump');
+
 // Keep old chapter-number URLs working and redirect them to the canonical slug URL.
 // If duplicate chapter numbers exist, the first published chapter by ID is the stable legacy target.
 Route::get('/truyen/{story:slug}/chuong/{chapterNumber}', [ChapterController::class, 'legacy'])

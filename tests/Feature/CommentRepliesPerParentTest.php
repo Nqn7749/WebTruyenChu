@@ -111,3 +111,32 @@ test('chapter page also shows story-level and other chapters comments but not dr
         ->assertSee('Chương 2')
         ->assertDontSee('Ở chương nháp.');
 });
+
+test('story page offers a jump-to-chapter form that redirects to the published chapter', function () {
+    $story = Story::factory()->create(['status_publish' => true]);
+    $chapter = Chapter::factory()->for($story)->create(['status' => true, 'chapter_number' => 150]);
+    Chapter::factory()->for($story)->create(['status' => false, 'chapter_number' => 151]);
+
+    $this->get(route('stories.show', $story))->assertOk()->assertSee('Nhảy tới chương');
+
+    $this->get(route('chapters.jump', [$story, 'so' => 150]))
+        ->assertRedirect(route('chapters.show', [$story, $chapter->slug]));
+});
+
+test('jump-to-chapter rejects missing, draft and invalid chapter numbers', function () {
+    $story = Story::factory()->create(['status_publish' => true]);
+    Chapter::factory()->for($story)->create(['status' => false, 'chapter_number' => 5]);
+
+    $this->get(route('chapters.jump', [$story, 'so' => 5]))
+        ->assertRedirect(route('stories.show', $story).'#chapterList')
+        ->assertSessionHas('chapter_jump_error', 'Không có chương số 5.');
+
+    $this->get(route('chapters.jump', [$story, 'so' => 'abc']))->assertSessionHasErrors('so');
+    $this->get(route('chapters.jump', [$story, 'so' => 0]))->assertSessionHasErrors('so');
+});
+
+test('jump-to-chapter is not available for unpublished stories', function () {
+    $story = Story::factory()->create(['status_publish' => false]);
+
+    $this->get(route('chapters.jump', [$story, 'so' => 1]))->assertNotFound();
+});
