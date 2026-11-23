@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\Story;
 use App\Models\User;
 use App\Services\StoryUrlImportService;
+use Illuminate\Queue\Middleware\RateLimited;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
@@ -191,7 +192,8 @@ test('batch progress page counts failures correctly and stops refreshing once al
         ->assertDontSee('http-equiv="refresh"', false)
         ->assertSee('Chương 3 (https://8.8.8.8/chapter/3): Không thể đọc website nguồn (HTTP 503).')
         ->assertDontSee('/var/www/app')
-        ->assertSee('queue:retry-batch');
+        ->assertSee('Thử lại 1 chương lỗi')
+        ->assertSee(route('admin.story-import.retry', $batch->id), false);
 
     $fresh = Bus::findBatch($batch->id);
     expect($fresh->processedJobs())->toBe(2)
@@ -248,6 +250,8 @@ test('story URL import blocks internal, reserved and malformed targets before an
     'ipv6 loopback' => 'https://[::1]/story',
     'ipv4-mapped ipv6' => 'https://[::ffff:127.0.0.1]/story',
     'ipv6 unique local' => 'https://[fd00::1]/story',
+    'ipv4-compatible ipv6' => 'https://[::7f00:1]/story',
+    'teredo' => 'https://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/story',
     'ipv6 link local' => 'https://[fe80::1]/story',
     'localhost' => 'https://localhost/story',
     'internal suffix' => 'https://db.internal/story',
@@ -330,4 +334,100 @@ test('story URL import with allowlist enabled accepts listed hosts', function ()
 
     expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
         ->toHaveKey('title', 'Truyen A');
+});
+
+test('story URL import uses the host profile XPath for metadata and chapter links', function () {
+    config(['story_import.sources' => ['8.8.8.8' => [
+        'title' => '//h2[@class="name"]',
+        'author' => '//*[@class="by"]',
+        'description' => '//*[@id="intro"]',
+        'chapter_links' => '//ul[@id="toc"]//a[@href]',
+        'remove' => ['//div[@class="ads"]'],
+    ]]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Generic"></head><body>'
+            .'<h2 class="name">Truyện riêng</h2><span class="by">Tác giả X</span><p id="intro">Giới thiệu riêng</p>'
+            .'<div class="ads"><ul id="toc"><li><a href="/ads/1">Quảng cáo</a></li></ul></div>'
+            .'<ul id="toc"><li><a href="/c/1">Mở đầu</a></li><li><a href="/c/2">Phần hai</a></li></ul>'
+            .'<a href="/chapter/9">Chương 9: không thuộc danh sách</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    $result = app(StoryUrlImportService::class)->preview('https://8.8.8.8/story');
+
+    expect($result['title'])->toBe('Truyện riêng')
+        ->and($result['author'])->toBe('Tác giả X')
+        ->and($result['description'])->toBe('Giới thiệu riêng')
+        ->and(array_column($result['chapters'], 'title'))->toBe(['Mở đầu', 'Phần hai']);
+});
+
+test('story URL import uses the host profile XPath for chapter content', function () {
+    config(['story_import.sources' => ['8.8.8.8' => ['chapter_content' => '//div[@id="body"]', 'remove' => ['//div[@class="ads"]']]]]);
+    $text = str_repeat('Nội dung chương rất dài. ', 10);
+    Http::fake([
+        'https://8.8.8.8/c/1' => Http::response('<html><body><article><p>Bài viết khác không liên quan</p></article>'
+            .'<div id="body"><div class="ads"><p>QUẢNG CÁO</p></div><p>'.$text.'</p></div></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    $html = app(StoryUrlImportService::class)->fetchChapter('https://8.8.8.8/c/1');
+
+    expect($html)->toContain('Nội dung chương rất dài')->not->toContain('QUẢNG CÁO')->not->toContain('không liên quan');
+});
+
+test('story URL import falls back to the generic parser for hosts without a profile', function () {
+    config(['story_import.sources' => ['other.example' => ['title' => '//h2']]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Generic"></head><body><a href="/chapter/1">Chương 1: A</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story')['title'])->toBe('Generic');
+});
+
+test('story URL import ignores an invalid profile XPath instead of failing', function () {
+    config(['story_import.sources' => ['8.8.8.8' => ['title' => '//[broken', 'remove' => ['//[broken']]]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Generic"></head><body><a href="/chapter/1">Chương 1: A</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story')['title'])->toBe('Generic');
+});
+
+test('admin can retry the failed chapters of a finished batch', function () {
+    Queue::fake();
+
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/retry';
+    $batch = Bus::batch([new ImportStoryChapter($story->id, 'Chương lỗi', $url, hash('sha256', $url), 1)])
+        ->allowFailures()->dispatch();
+    $batch->recordFailedJob((string) Str::uuid(), new RuntimeException('boom'));
+
+    Artisan::shouldReceive('call')->once()->with('queue:retry-batch', ['id' => [$batch->id]]);
+
+    $this->actingAs(storyImportAdmin())
+        ->post(route('admin.story-import.retry', $batch->id))
+        ->assertRedirect(route('admin.story-import.batch', $batch->id))
+        ->assertSessionHas('success');
+});
+
+test('retry is refused while a batch is still running or has no failures', function () {
+    Queue::fake();
+
+    $story = Story::factory()->create();
+    $url = 'https://8.8.8.8/chapter/norretry';
+    $batch = Bus::batch([new ImportStoryChapter($story->id, 'Chương', $url, hash('sha256', $url), 1)])
+        ->allowFailures()->dispatch();
+
+    Artisan::shouldReceive('call')->never();
+
+    $this->actingAs(storyImportAdmin())
+        ->post(route('admin.story-import.retry', $batch->id))
+        ->assertSessionHasErrors('retry');
+});
+
+test('chapter import jobs are rate limited per source host', function () {
+    $job = new ImportStoryChapter(1, 'Chương 1', 'https://Source.Example/c/1', 'hash', 1);
+
+    expect($job->host())->toBe('source.example')
+        ->and($job->middleware())->toHaveCount(1)
+        ->and($job->middleware()[0])->toBeInstanceOf(RateLimited::class)
+        ->and($job->maxExceptions)->toBe(3);
 });

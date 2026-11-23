@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ImportResponseTooLarge;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -13,10 +14,12 @@ class StoryUrlImportService
 
     public function preview(string $url): array
     {
+        $profile = $this->profile($url);
         $document = $this->fetchDocument($url);
         $xpath = new \DOMXPath($document);
-        $metadata = $this->metadata($xpath, $document);
-        $chapters = $this->chapterLinks($xpath, $url);
+        $this->applyRemovals($xpath, $profile);
+        $metadata = $this->metadata($xpath, $document, $profile);
+        $chapters = $this->chapterLinks($xpath, $url, $profile);
 
         if ($metadata['title'] === '') {
             throw new RuntimeException('Không tìm thấy tên truyện. Website này có thể cần bộ phân tích riêng.');
@@ -38,9 +41,12 @@ class StoryUrlImportService
 
     public function fetchChapter(string $url): string
     {
+        $profile = $this->profile($url);
         $document = $this->fetchDocument($url);
         $xpath = new \DOMXPath($document);
+        $this->applyRemovals($xpath, $profile);
         $queries = [
+            ...array_filter([$profile['chapter_content'] ?? null], 'is_string'),
             '//article',
             '//*[@itemprop="articleBody"]',
             '//*[contains(concat(" ", normalize-space(@class), " "), " chapter-content ")]',
@@ -100,19 +106,24 @@ class StoryUrlImportService
         [$host, $ips] = $this->resolveSafeTarget($url);
 
         $options = ['allow_redirects' => false];
-        if (! filter_var($host, FILTER_VALIDATE_IP) && defined('CURLOPT_RESOLVE')) {
+        if (! filter_var($host, FILTER_VALIDATE_IP)) {
+            // Fail closed: without curl we cannot pin the validated IP, so a
+            // second DNS lookup could reach an internal address.
+            if (! defined('CURLOPT_RESOLVE')) {
+                throw new RuntimeException('Máy chủ không hỗ trợ cố định địa chỉ DNS (cần ext-curl) nên không thể import an toàn.');
+            }
             $pin = str_contains($ips[0], ':') ? '['.$ips[0].']' : $ips[0];
             $options['curl'] = [CURLOPT_RESOLVE => [$host.':443:'.$pin]];
         }
         // Abort oversized downloads while streaming, not after the whole body is in memory.
         $options['on_headers'] = function ($response): void {
             if ((int) $response->getHeaderLine('Content-Length') > self::MAX_BODY_BYTES) {
-                throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+                throw new ImportResponseTooLarge;
             }
         };
         $options['progress'] = function ($downloadTotal, $downloaded): void {
             if ($downloaded > self::MAX_BODY_BYTES) {
-                throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+                throw new ImportResponseTooLarge;
             }
         };
 
@@ -124,11 +135,11 @@ class StoryUrlImportService
                 ->get($url);
         } catch (Throwable $exception) {
             $limit = $exception;
-            while ($limit && ! str_contains($limit->getMessage(), 'giới hạn 2 MB')) {
+            while ($limit && ! $limit instanceof ImportResponseTooLarge) {
                 $limit = $limit->getPrevious();
             }
 
-            throw new RuntimeException($limit ? 'Trang nguồn vượt quá giới hạn 2 MB.' : 'Không thể kết nối tới website nguồn.');
+            throw $limit ?? new RuntimeException('Không thể kết nối tới website nguồn.');
         }
 
         if ($response->redirect()) {
@@ -146,7 +157,7 @@ class StoryUrlImportService
 
         $html = $response->body();
         if (strlen($html) > self::MAX_BODY_BYTES) {
-            throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+            throw new ImportResponseTooLarge;
         }
 
         $previous = libxml_use_internal_errors(true);
@@ -245,6 +256,10 @@ class StoryUrlImportService
             $embedded = array_slice($bytes, 12, 4);               // 64:ff9b::/96 NAT64
         } elseif ($bytes[0] === 0x20 && $bytes[1] === 0x02) {
             $embedded = array_slice($bytes, 2, 4);                // 2002::/16 6to4
+        } elseif (array_slice($bytes, 0, 12) === array_fill(0, 12, 0)) {
+            $embedded = array_slice($bytes, 12, 4);               // ::a.b.c.d IPv4-compatible
+        } elseif ($bytes[0] === 0x20 && $bytes[1] === 0x01 && $bytes[2] === 0 && $bytes[3] === 0) {
+            return false;                                          // 2001::/32 Teredo tunnelling
         }
         if ($embedded !== null && $this->isBlockedIpv4(ip2long(implode('.', $embedded)) ?: 0)) {
             return false;
@@ -269,7 +284,7 @@ class StoryUrlImportService
         return false;
     }
 
-    private function metadata(\DOMXPath $xpath, \DOMDocument $document): array
+    private function metadata(\DOMXPath $xpath, \DOMDocument $document, array $profile = []): array
     {
         $readMeta = function (array $names) use ($xpath): string {
             foreach ($names as $name) {
@@ -285,9 +300,13 @@ class StoryUrlImportService
             return '';
         };
 
-        $title = $readMeta(['og:title', 'twitter:title']);
-        $description = $readMeta(['og:description', 'description']);
-        $author = $readMeta(['author', 'book:author']);
+        $title = $this->profileText($xpath, $profile['title'] ?? null);
+        $description = $this->profileText($xpath, $profile['description'] ?? null);
+        $author = $this->profileText($xpath, $profile['author'] ?? null);
+
+        $title = $title ?: $readMeta(['og:title', 'twitter:title']);
+        $description = $description ?: $readMeta(['og:description', 'description']);
+        $author = $author ?: $readMeta(['author', 'book:author']);
 
         if ($title === '') {
             $nodes = $xpath->query('//h1 | //title');
@@ -320,6 +339,38 @@ class StoryUrlImportService
         ];
     }
 
+    /**
+     * Parsing profile configured for the URL's host, or [] to use the generic parser.
+     */
+    private function profile(string $url): array
+    {
+        $host = rtrim(strtolower((string) parse_url($url, PHP_URL_HOST)), '.');
+        $sources = array_change_key_case((array) config('story_import.sources', []), CASE_LOWER);
+
+        return is_array($sources[$host] ?? null) ? $sources[$host] : [];
+    }
+
+    private function profileText(\DOMXPath $xpath, mixed $query): string
+    {
+        if (! is_string($query) || $query === '') {
+            return '';
+        }
+
+        $nodes = @$xpath->query($query);
+
+        return $nodes && $nodes->length > 0 ? trim(preg_replace('/\s+/u', ' ', $nodes->item(0)->textContent) ?? '') : '';
+    }
+
+    private function applyRemovals(\DOMXPath $xpath, array $profile): void
+    {
+        foreach ((array) ($profile['remove'] ?? []) as $query) {
+            $nodes = is_string($query) ? @$xpath->query($query) : false;
+            foreach ($nodes ? iterator_to_array($nodes) : [] as $node) {
+                $node->parentNode?->removeChild($node);
+            }
+        }
+    }
+
     private function flattenJsonLd(mixed $value): array
     {
         if (! is_array($value)) {
@@ -338,9 +389,10 @@ class StoryUrlImportService
         return $items;
     }
 
-    private function chapterLinks(\DOMXPath $xpath, string $sourceUrl): array
+    private function chapterLinks(\DOMXPath $xpath, string $sourceUrl, array $profile = []): array
     {
-        $nodes = $xpath->query('//a[@href]');
+        $custom = is_string($profile['chapter_links'] ?? null) ? $profile['chapter_links'] : null;
+        $nodes = @$xpath->query($custom ?? '//a[@href]');
         $chapters = [];
         $seen = [];
         $number = 0;
@@ -351,7 +403,7 @@ class StoryUrlImportService
 
         foreach ($nodes as $node) {
             $title = trim(preg_replace('/\s+/u', ' ', $node->textContent) ?? '');
-            if ($title === '' || ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title)) {
+            if ($title === '' || (! $custom && ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title))) {
                 continue;
             }
 

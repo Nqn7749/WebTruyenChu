@@ -10,6 +10,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\RateLimited;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,7 +21,11 @@ class ImportStoryChapter implements ShouldQueue
 {
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    // Rate-limit releases count as attempts, so cap real failures with
+    // maxExceptions and bound the total waiting time with retryUntil().
+    public int $tries = 0;
+
+    public int $maxExceptions = 3;
 
     public int $timeout = 60;
 
@@ -33,6 +38,26 @@ class ImportStoryChapter implements ShouldQueue
         public string $sourceHash,
         public int $chapterNumber,
     ) {}
+
+    public function retryUntil(): \DateTimeInterface
+    {
+        return now()->addHours(2);
+    }
+
+    /**
+     * Space out requests to the same source host.
+     *
+     * @return list<object>
+     */
+    public function middleware(): array
+    {
+        return [new RateLimited('story-import-host')];
+    }
+
+    public function host(): string
+    {
+        return strtolower((string) parse_url($this->url, PHP_URL_HOST));
+    }
 
     public function handle(StoryUrlImportService $importer): void
     {

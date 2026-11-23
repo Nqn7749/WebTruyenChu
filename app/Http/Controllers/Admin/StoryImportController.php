@@ -8,6 +8,7 @@ use App\Models\Chapter;
 use App\Models\Story;
 use App\Services\StoryUrlImportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,22 @@ class StoryImportController extends Controller
         $stats = compact('failed', 'succeeded', 'waiting', 'done', 'progress');
 
         return view('admin.story-import.batch', compact('batch', 'failures', 'stats'));
+    }
+
+    public function retry(string $batchId)
+    {
+        $batch = Bus::findBatch($batchId);
+        abort_if($batch === null, 404);
+
+        if ($batch->failedJobs === 0 || $batch->cancelled() || $batch->pendingJobs - $batch->failedJobs > 0) {
+            return redirect()->route('admin.story-import.batch', $batchId)
+                ->withErrors(['retry' => 'Chỉ có thể thử lại khi batch đã kết thúc và còn chương lỗi.']);
+        }
+
+        Artisan::call('queue:retry-batch', ['id' => [$batchId]]);
+
+        return redirect()->route('admin.story-import.batch', $batchId)
+            ->with('success', 'Đã đưa '.$batch->failedJobs.' chương lỗi vào hàng đợi để thử lại.');
     }
 
     private function failureSummary(string $exception): string
