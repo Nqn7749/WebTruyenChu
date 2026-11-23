@@ -500,4 +500,3 @@ test('story and chapter pages render safe in-page banners for mobile and laptop'
         ->assertSee('QC chương')
         ->assertSee(route('ads.click', $chapterAd), false);
 });
-
