@@ -31,6 +31,7 @@
     @php
         $canonicalParams = match (true) {
             request()->routeIs('search', 'stories.index') => ['q', 'category', 'tag', 'author', 'poster', 'status', 'sort', 'period', 'page', 'chapter_page', 'chapters', 'categories'],
+            request()->routeIs('ranking') => ['loai', 'thoi-gian'],
             request()->routeIs('home') => ['recent', 'page'],
             request()->routeIs('stories.show') => ['chapter_page', 'comment_page', 'page'],
             request()->routeIs('chapters.show') => ['comment_page', 'page'],
@@ -140,6 +141,7 @@
                         @endforeach
                     </ul>
                 </li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('ranking') }}">Bảng xếp hạng</a></li>
                 @auth
                     <li class="nav-item"><a class="nav-link" href="{{ route('favorites.index') }}">Yêu thích</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('reading-history.index') }}">Lịch sử đọc</a></li>

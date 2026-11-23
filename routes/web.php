@@ -7,6 +7,7 @@ use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RankingController;
 use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReadingHistoryController;
 use App\Http\Controllers\ReportController;
@@ -47,6 +48,7 @@ Route::get('/tim-kiem', [SearchController::class, 'index'])
     ->middleware('throttle:30,1')
     ->name('search');
 Route::get('/danh-sach-truyen', [StoryListController::class, 'index'])->name('stories.index');
+Route::get('/bang-xep-hang', [RankingController::class, 'index'])->middleware('throttle:60,1')->name('ranking');
 Route::get('/the-loai/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
 Route::get('/truyen/{story:slug}', [StoryController::class, 'show'])->name('stories.show');
 
