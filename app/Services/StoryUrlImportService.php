@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ImportResponseTooLarge;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -105,19 +106,24 @@ class StoryUrlImportService
         [$host, $ips] = $this->resolveSafeTarget($url);
 
         $options = ['allow_redirects' => false];
-        if (! filter_var($host, FILTER_VALIDATE_IP) && defined('CURLOPT_RESOLVE')) {
+        if (! filter_var($host, FILTER_VALIDATE_IP)) {
+            // Fail closed: without curl we cannot pin the validated IP, so a
+            // second DNS lookup could reach an internal address.
+            if (! defined('CURLOPT_RESOLVE')) {
+                throw new RuntimeException('Máy chủ không hỗ trợ cố định địa chỉ DNS (cần ext-curl) nên không thể import an toàn.');
+            }
             $pin = str_contains($ips[0], ':') ? '['.$ips[0].']' : $ips[0];
             $options['curl'] = [CURLOPT_RESOLVE => [$host.':443:'.$pin]];
         }
         // Abort oversized downloads while streaming, not after the whole body is in memory.
         $options['on_headers'] = function ($response): void {
             if ((int) $response->getHeaderLine('Content-Length') > self::MAX_BODY_BYTES) {
-                throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+                throw new ImportResponseTooLarge;
             }
         };
         $options['progress'] = function ($downloadTotal, $downloaded): void {
             if ($downloaded > self::MAX_BODY_BYTES) {
-                throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+                throw new ImportResponseTooLarge;
             }
         };
 
@@ -129,11 +135,11 @@ class StoryUrlImportService
                 ->get($url);
         } catch (Throwable $exception) {
             $limit = $exception;
-            while ($limit && ! str_contains($limit->getMessage(), 'giới hạn 2 MB')) {
+            while ($limit && ! $limit instanceof ImportResponseTooLarge) {
                 $limit = $limit->getPrevious();
             }
 
-            throw new RuntimeException($limit ? 'Trang nguồn vượt quá giới hạn 2 MB.' : 'Không thể kết nối tới website nguồn.');
+            throw $limit ?? new RuntimeException('Không thể kết nối tới website nguồn.');
         }
 
         if ($response->redirect()) {
@@ -151,7 +157,7 @@ class StoryUrlImportService
 
         $html = $response->body();
         if (strlen($html) > self::MAX_BODY_BYTES) {
-            throw new RuntimeException('Trang nguồn vượt quá giới hạn 2 MB.');
+            throw new ImportResponseTooLarge;
         }
 
         $previous = libxml_use_internal_errors(true);
@@ -250,6 +256,10 @@ class StoryUrlImportService
             $embedded = array_slice($bytes, 12, 4);               // 64:ff9b::/96 NAT64
         } elseif ($bytes[0] === 0x20 && $bytes[1] === 0x02) {
             $embedded = array_slice($bytes, 2, 4);                // 2002::/16 6to4
+        } elseif (array_slice($bytes, 0, 12) === array_fill(0, 12, 0)) {
+            $embedded = array_slice($bytes, 12, 4);               // ::a.b.c.d IPv4-compatible
+        } elseif ($bytes[0] === 0x20 && $bytes[1] === 0x01 && $bytes[2] === 0 && $bytes[3] === 0) {
+            return false;                                          // 2001::/32 Teredo tunnelling
         }
         if ($embedded !== null && $this->isBlockedIpv4(ip2long(implode('.', $embedded)) ?: 0)) {
             return false;

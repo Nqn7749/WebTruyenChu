@@ -248,6 +248,8 @@ test('story URL import blocks internal, reserved and malformed targets before an
     'ipv6 loopback' => 'https://[::1]/story',
     'ipv4-mapped ipv6' => 'https://[::ffff:127.0.0.1]/story',
     'ipv6 unique local' => 'https://[fd00::1]/story',
+    'ipv4-compatible ipv6' => 'https://[::7f00:1]/story',
+    'teredo' => 'https://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/story',
     'ipv6 link local' => 'https://[fe80::1]/story',
     'localhost' => 'https://localhost/story',
     'internal suffix' => 'https://db.internal/story',
