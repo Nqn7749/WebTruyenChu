@@ -331,3 +331,58 @@ test('story URL import with allowlist enabled accepts listed hosts', function ()
     expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story'))
         ->toHaveKey('title', 'Truyen A');
 });
+
+test('story URL import uses the host profile XPath for metadata and chapter links', function () {
+    config(['story_import.sources' => ['8.8.8.8' => [
+        'title' => '//h2[@class="name"]',
+        'author' => '//*[@class="by"]',
+        'description' => '//*[@id="intro"]',
+        'chapter_links' => '//ul[@id="toc"]//a[@href]',
+        'remove' => ['//div[@class="ads"]'],
+    ]]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Generic"></head><body>'
+            .'<h2 class="name">Truyện riêng</h2><span class="by">Tác giả X</span><p id="intro">Giới thiệu riêng</p>'
+            .'<div class="ads"><ul id="toc"><li><a href="/ads/1">Quảng cáo</a></li></ul></div>'
+            .'<ul id="toc"><li><a href="/c/1">Mở đầu</a></li><li><a href="/c/2">Phần hai</a></li></ul>'
+            .'<a href="/chapter/9">Chương 9: không thuộc danh sách</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    $result = app(StoryUrlImportService::class)->preview('https://8.8.8.8/story');
+
+    expect($result['title'])->toBe('Truyện riêng')
+        ->and($result['author'])->toBe('Tác giả X')
+        ->and($result['description'])->toBe('Giới thiệu riêng')
+        ->and(array_column($result['chapters'], 'title'))->toBe(['Mở đầu', 'Phần hai']);
+});
+
+test('story URL import uses the host profile XPath for chapter content', function () {
+    config(['story_import.sources' => ['8.8.8.8' => ['chapter_content' => '//div[@id="body"]', 'remove' => ['//div[@class="ads"]']]]]);
+    $text = str_repeat('Nội dung chương rất dài. ', 10);
+    Http::fake([
+        'https://8.8.8.8/c/1' => Http::response('<html><body><article><p>Bài viết khác không liên quan</p></article>'
+            .'<div id="body"><div class="ads"><p>QUẢNG CÁO</p></div><p>'.$text.'</p></div></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    $html = app(StoryUrlImportService::class)->fetchChapter('https://8.8.8.8/c/1');
+
+    expect($html)->toContain('Nội dung chương rất dài')->not->toContain('QUẢNG CÁO')->not->toContain('không liên quan');
+});
+
+test('story URL import falls back to the generic parser for hosts without a profile', function () {
+    config(['story_import.sources' => ['other.example' => ['title' => '//h2']]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Generic"></head><body><a href="/chapter/1">Chương 1: A</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story')['title'])->toBe('Generic');
+});
+
+test('story URL import ignores an invalid profile XPath instead of failing', function () {
+    config(['story_import.sources' => ['8.8.8.8' => ['title' => '//[broken', 'remove' => ['//[broken']]]]);
+    Http::fake([
+        'https://8.8.8.8/story' => Http::response('<html><head><meta property="og:title" content="Generic"></head><body><a href="/chapter/1">Chương 1: A</a></body></html>', 200, ['Content-Type' => 'text/html']),
+    ]);
+
+    expect(app(StoryUrlImportService::class)->preview('https://8.8.8.8/story')['title'])->toBe('Generic');
+});

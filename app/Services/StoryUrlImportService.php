@@ -13,10 +13,12 @@ class StoryUrlImportService
 
     public function preview(string $url): array
     {
+        $profile = $this->profile($url);
         $document = $this->fetchDocument($url);
         $xpath = new \DOMXPath($document);
-        $metadata = $this->metadata($xpath, $document);
-        $chapters = $this->chapterLinks($xpath, $url);
+        $this->applyRemovals($xpath, $profile);
+        $metadata = $this->metadata($xpath, $document, $profile);
+        $chapters = $this->chapterLinks($xpath, $url, $profile);
 
         if ($metadata['title'] === '') {
             throw new RuntimeException('Không tìm thấy tên truyện. Website này có thể cần bộ phân tích riêng.');
@@ -38,9 +40,12 @@ class StoryUrlImportService
 
     public function fetchChapter(string $url): string
     {
+        $profile = $this->profile($url);
         $document = $this->fetchDocument($url);
         $xpath = new \DOMXPath($document);
+        $this->applyRemovals($xpath, $profile);
         $queries = [
+            ...array_filter([$profile['chapter_content'] ?? null], 'is_string'),
             '//article',
             '//*[@itemprop="articleBody"]',
             '//*[contains(concat(" ", normalize-space(@class), " "), " chapter-content ")]',
@@ -269,7 +274,7 @@ class StoryUrlImportService
         return false;
     }
 
-    private function metadata(\DOMXPath $xpath, \DOMDocument $document): array
+    private function metadata(\DOMXPath $xpath, \DOMDocument $document, array $profile = []): array
     {
         $readMeta = function (array $names) use ($xpath): string {
             foreach ($names as $name) {
@@ -285,9 +290,13 @@ class StoryUrlImportService
             return '';
         };
 
-        $title = $readMeta(['og:title', 'twitter:title']);
-        $description = $readMeta(['og:description', 'description']);
-        $author = $readMeta(['author', 'book:author']);
+        $title = $this->profileText($xpath, $profile['title'] ?? null);
+        $description = $this->profileText($xpath, $profile['description'] ?? null);
+        $author = $this->profileText($xpath, $profile['author'] ?? null);
+
+        $title = $title ?: $readMeta(['og:title', 'twitter:title']);
+        $description = $description ?: $readMeta(['og:description', 'description']);
+        $author = $author ?: $readMeta(['author', 'book:author']);
 
         if ($title === '') {
             $nodes = $xpath->query('//h1 | //title');
@@ -320,6 +329,38 @@ class StoryUrlImportService
         ];
     }
 
+    /**
+     * Parsing profile configured for the URL's host, or [] to use the generic parser.
+     */
+    private function profile(string $url): array
+    {
+        $host = rtrim(strtolower((string) parse_url($url, PHP_URL_HOST)), '.');
+        $sources = array_change_key_case((array) config('story_import.sources', []), CASE_LOWER);
+
+        return is_array($sources[$host] ?? null) ? $sources[$host] : [];
+    }
+
+    private function profileText(\DOMXPath $xpath, mixed $query): string
+    {
+        if (! is_string($query) || $query === '') {
+            return '';
+        }
+
+        $nodes = @$xpath->query($query);
+
+        return $nodes && $nodes->length > 0 ? trim(preg_replace('/\s+/u', ' ', $nodes->item(0)->textContent) ?? '') : '';
+    }
+
+    private function applyRemovals(\DOMXPath $xpath, array $profile): void
+    {
+        foreach ((array) ($profile['remove'] ?? []) as $query) {
+            $nodes = is_string($query) ? @$xpath->query($query) : false;
+            foreach ($nodes ? iterator_to_array($nodes) : [] as $node) {
+                $node->parentNode?->removeChild($node);
+            }
+        }
+    }
+
     private function flattenJsonLd(mixed $value): array
     {
         if (! is_array($value)) {
@@ -338,9 +379,10 @@ class StoryUrlImportService
         return $items;
     }
 
-    private function chapterLinks(\DOMXPath $xpath, string $sourceUrl): array
+    private function chapterLinks(\DOMXPath $xpath, string $sourceUrl, array $profile = []): array
     {
-        $nodes = $xpath->query('//a[@href]');
+        $custom = is_string($profile['chapter_links'] ?? null) ? $profile['chapter_links'] : null;
+        $nodes = @$xpath->query($custom ?? '//a[@href]');
         $chapters = [];
         $seen = [];
         $number = 0;
@@ -351,7 +393,7 @@ class StoryUrlImportService
 
         foreach ($nodes as $node) {
             $title = trim(preg_replace('/\s+/u', ' ', $node->textContent) ?? '');
-            if ($title === '' || ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title)) {
+            if ($title === '' || (! $custom && ! preg_match('/(chương|chapter|hồi|quyển)\s*([0-9ivxlcdm]+)/iu', $title))) {
                 continue;
             }
 
