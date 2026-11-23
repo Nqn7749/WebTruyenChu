@@ -41,9 +41,10 @@ class StoryController extends Controller
 
         $comments = Comment::query()
             ->where('story_id', $story->id)
-            ->whereNull('chapter_id')
+            // One shared thread per story (story-level and every published chapter);
+            // visible() is the same definition comment_count uses.
+            ->visible()
             ->whereNull('parent_id')
-            ->where('is_hidden', false)
             ->with(['user', 'chapter'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')

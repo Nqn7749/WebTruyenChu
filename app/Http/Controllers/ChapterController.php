@@ -95,10 +95,11 @@ class ChapterController extends Controller
             );
         }
 
+        // Same shared thread as the story page: story-level comments plus every
+        // published chapter's comments (each shows its chapter badge).
         $comments = $story->comments()
-            ->where('chapter_id', $chapter->id)
+            ->visible()
             ->whereNull('parent_id')
-            ->where('is_hidden', false)
             ->with(['user', 'chapter'])
             ->orderByDesc('created_at')
             ->orderByDesc('id')

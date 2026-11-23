@@ -5,7 +5,7 @@ use App\Models\Comment;
 use App\Models\Story;
 use App\Models\User;
 
-test('story and chapter pages only load comments for their own discussion scope', function () {
+test('story and chapter pages share one discussion thread', function () {
     $user = User::factory()->create();
     $story = Story::factory()->create(['status_publish' => true]);
     $chapter = Chapter::factory()->for($story)->create([
@@ -35,9 +35,9 @@ test('story and chapter pages only load comments for their own discussion scope'
 
     $this->get(route('stories.show', $story))
         ->assertOk()
-        ->assertViewHas('comments', fn ($comments) => $comments->pluck('id')->all() === [$storyComment->id]);
+        ->assertViewHas('comments', fn ($comments) => $comments->pluck('id')->sort()->values()->all() === [$storyComment->id, $chapterComment->id]);
 
     $this->get(route('chapters.show', [$story, $chapter->slug]))
         ->assertOk()
-        ->assertViewHas('comments', fn ($comments) => $comments->pluck('id')->all() === [$chapterComment->id]);
+        ->assertViewHas('comments', fn ($comments) => $comments->pluck('id')->sort()->values()->all() === [$storyComment->id, $chapterComment->id]);
 });

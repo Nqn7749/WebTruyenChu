@@ -180,7 +180,7 @@
 
     <div class="section-heading">
         <h2 class="fs-5">
-            Bình luận chương
+            Bình luận ({{ $story->comment_count }})
         </h2>
     </div>
 
