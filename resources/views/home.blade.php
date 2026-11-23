@@ -15,32 +15,74 @@
     </a>
 </section>
 
-{{-- HERO SPOTLIGHT --}}
+{{-- HERO SPOTLIGHT CAROUSEL --}}
 @if ($hotStories->isNotEmpty())
-    @php $featured = $hotStories->first(); @endphp
-    <section class="hero-spotlight mb-5" aria-label="Truyện nổi bật">
-        <div class="row g-0 align-items-stretch">
-            <div class="col-md-5">
-                <div class="hero-cover-wrap">
-                    <img src="{{ $featured->cover_image ? Storage::url($featured->cover_image) : asset('images/no-cover.jpg') }}"
-                         class="hero-cover" alt="{{ $featured->title }}"
-                         onerror="this.onerror=null;this.src='{{ asset('images/no-cover.jpg') }}';">
-                </div>
+    @php
+        $spotlightStories = $hotStories->take(5);
+    @endphp
+    <section id="heroSpotlightCarousel" class="hero-spotlight carousel slide carousel-fade mb-5" data-bs-ride="carousel" data-bs-interval="5500" data-bs-pause="hover" aria-label="Truyện nổi bật">
+        @if ($spotlightStories->count() > 1)
+            <div class="carousel-indicators hero-carousel-indicators">
+                @foreach ($spotlightStories as $index => $story)
+                    <button type="button"
+                            data-bs-target="#heroSpotlightCarousel"
+                            data-bs-slide-to="{{ $index }}"
+                            class="{{ $index === 0 ? 'active' : '' }}"
+                            aria-current="{{ $index === 0 ? 'true' : 'false' }}"
+                            aria-label="Truyện hot {{ $index + 1 }}"></button>
+                @endforeach
             </div>
-            <div class="col-md-7 p-4 p-lg-5 d-flex flex-column justify-content-center position-relative hero-copy">
-                <span class="eyebrow">🔥 Đang hot nhất tuần</span>
-                <h1>{{ $featured->title }}</h1>
-                <p class="mb-4" style="max-width: 55ch;">
-                    {{ Str::limit(strip_tags($featured->description), 160) }}
-                </p>
-                <div>
-                    <a href="{{ route('stories.show', $featured) }}" class="btn btn-vermilion me-2">
-                        <i class="bi bi-book"></i> Đọc ngay
-                    </a>
-                    <a href="{{ route('stories.show', $featured) }}" class="btn btn-outline-light">Xem chi tiết</a>
+        @endif
+
+        <div class="carousel-inner">
+            @foreach ($spotlightStories as $index => $story)
+                <div class="carousel-item {{ $index === 0 ? 'active' : '' }}" data-bs-interval="5500">
+                    <div class="row g-0 align-items-stretch">
+                        <div class="col-md-5">
+                            <div class="hero-cover-wrap">
+                                <img src="{{ $story->cover_image ? Storage::url($story->cover_image) : asset('images/no-cover.jpg') }}"
+                                     class="hero-cover" alt="{{ $story->title }}"
+                                     onerror="this.onerror=null;this.src='{{ asset('images/no-cover.jpg') }}';">
+                                @if ($story->categories->isNotEmpty())
+                                    <div class="hero-category-tag">
+                                        {{ $story->categories->first()->name }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-md-7 p-4 p-lg-5 d-flex flex-column justify-content-center position-relative hero-copy">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="eyebrow">🔥 Đang hot nhất tuần</span>
+                                @if ($story->reads_count > 0)
+                                    <span class="hero-stat-pill">
+                                        <i class="bi bi-eye"></i> {{ number_format($story->reads_count) }} lượt đọc
+                                    </span>
+                                @endif
+                            </div>
+                            <h1 class="hero-title">{{ $story->title }}</h1>
+                            <p class="mb-4 hero-description" style="max-width: 55ch;">
+                                {{ Str::limit(strip_tags($story->description), 160) }}
+                            </p>
+                            <div class="hero-actions">
+                                <a href="{{ route('stories.show', $story) }}" class="btn btn-vermilion me-2">
+                                    <i class="bi bi-book"></i> Đọc ngay
+                                </a>
+                                <a href="{{ route('stories.show', $story) }}" class="btn btn-outline-light">Xem chi tiết</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            @endforeach
         </div>
+
+        @if ($spotlightStories->count() > 1)
+            <button class="carousel-control-prev hero-carousel-btn" type="button" data-bs-target="#heroSpotlightCarousel" data-bs-slide="prev" aria-label="Truyện trước">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button class="carousel-control-next hero-carousel-btn" type="button" data-bs-target="#heroSpotlightCarousel" data-bs-slide="next" aria-label="Truyện tiếp theo">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </button>
+        @endif
     </section>
 @endif
 

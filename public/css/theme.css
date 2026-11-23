@@ -184,7 +184,8 @@ a:hover { color: var(--jade-dark); }
 
 /* ===== Hero spotlight (trang chủ) ===== */
 .hero-spotlight {
-    background: var(--ink-900);
+    /* Fixed dark surface: --ink-900 turns near-white in dark mode, which made the white hero text unreadable. */
+    background: #14171F;
     border-radius: var(--radius);
     overflow: hidden;
     position: relative;
@@ -960,3 +961,25 @@ body.reader-focus-mode .reader-wrap {
     padding-left: 1.6rem;
     font-size: .9rem;
 }
+
+/* Nút con mắt hiện/ẩn mật khẩu */
+.password-field { position: relative; }
+.password-field > input.form-control { padding-right: 2.75rem; }
+.password-field:has(.is-invalid) + .invalid-feedback { display: block; }
+.password-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    min-height: 38px;
+    width: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+}
+.password-toggle:hover, .password-toggle:focus-visible { color: var(--ink-900); }
