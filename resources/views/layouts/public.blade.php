@@ -904,6 +904,35 @@ themeToggle?.addEventListener('click', () => {
 });
 </script>
 
+<script>
+/* Nút con mắt hiện/ẩn mật khẩu cho mọi ô type="password". */
+(function () {
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+        if (input.closest('.password-field')) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'password-field';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'password-toggle';
+        btn.setAttribute('aria-label', 'Hiện mật khẩu');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.innerHTML = '<i class="bi bi-eye" aria-hidden="true"></i>';
+        wrap.appendChild(btn);
+
+        btn.addEventListener('click', () => {
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.setAttribute('aria-label', show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
+            btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+            btn.firstElementChild.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+    });
+})();
+</script>
+
 @stack('scripts')
 
 </body>
