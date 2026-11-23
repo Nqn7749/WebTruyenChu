@@ -11,6 +11,6 @@
         <h1 class="h3">Chương {{ $chapter->chapter_number }}{{ $chapter->title ? ': '.$chapter->title : '' }}</h1>
         <div class="small text-muted">Bản xem trước · Không làm tăng lượt xem</div>
     </div>
-    <div class="chapter-content" style="white-space:pre-line;line-height:1.9">{{ $chapter->content }}</div>
+    <div class="chapter-content" style="line-height:1.9">{!! $chapter->renderedContent() !!}</div>
 </article>
 @endsection

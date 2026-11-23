@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Story;
+use App\Support\ChapterContent;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -40,7 +41,12 @@ class StoreChapterRequest extends FormRequest
             'title' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
             // Cột content là longText nhưng vẫn cần max để tránh post quá lớn
             // (500.000 ký tự là đủ cho chương dài nhất thực tế).
-            'content' => ['required', 'string', 'max:500000'],
+            'content' => ['required', 'string', 'max:500000', function (string $attribute, mixed $value, \Closure $fail): void {
+                // The rich-text editor submits "<p><br></p>" for an empty body.
+                if (ChapterContent::plainText((string) $value) === '') {
+                    $fail('Nội dung chương không được để trống.');
+                }
+            }],
             'status' => ['nullable', 'boolean'],
         ];
 

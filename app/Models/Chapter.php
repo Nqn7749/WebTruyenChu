@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\ChapterContent;
 use Database\Factories\ChapterFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -26,6 +28,35 @@ class Chapter extends Model
         'content',
         'status',
     ];
+
+    /**
+     * Rich-text content is sanitized on every write (admin, writer, importer, crawler),
+     * so stored HTML can only contain the allowlisted tags.
+     */
+    protected function content(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value === null ? null : ChapterContent::sanitize($value),
+        );
+    }
+
+    /**
+     * Safe HTML for display (also handles legacy plain-text chapters).
+     */
+    public function renderedContent(): string
+    {
+        // Memoized per instance and content: the reader page needs it for both the
+        // meta description and the body, and purifying is not free.
+        $key = md5((string) $this->content);
+        if (($this->renderedContentCache[0] ?? null) !== $key) {
+            $this->renderedContentCache = [$key, ChapterContent::toHtml($this->content)];
+        }
+
+        return $this->renderedContentCache[1];
+    }
+
+    /** @var array{0: string, 1: string}|null */
+    private ?array $renderedContentCache = null;
 
     protected function casts(): array
     {

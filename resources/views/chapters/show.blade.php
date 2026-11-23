@@ -4,7 +4,7 @@
     ? "Chương {$chapter->chapter_number} - {$chapter->title} - {$story->title}"
     : "Chương {$chapter->chapter_number} - {$story->title}")
 
-@section('meta_description', Str::limit(strip_tags($chapter->content), 160))
+@section('meta_description', Str::limit(\App\Support\ChapterContent::plainText($chapter->renderedContent()), 160))
 @section('og_type', 'article')
 @section('og_image', $story->cover_image
     ? url(Storage::url($story->cover_image))
@@ -51,10 +51,7 @@
         </h1>
 
         <div class="chapter-content"
-             id="chapterContent"
-             style="white-space: pre-line;">
-            {{ $chapter->content }}
-        </div>
+             id="chapterContent">{!! $chapter->renderedContent() !!}</div>
 
     </article>
 
