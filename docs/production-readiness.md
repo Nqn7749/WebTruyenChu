@@ -71,6 +71,14 @@ secrets to this repository.
   validated IP is pinned for the request (requires `ext-curl`; otherwise the import
   fails closed), HTML/XML only, 2 MB maximum.
 - Imported stories and chapters are unpublished drafts until an admin publishes them.
+- Before importing, the admin can edit the title, author, description, status, categories,
+  tags and cover. A cover URL is downloaded through the same SSRF-safe client (JPEG, PNG
+  or WebP verified from the bytes, 3 MB maximum, not limited to the allowlist hosts because
+  covers usually live on a CDN); an uploaded cover takes precedence and SVG is refused.
+- File import (`.txt` split on "Chương N" headings, or `.zip` with one `.txt` per chapter)
+  is read in memory with size checks (20 MB upload, 2 MB per chapter, 30 MB unpacked,
+  500 chapters). Uploads wait in `storage/app/private/story-imports` until imported and
+  are deleted after import or after one day; the web server must never expose that path.
 
 ## Database integration testing
 
