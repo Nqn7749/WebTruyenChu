@@ -99,6 +99,7 @@
         })();
     </script>
     <link href="{{ asset('css/theme.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/ads.css') }}" rel="stylesheet">
     @unless (request()->routeIs('login', 'register'))
         <link href="{{ asset('css/experience-refresh.css') }}" rel="stylesheet">
     @endunless
@@ -278,6 +279,9 @@
 
     @yield('content')
 </main>
+
+{{-- Ads on the left and right edges of wide screens --}}
+@include('components.ad-rails')
 
 {{-- Toast dùng chung cho toàn bộ trang --}}
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">

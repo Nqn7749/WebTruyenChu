@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    /**
+     * Rows loaded for the "top stories" and "top authors" cards. The cards show the first five and
+     * reveal the rest with "Xem thêm", without another request.
+     */
+    private const EXPANDED_ROWS = 20;
+
     public function __invoke()
     {
         $startDate = now()->subDays(29)->startOfDay();
@@ -46,7 +52,7 @@ class DashboardController extends Controller
             ->with('user:id,name')
             ->orderByDesc('views')
             ->orderByDesc('id')
-            ->limit(5)
+            ->limit(self::EXPANDED_ROWS)
             ->get(['id', 'user_id', 'title', 'slug', 'views', 'average_rating']);
 
         $topAuthors = DB::table('stories')
@@ -57,7 +63,7 @@ class DashboardController extends Controller
             ->groupBy('users.id', 'users.name')
             ->orderByDesc('views_total')
             ->orderBy('users.id')
-            ->limit(5)
+            ->limit(self::EXPANDED_ROWS)
             ->get();
 
         return view('admin.dashboard', [

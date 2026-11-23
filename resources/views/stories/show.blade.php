@@ -82,6 +82,9 @@
             </div>
         @endif
 
+        {{-- Quảng cáo tài trợ an toàn cho mobile & laptop --}}
+        <x-ad-banner page="story" />
+
         <h5 id="chapterList">Danh sách chương ({{ number_format($chapters->total()) }})</h5>
         <form action="{{ route('chapters.jump', $story) }}" method="GET" class="d-flex flex-wrap align-items-center gap-2 mb-3" aria-label="Nhảy tới chương">
             <label for="chapterJump" class="visually-hidden">Số chương</label>

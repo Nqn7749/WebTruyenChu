@@ -167,6 +167,9 @@
 
     </div>
 
+    {{-- Quảng cáo tài trợ an toàn cho mobile & laptop --}}
+    <x-ad-banner page="chapter" />
+
     <hr id="commentsDivider">
 
 {{-- =========================================================

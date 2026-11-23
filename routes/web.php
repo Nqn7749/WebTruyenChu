@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdClickController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\CommentController;
@@ -25,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// Click on an image ad: counted, then redirected to the ad's own link (never to a URL from the request).
+Route::get('/qc/{ad}', AdClickController::class)->middleware('throttle:120,1')->name('ads.click');
+
 Route::get('/robots.txt', function () {
     $content = implode("\n", [
         'User-agent: *',
@@ -35,6 +39,7 @@ Route::get('/robots.txt', function () {
         'Disallow: /profile',
         'Disallow: /sang-tac',
         'Disallow: /notifications',
+        'Disallow: /qc/',
         '',
         'Sitemap: '.url('/sitemap.xml'),
         '',

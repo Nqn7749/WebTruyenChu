@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLogController;
+use App\Http\Controllers\Admin\AdController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ChapterController;
 use App\Http\Controllers\Admin\CommentController;
@@ -24,6 +25,9 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::patch('reports/{report}', [ReportController::class, 'update'])->middleware('throttle:30,1')->name('reports.update');
     Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+
+    Route::resource('ads', AdController::class)->except(['show']);
+    Route::patch('ads/{ad}/toggle', [AdController::class, 'toggle'])->middleware('throttle:30,1')->name('ads.toggle');
 
     Route::get('crawler', [CrawlerSourceController::class, 'index'])->name('crawler.index');
     Route::post('crawler', [CrawlerSourceController::class, 'store'])->middleware('throttle:30,1')->name('crawler.store');
