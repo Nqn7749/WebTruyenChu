@@ -54,6 +54,18 @@ secrets to this repository.
 - Continue to review authorization and upload validation whenever new write endpoints
   are introduced.
 
+## Automatic "Hot" stories
+
+- `php artisan stories:refresh-hot` runs hourly from the scheduler (so the scheduler must be
+  running). It ranks published stories by the last `STORIES_HOT_WINDOW_DAYS` days of activity
+  (real reads x 3 + views, from the `story_daily_stats` table), marks the top
+  `STORIES_HOT_LIMIT` that reach `STORIES_HOT_MIN_SCORE`, and unmarks automatic ones that fell out.
+- The first ranking only has data for days after this feature was deployed, so the Hot section
+  fills up as traffic arrives.
+- When an admin toggles Hot on a story the decision is pinned (`hot_override` on/off) and the
+  ranking never touches it; the "Hot: tự động" button in the admin list hands it back. The
+  migration pins every story that was already hot, since those were all chosen by hand.
+
 ## Story URL import (admin)
 
 - Set `STORY_IMPORT_REQUIRE_ALLOWLIST=true` in production and add each permitted
