@@ -14,8 +14,6 @@ class FavoriteController extends Controller
     public function toggle(Story $story)
     {
         abort_unless($story->status_publish, 404);
-        // Tác giả không tự yêu thích truyện của mình (tránh thổi số liệu).
-        abort_if($story->user_id === Auth::id(), 403);
 
         $userId = Auth::id();
         $flash = [];
@@ -92,8 +90,6 @@ class FavoriteController extends Controller
     public function toggleNotify(Story $story)
     {
         abort_unless($story->status_publish, 404);
-        // Tác giả không tự yêu thích truyện của mình (xem toggle()).
-        abort_if($story->user_id === Auth::id(), 403);
 
         // Khóa dòng favorite rồi mới đọc/ghi trong transaction: hai lần
         // bấm đồng thời không còn cùng đọc một giá trị rồi cùng ghi
